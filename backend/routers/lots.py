@@ -25,7 +25,6 @@ class LotIn(SQLModel):
     total_crates: int = 0
     total_kg: float = 0.0
     status: LotStatus = LotStatus.created
-    whatsapp_sent: bool = False
     notes: str = ""
 
 

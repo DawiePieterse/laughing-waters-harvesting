@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from db import get_session
-from models import Lot, LotStatus, Supplier
+from models import Lot, Supplier
 from security import get_current_admin
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
