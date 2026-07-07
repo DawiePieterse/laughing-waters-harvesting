@@ -1,0 +1,668 @@
+// Admin app: master data, payments, reports, settings.
+
+let _systemSettings = null;
+
+function updateBannerFarmName() {
+  const el = document.getElementById("headerFarmName");
+  if (el) el.textContent = (_systemSettings && _systemSettings.farm_name) || "Laughing Waters";
+}
+
+function updateBannerClock() {
+  const el = document.getElementById("headerDateTime");
+  if (!el) return;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const timeStr = now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  el.textContent = `${dateStr}  ·  ${timeStr}`;
+}
+
+function initBanner() {
+  updateBannerFarmName();
+  updateBannerClock();
+  setInterval(updateBannerClock, 1000);
+}
+
+async function init() {
+  document.getElementById("loginBtn").addEventListener("click", login);
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+
+  if (LW.getToken()) {
+    try {
+      await LW.api("/api/devices", { auth: true });
+      showApp();
+      return;
+    } catch (e) {
+      LW.clearToken();
+    }
+  }
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
+}
+
+async function showApp() {
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  bindTabs();
+  bindMasterData();
+  bindPayments();
+  bindReports();
+  bindSettings();
+  bindSuppliers();
+  await loadSettingsForm();
+  initBanner();
+  await loadAllMasterData();
+}
+
+async function login() {
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const errEl = document.getElementById("loginError");
+  try {
+    await LW.login(username, password);
+    errEl.classList.add("hidden");
+    await showApp();
+  } catch (e) {
+    errEl.textContent = "Invalid username or password";
+    errEl.classList.remove("hidden");
+  }
+}
+
+function logout() {
+  LW.clearToken();
+  showLogin();
+}
+
+// ---------------------------------------------------------------------
+// Tabs
+// ---------------------------------------------------------------------
+function bindTabs() {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.add("hidden"));
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.remove("hidden");
+    });
+  });
+  document.querySelectorAll(".subtab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".subtab-content").forEach((c) => c.classList.add("hidden"));
+      document.getElementById(`subtab-${btn.dataset.subtab}`).classList.remove("hidden");
+    });
+  });
+}
+
+// ---------------------------------------------------------------------
+// Dashboard (deleted below)
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// Master data (generic table + modal editor)
+// ---------------------------------------------------------------------
+let editContext = null;
+
+function openEditModal(title, fields, initial, onSave) {
+  document.getElementById("editModalTitle").textContent = title;
+  const container = document.getElementById("editModalFields");
+  container.innerHTML = fields.map((f) => `
+    <div>
+      <label class="text-xs text-slate-500 block">${f.label}</label>
+      ${f.type === "select"
+        ? `<select data-key="${f.key}" class="w-full border border-slate-300 rounded-lg p-2">${f.options.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}</select>`
+        : f.type === "checkbox"
+        ? `<label class="flex items-center gap-2 mt-1"><input data-key="${f.key}" type="checkbox" class="w-4 h-4"> <span class="text-sm">${f.label}</span></label>`
+        : `<input data-key="${f.key}" type="${f.type || "text"}" ${f.disabled ? "disabled" : ""} class="w-full border border-slate-300 rounded-lg p-2">`}
+    </div>
+  `).join("");
+  fields.forEach((f) => {
+    const el = container.querySelector(`[data-key="${f.key}"]`);
+    const value = initial ? initial[f.key] : "";
+    if (f.type === "checkbox") el.checked = !!value;
+    else el.value = value ?? "";
+  });
+  editContext = { fields, onSave };
+  document.getElementById("editModal").classList.remove("hidden");
+  document.getElementById("editModal").classList.add("flex");
+}
+
+function closeEditModal() {
+  document.getElementById("editModal").classList.add("hidden");
+  document.getElementById("editModal").classList.remove("flex");
+  editContext = null;
+}
+
+function bindMasterData() {
+  document.getElementById("editModalCancel").addEventListener("click", closeEditModal);
+  document.getElementById("editModalSave").addEventListener("click", async () => {
+    if (!editContext) return;
+    const values = {};
+    editContext.fields.forEach((f) => {
+      const el = document.getElementById("editModalFields").querySelector(`[data-key="${f.key}"]`);
+      values[f.key] = f.type === "checkbox" ? el.checked : el.value;
+    });
+    await editContext.onSave(values);
+    closeEditModal();
+  });
+
+  document.querySelectorAll("[data-action]").forEach((btn) => {
+    btn.addEventListener("click", () => handleAction(btn.dataset.action));
+  });
+  document.getElementById("importWorkers").addEventListener("change", (e) => importFile(e, "/api/workers/import", loadWorkers));
+  document.getElementById("importBlocks").addEventListener("change", (e) => importFile(e, "/api/blocks/import", loadBlocks));
+}
+
+async function importFile(event, url, reload) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const result = await LW.api(url, { method: "POST", body: form, auth: true, isForm: true });
+    LW.toast(`Imported ${result.imported} rows`);
+    await reload();
+  } catch (e) {
+    LW.toast("Import failed - check the file format");
+  }
+  event.target.value = "";
+}
+
+async function handleAction(action) {
+  if (action === "export-workers-xlsx") return exportFile("/api/workers/export?fmt=xlsx", "Workers.xlsx");
+  if (action === "export-workers-csv") return exportFile("/api/workers/export?fmt=csv", "Workers.csv");
+  if (action === "export-blocks-xlsx") return exportFile("/api/blocks/export?fmt=xlsx", "Blocks.xlsx");
+  if (action === "new-worker") return editWorker();
+  if (action === "new-team") return editTeam();
+  if (action === "new-block") return editBlock();
+  if (action === "new-device") return editDevice();
+  if (action === "new-supplier") return editSupplier();
+}
+
+async function exportFile(path, filename) {
+  const blob = await LW.api(path, { auth: true });
+  LW.downloadBlob(blob, filename);
+}
+
+async function loadAllMasterData() {
+  await Promise.all([loadWorkers(), loadTeams(), loadBlocks(), loadDevices(), loadSuppliers()]);
+}
+
+// Workers
+async function loadWorkers() {
+  const workers = await LW.api("/api/workers");
+  window._workersCache = workers;
+  document.getElementById("workersTable").innerHTML = workers.map((w) => `
+    <tr class="border-b ${w.active ? "" : "opacity-50"}">
+      <td class="p-2 font-mono">${w.id}</td>
+      <td class="p-2">${w.first_name || ""}</td>
+      <td class="p-2">${w.last_name || w.name || ""}</td>
+      <td class="p-2">${w.active ? '<span class="text-green-600 text-xs">Active</span>' : '<span class="text-slate-400 text-xs">Inactive</span>'}</td>
+      <td class="p-2 text-right space-x-2">
+        <button class="text-blue-700 text-xs" data-edit="${w.id}">Edit</button>
+        <button class="text-slate-500 text-xs" data-qr="${w.id}" data-name="${(w.name || w.id).replace(/"/g, '&quot;')}">QR</button>
+      </td>
+    </tr>
+  `).join("");
+  document.querySelectorAll("#workersTable [data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => editWorker(workers.find((w) => w.id === btn.dataset.edit)));
+  });
+  document.querySelectorAll("#workersTable [data-qr]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = `print-qr.html?emp=${encodeURIComponent(btn.dataset.qr)}&name=${encodeURIComponent(btn.dataset.name)}`;
+      window.open(url, "_blank");
+    });
+  });
+}
+
+function editWorker(worker) {
+  openEditModal(worker ? "Edit Worker" : "Add Worker", [
+    { key: "id", label: "Employee Number (e.g. 001)", disabled: !!worker },
+    { key: "first_name", label: "First Name" },
+    { key: "last_name", label: "Last Name" },
+    { key: "id_number", label: "SA ID Number" },
+    { key: "bank", label: "Bank" },
+    { key: "account", label: "Account Number" },
+    { key: "whatsapp_number", label: "WhatsApp Number" },
+    { key: "active", label: "Active", type: "checkbox" },
+  ], worker || { active: true }, async (values) => {
+    await LW.api("/api/workers", {
+      method: "POST", auth: true,
+      body: { ...values, active: !!values.active },
+    });
+    LW.toast("Worker saved");
+    await loadWorkers();
+  });
+}
+
+// Teams
+async function loadTeams() {
+  const teams = await LW.api("/api/teams");
+  window._teamsCache = teams;
+  document.getElementById("teamsTable").innerHTML = teams.map((t) => `
+    <tr class="border-b ${t.active ? "" : "opacity-50"}">
+      <td class="p-2">${t.id}</td><td class="p-2">${t.name}</td><td class="p-2">${t.induna}</td>
+      <td class="p-2">${t.active ? '<span class="text-green-600 text-xs">Active</span>' : '<span class="text-slate-400 text-xs">Inactive</span>'}</td>
+      <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit="${t.id}">Edit</button></td>
+    </tr>
+  `).join("");
+  document.querySelectorAll("#teamsTable [data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => editTeam(teams.find((t) => t.id === btn.dataset.edit)));
+  });
+}
+
+function editTeam(team) {
+  openEditModal(team ? "Edit Team" : "Add Team", [
+    { key: "id", label: "Id (e.g. A)", disabled: !!team },
+    { key: "name", label: "Name" },
+    { key: "induna", label: "Induna" },
+    { key: "active", label: "Active", type: "checkbox" },
+  ], { active: true, ...team }, async (values) => {
+    await LW.api("/api/teams", { method: "POST", auth: true, body: { ...values, active: !!values.active } });
+    LW.toast("Team saved");
+    await loadTeams();
+  });
+}
+
+// Blocks
+async function loadBlocks() {
+  const blocks = await LW.api("/api/blocks");
+  window._blocksCache = blocks;
+  document.getElementById("blocksTable").innerHTML = blocks.map((b) => `
+    <tr class="border-b ${b.active ? "" : "opacity-50"}">
+      <td class="p-2">${b.id}</td><td class="p-2">${b.variety}</td><td class="p-2">${b.trees}</td>
+      <td class="p-2">${b.hectares}</td>
+      <td class="p-2">${b.active ? '<span class="text-green-600 text-xs">Active</span>' : '<span class="text-slate-400 text-xs">Inactive</span>'}</td>
+      <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit="${b.id}">Edit</button></td>
+    </tr>
+  `).join("");
+  document.querySelectorAll("#blocksTable [data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => editBlock(blocks.find((b) => b.id === btn.dataset.edit)));
+  });
+}
+
+function editBlock(block) {
+  openEditModal(block ? "Edit Block" : "Add Block", [
+    { key: "id", label: "Block Id", disabled: !!block },
+    { key: "name", label: "Name" },
+    { key: "variety", label: "Variety" },
+    { key: "trees", label: "Trees", type: "number" },
+    { key: "hectares", label: "Hectares", type: "number" },
+    { key: "active", label: "Active", type: "checkbox" },
+  ], { active: true, ...block }, async (values) => {
+    await LW.api("/api/blocks", {
+      method: "POST", auth: true,
+      body: { ...values, trees: parseInt(values.trees) || 0, hectares: parseFloat(values.hectares) || 0, active: !!values.active },
+    });
+    LW.toast("Block saved");
+    await loadBlocks();
+  });
+}
+
+// Devices
+async function loadDevices() {
+  const devices = await LW.api("/api/devices", { auth: true });
+  document.getElementById("devicesTable").innerHTML = devices.map((d) => `
+    <tr class="border-b">
+      <td class="p-2">${d.id}</td><td class="p-2">${d.role}</td><td class="p-2">${d.station}</td><td class="p-2">${d.team_id || ""}</td>
+      <td class="p-2">${d.last_seen ? new Date(d.last_seen).toLocaleString() : "never"}</td>
+      <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit="${d.id}">Edit</button></td>
+    </tr>
+  `).join("");
+  document.querySelectorAll("#devicesTable [data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => editDevice(devices.find((d) => d.id === btn.dataset.edit)));
+  });
+}
+
+function editDevice(device) {
+  const teams = window._teamsCache || [];
+  openEditModal(device ? "Edit Device" : "Add Device", [
+    { key: "id", label: "Device Id (e.g. device-01)", disabled: !!device },
+    { key: "role", label: "Role", type: "select", options: [
+      { value: "field", label: "Field" },
+      { value: "packhouse", label: "Pack House (Receiving)" },
+      { value: "admin", label: "Admin" },
+    ] },
+    { key: "station", label: "Station name" },
+    { key: "team_id", label: "Team", type: "select", options: [{ value: "", label: "(none)" }, ...teams.filter((t) => t.active).map((t) => ({ value: t.id, label: t.name }))] },
+    { key: "induna", label: "Induna" },
+    { key: "data_capturer", label: "Data Capturer" },
+  ], device || { role: "field" }, async (values) => {
+    await LW.api("/api/devices", { method: "POST", auth: true, body: { ...values, active: true } });
+    LW.toast("Device saved");
+    await loadDevices();
+  });
+}
+
+// Suppliers
+async function loadSuppliers() {
+  const suppliers = await LW.api("/api/suppliers");
+  window._suppliersCache = suppliers;
+  document.getElementById("suppliersTable").innerHTML = suppliers.map((s) => `
+    <tr class="border-b ${s.active ? "" : "opacity-50"}">
+      <td class="p-2">${s.name}${s.is_own_farm ? ' <span class="text-xs text-blue-700 font-semibold">(Own Farm)</span>' : ""}</td>
+      <td class="p-2 text-xs">${s.contact_name || ""}${s.contact_phone ? ` - ${s.contact_phone}` : ""}</td>
+      <td class="p-2 text-xs">${s.packing_rate_per_kg > 0 ? `R${s.packing_rate_per_kg}/kg` : s.packing_rate_per_crate > 0 ? `R${s.packing_rate_per_crate}/crate` : "-"}</td>
+      <td class="p-2">${s.active ? '<span class="text-green-600 text-xs">Active</span>' : '<span class="text-slate-400 text-xs">Inactive</span>'}</td>
+      <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit="${s.id}">Edit</button></td>
+    </tr>
+  `).join("");
+  document.querySelectorAll("#suppliersTable [data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => editSupplier(suppliers.find((s) => s.id == btn.dataset.edit)));
+  });
+  populateBillingSupplierSelect(suppliers);
+}
+
+function editSupplier(supplier) {
+  openEditModal(supplier ? "Edit Supplier" : "Add Supplier", [
+    { key: "name", label: "Name" },
+    { key: "contact_name", label: "Contact Name" },
+    { key: "contact_phone", label: "Contact Phone" },
+    { key: "contact_email", label: "Contact Email" },
+    { key: "packing_rate_per_kg", label: "Packing Rate (R/kg)", type: "number" },
+    { key: "packing_rate_per_crate", label: "Packing Rate (R/crate, used if R/kg is 0)", type: "number" },
+    { key: "active", label: "Active", type: "checkbox" },
+  ], supplier || { active: true }, async (values) => {
+    await LW.api("/api/suppliers", {
+      method: "POST", auth: true,
+      body: {
+        ...values,
+        id: supplier ? supplier.id : undefined,
+        is_own_farm: supplier ? supplier.is_own_farm : false,
+        packing_rate_per_kg: parseFloat(values.packing_rate_per_kg) || 0,
+        packing_rate_per_crate: parseFloat(values.packing_rate_per_crate) || 0,
+        active: !!values.active,
+      },
+    });
+    LW.toast("Supplier saved");
+    await loadSuppliers();
+  });
+}
+
+// ---------------------------------------------------------------------
+// Facility Billing
+// ---------------------------------------------------------------------
+function populateBillingSupplierSelect(suppliers) {
+  const select = document.getElementById("billingSupplierSelect");
+  const current = select.value;
+  const external = suppliers.filter((s) => s.active && !s.is_own_farm);
+  select.innerHTML = external.length
+    ? external.map((s) => `<option value="${s.id}">${s.name}</option>`).join("")
+    : `<option value="">(no external suppliers yet)</option>`;
+  if (current) select.value = current;
+}
+
+function bindSuppliers() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("billingStart").value = today;
+  document.getElementById("billingEnd").value = today;
+  document.getElementById("calcBillingBtn").addEventListener("click", calculateBilling);
+}
+
+async function calculateBilling() {
+  const supplierId = document.getElementById("billingSupplierSelect").value;
+  const start = document.getElementById("billingStart").value;
+  const end = document.getElementById("billingEnd").value;
+  if (!supplierId) { LW.toast("Add an external supplier first"); return; }
+  try {
+    const data = await LW.api(`/api/suppliers/${supplierId}/billing?period_start=${start}&period_end=${end}`, { auth: true });
+    const summaryEl = document.getElementById("billingSummary");
+    summaryEl.textContent = `${data.lots.length} lot${data.lots.length === 1 ? "" : "s"} - ${data.total_crates} crates - ${data.total_kg} kg - Rate: R${data.rate} ${data.rate_type === "per_kg" ? "/kg" : "/crate"} - Amount Due: R${data.amount_due}`;
+    summaryEl.classList.remove("hidden");
+    document.getElementById("billingTable").innerHTML = data.lots.map((l) => `
+      <tr class="border-b">
+        <td class="p-2 font-mono">${l.slip_number}</td>
+        <td class="p-2">${l.received_at ? new Date(l.received_at).toLocaleString() : ""}</td>
+        <td class="p-2">${l.crates}</td>
+        <td class="p-2">${l.kg}</td>
+      </tr>
+    `).join("") || `<tr><td class="p-2 text-slate-400" colspan="4">No received lots in this period</td></tr>`;
+  } catch (e) {
+    LW.toast("Could not calculate billing");
+  }
+}
+
+// ---------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------
+function bindPayments() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("payStart").value = today;
+  document.getElementById("payEnd").value = today;
+  document.getElementById("calcPayBtn").addEventListener("click", calculatePayments);
+  document.getElementById("exportPayBtn").addEventListener("click", exportPayments);
+}
+
+async function calculatePayments() {
+  const start = document.getElementById("payStart").value;
+  const end = document.getElementById("payEnd").value;
+  const payments = await LW.api(`/api/payments/calculate?period_start=${start}&period_end=${end}`, { method: "POST", auth: true });
+  renderPayments(payments);
+}
+
+function renderPayments(payments) {
+  const workers = new Map((window._workersCache || []).map((w) => [w.id, w]));
+  document.getElementById("paymentsTable").innerHTML = payments.map((p) => {
+    const w = workers.get(p.worker_id);
+    const displayName = w ? (w.name || `${w.first_name} ${w.last_name}`.trim() || w.id) : p.worker_id;
+    const waBtn = w && w.whatsapp_number
+      ? `<button class="text-green-600 text-xs ml-1" title="Send payslip via WhatsApp"
+           onclick="sendPayslipWhatsApp('${p.worker_id}', ${p.total_kg}, ${p.rate_applied}, ${p.amount_due})">
+           <i class="fa-brands fa-whatsapp"></i></button>`
+      : "";
+    return `
+      <tr class="border-b">
+        <td class="p-2">${displayName}</td>
+        <td class="p-2">${p.total_kg}</td>
+        <td class="p-2">R${p.rate_applied}/kg</td>
+        <td class="p-2">R${p.amount_due}</td>
+        <td class="p-2"><input type="number" step="0.01" value="${p.amount_paid}" class="w-20 border rounded p-1" data-paid="${p.id}"></td>
+        <td class="p-2">
+          <select data-status="${p.id}" class="border rounded p-1">
+            <option value="Pending" ${p.status === "Pending" ? "selected" : ""}>Pending</option>
+            <option value="Partial" ${p.status === "Partial" ? "selected" : ""}>Partial</option>
+            <option value="Paid" ${p.status === "Paid" ? "selected" : ""}>Paid</option>
+          </select>
+        </td>
+        <td class="p-2"><button class="text-blue-700 text-xs" data-save="${p.id}">Save</button>${waBtn}</td>
+      </tr>
+    `;
+  }).join("");
+
+  document.querySelectorAll("#paymentsTable [data-save]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.save;
+      const amountPaid = document.querySelector(`[data-paid="${id}"]`).value;
+      const status = document.querySelector(`[data-status="${id}"]`).value;
+      await LW.api(`/api/payments/${id}?amount_paid=${amountPaid}&status=${status}`, { method: "PATCH", auth: true });
+      LW.toast("Payment updated");
+    });
+  });
+}
+
+function sendPayslipWhatsApp(workerId, totalKg, rate, amountDue) {
+  const w = (window._workersCache || []).find((x) => x.id === workerId);
+  if (!w || !w.whatsapp_number) { LW.toast("No WhatsApp number for this worker"); return; }
+  let number = w.whatsapp_number.replace(/\D/g, "");
+  if (number.startsWith("0")) number = "27" + number.slice(1);
+  const start = document.getElementById("payStart").value;
+  const end = document.getElementById("payEnd").value;
+  const farm = (_systemSettings && _systemSettings.farm_name) || "Laughing Waters";
+  const name = w.name || `${w.first_name} ${w.last_name}`.trim() || w.id;
+  const text = `${farm} — Payslip\nPeriod: ${start} to ${end}\n${name}\nKg picked: ${totalKg}\nRate: R${rate}/kg\nAmount due: R${amountDue}`;
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, "_blank");
+}
+
+async function exportPayments() {
+  const start = document.getElementById("payStart").value;
+  const end = document.getElementById("payEnd").value;
+  const blob = await LW.api(`/api/payments/export?period_start=${start}&period_end=${end}&fmt=xlsx`, { auth: true });
+  LW.downloadBlob(blob, `Wages_${start}_${end}.xlsx`);
+}
+
+// ---------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------
+const REPORTS = [
+  { key: "daily-harvest", label: "Daily Harvest Summary", icon: "fa-sun", params: (d1) => `day=${d1}` },
+  { key: "lot-receiving", label: "Lot & Receiving Report", icon: "fa-truck", params: (d1, d2) => `date_from=${d1}&date_to=${d2}` },
+];
+
+function bindReports() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("reportDate1").value = today;
+  document.getElementById("reportDate2").value = today;
+
+  document.getElementById("setSeasonDatesBtn").addEventListener("click", () => {
+    if (_systemSettings) {
+      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
+      document.getElementById("reportDate1").value = `${year}-01-01`;
+      document.getElementById("reportDate2").value = `${year}-12-31`;
+    }
+  });
+
+  document.getElementById("reportsGrid").innerHTML = REPORTS.map((r) => `
+    <button class="bg-white rounded-xl shadow p-4 text-left hover:bg-slate-50 flex items-start gap-3" data-report="${r.key}">
+      <i class="fa-solid ${r.icon} text-slate-400 mt-0.5"></i>
+      <div>
+        <div class="font-semibold text-sm">${r.label}</div>
+        <div class="text-xs text-slate-400">Download .xlsx</div>
+      </div>
+    </button>
+  `).join("");
+  document.querySelectorAll("[data-report]").forEach((btn) => {
+    btn.addEventListener("click", () => downloadReport(btn.dataset.report));
+  });
+}
+
+async function downloadReport(key) {
+  const report = REPORTS.find((r) => r.key === key);
+  const d1 = document.getElementById("reportDate1").value;
+  const d2 = document.getElementById("reportDate2").value;
+  try {
+    const blob = await LW.api(`/api/reports/${key}?${report.params(d1, d2)}`, { auth: true });
+    LW.downloadBlob(blob, `${report.label.replace(/[^a-zA-Z0-9]+/g, "_")}.xlsx`);
+  } catch (e) {
+    LW.toast("Could not generate report");
+  }
+}
+
+// ---------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------
+let _mapInstance = null;
+let _pickedLatLng = null;
+
+function bindSettings() {
+  document.getElementById("saveSystemSettingsBtn").addEventListener("click", saveSystemSettings);
+  document.getElementById("saveRateSettingsBtn").addEventListener("click", saveRateSettings);
+  document.getElementById("changePasswordBtn").addEventListener("click", changePassword);
+  document.getElementById("pickMapBtn").addEventListener("click", openMapModal);
+  document.getElementById("closeMapBtn").addEventListener("click", closeMapModal);
+  document.getElementById("confirmMapBtn").addEventListener("click", confirmMapLocation);
+}
+
+async function loadSettingsForm() {
+  const settings = await LW.api("/api/system-settings");
+  _systemSettings = settings;
+  if (settings) {
+    document.getElementById("setFarmName").value = settings.farm_name || "";
+    document.getElementById("setFarmLocation").value = settings.farm_location || "";
+    document.getElementById("setHarvestYear").value = settings.current_harvest_year || new Date().getFullYear();
+    document.getElementById("setGreenYellow").value = settings.green_to_yellow_minutes;
+    document.getElementById("setYellowRed").value = settings.yellow_to_red_minutes;
+    document.getElementById("setGpsLat").value = settings.gps_lat ?? "";
+    document.getElementById("setGpsLon").value = settings.gps_lon ?? "";
+  }
+  const rate = await LW.api("/api/rate-settings/current");
+  if (rate) {
+    document.getElementById("setRatePerKg").value = rate.default_rate_per_kg;
+  }
+}
+
+async function saveSystemSettings() {
+  const lat = parseFloat(document.getElementById("setGpsLat").value) || null;
+  const lon = parseFloat(document.getElementById("setGpsLon").value) || null;
+  const newSettings = {
+    farm_name: document.getElementById("setFarmName").value,
+    farm_location: document.getElementById("setFarmLocation").value,
+    current_harvest_year: parseInt(document.getElementById("setHarvestYear").value) || new Date().getFullYear(),
+    green_to_yellow_minutes: parseInt(document.getElementById("setGreenYellow").value) || 90,
+    yellow_to_red_minutes: parseInt(document.getElementById("setYellowRed").value) || 150,
+    gps_lat: lat,
+    gps_lon: lon,
+  };
+  await LW.api("/api/system-settings", { method: "PUT", auth: true, body: newSettings });
+  _systemSettings = { ..._systemSettings, ...newSettings };
+  updateBannerFarmName();
+  LW.toast("Settings saved");
+}
+
+async function saveRateSettings() {
+  await LW.api("/api/rate-settings", {
+    method: "POST", auth: true,
+    body: {
+      effective_date: new Date().toISOString().slice(0, 10),
+      rate_type: "per_kg",
+      default_rate_per_kg: parseFloat(document.getElementById("setRatePerKg").value) || 0,
+      tier_rates_json: "{}",
+    },
+  });
+  LW.toast("Rate saved");
+}
+
+async function changePassword() {
+  const newPassword = document.getElementById("newPassword").value;
+  if (!newPassword) return;
+  await LW.api(`/api/auth/change-password?new_password=${encodeURIComponent(newPassword)}`, { method: "POST", auth: true });
+  document.getElementById("newPassword").value = "";
+  LW.toast("Password changed");
+}
+
+// GPS map modal
+function openMapModal() {
+  document.getElementById("mapModal").classList.remove("hidden");
+  document.getElementById("mapModal").classList.add("flex");
+
+  if (!_mapInstance) {
+    const lat = parseFloat(document.getElementById("setGpsLat").value) || -29.0;
+    const lon = parseFloat(document.getElementById("setGpsLon").value) || 30.0;
+    _mapInstance = L.map("mapContainer").setView([lat, lon], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(_mapInstance);
+
+    _mapInstance.on("click", (e) => {
+      _pickedLatLng = e.latlng;
+      document.getElementById("mapCoordDisplay").textContent =
+        `Lat: ${e.latlng.lat.toFixed(6)}, Lon: ${e.latlng.lng.toFixed(6)} — click Confirm to use this`;
+      _mapInstance.eachLayer((layer) => { if (layer instanceof L.Marker) _mapInstance.removeLayer(layer); });
+      L.marker(e.latlng).addTo(_mapInstance);
+    });
+
+    if (parseFloat(document.getElementById("setGpsLat").value)) {
+      L.marker([lat, lon]).addTo(_mapInstance);
+    }
+  }
+
+  setTimeout(() => _mapInstance.invalidateSize(), 200);
+}
+
+function closeMapModal() {
+  document.getElementById("mapModal").classList.add("hidden");
+  document.getElementById("mapModal").classList.remove("flex");
+}
+
+function confirmMapLocation() {
+  if (_pickedLatLng) {
+    document.getElementById("setGpsLat").value = _pickedLatLng.lat.toFixed(6);
+    document.getElementById("setGpsLon").value = _pickedLatLng.lng.toFixed(6);
+    _pickedLatLng = null;
+  }
+  closeMapModal();
+}
+
+init();

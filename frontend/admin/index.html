@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Laughing Waters</title>
+<script src="../shared/tailwind.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="../shared/styles.css">
+<script src="../shared/api.js"></script>
+<script src="../shared/qrcode.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen pb-6">
+
+<!-- Login screen -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow p-6 w-full max-w-sm">
+    <div class="text-center mb-6">
+      <div class="text-2xl font-bold" style="color: var(--lw-blue)">Laughing Waters</div>
+      <div class="text-sm text-slate-500">Admin sign in</div>
+    </div>
+    <input id="loginUsername" placeholder="Username" class="w-full border border-slate-300 rounded-lg p-3 mb-2 text-lg">
+    <input id="loginPassword" type="password" placeholder="Password" class="w-full border border-slate-300 rounded-lg p-3 mb-4 text-lg">
+    <button id="loginBtn" class="w-full lw-btn-primary rounded-lg py-3 font-semibold">Sign in</button>
+    <div id="loginError" class="text-red-600 text-sm mt-3 hidden"></div>
+    <div class="text-xs text-slate-400 mt-4">Default admin / ChangeMe123! - change this in Settings after first login.</div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app" class="hidden">
+  <div class="lw-header p-4">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div id="headerFarmName" class="font-bold text-2xl md:text-3xl leading-tight">Laughing Waters</div>
+        <div id="headerDateTime" class="text-lg md:text-xl font-semibold text-white/90 mt-1">&nbsp;</div>
+      </div>
+      <button id="logoutBtn" class="text-white/80 text-sm whitespace-nowrap mt-1"><i class="fa-solid fa-right-from-bracket"></i> Sign out</button>
+    </div>
+  </div>
+
+  <div class="flex overflow-x-auto bg-white shadow sticky top-0 z-10">
+    <button class="tab-btn active" data-tab="masterdata">Master Data</button>
+    <button class="tab-btn" data-tab="payments">Payments</button>
+    <button class="tab-btn" data-tab="reports">Reports</button>
+    <button class="tab-btn" data-tab="settings">Settings</button>
+  </div>
+
+  <div class="p-4 max-w-7xl mx-auto">
+
+    <div id="tab-masterdata" class="tab-content space-y-4">
+      <div class="flex overflow-x-auto gap-2">
+        <button class="subtab-btn active" data-subtab="workers">Workers</button>
+        <button class="subtab-btn" data-subtab="teams">Teams</button>
+        <button class="subtab-btn" data-subtab="blocks">Blocks</button>
+        <button class="subtab-btn" data-subtab="devices">Devices</button>
+        <button class="subtab-btn" data-subtab="suppliers">Suppliers</button>
+      </div>
+
+      <div id="subtab-workers" class="subtab-content space-y-3">
+        <div class="flex flex-wrap gap-2">
+          <button data-action="export-workers-xlsx" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Export .xlsx</button>
+          <button data-action="export-workers-csv" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Export .csv</button>
+          <label class="px-3 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Import <input type="file" id="importWorkers" class="hidden" accept=".csv,.xlsx"></label>
+          <button data-action="new-worker" class="px-3 py-2 lw-btn-primary rounded-lg text-sm ml-auto">+ Add Worker</button>
+        </div>
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b">
+              <th class="p-2">Emp Nr</th><th class="p-2">First Name</th><th class="p-2">Last Name</th>
+              <th class="p-2">Active</th><th></th>
+            </tr></thead>
+            <tbody id="workersTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="subtab-teams" class="subtab-content hidden space-y-3">
+        <button data-action="new-team" class="px-3 py-2 lw-btn-primary rounded-lg text-sm">+ Add Team</button>
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="w-full text-sm"><thead><tr class="text-left border-b"><th class="p-2">Id</th><th class="p-2">Name</th><th class="p-2">Induna</th><th class="p-2">Active</th><th></th></tr></thead><tbody id="teamsTable"></tbody></table>
+        </div>
+      </div>
+
+      <div id="subtab-blocks" class="subtab-content hidden space-y-3">
+        <div class="flex flex-wrap gap-2">
+          <button data-action="export-blocks-xlsx" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Export .xlsx</button>
+          <label class="px-3 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Import <input type="file" id="importBlocks" class="hidden" accept=".csv,.xlsx"></label>
+          <button data-action="new-block" class="px-3 py-2 lw-btn-primary rounded-lg text-sm ml-auto">+ Add Block</button>
+        </div>
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="w-full text-sm"><thead><tr class="text-left border-b"><th class="p-2">Id</th><th class="p-2">Variety</th><th class="p-2">Trees</th><th class="p-2">Hectares</th><th class="p-2">Active</th><th></th></tr></thead><tbody id="blocksTable"></tbody></table>
+        </div>
+      </div>
+
+      <div id="subtab-devices" class="subtab-content hidden space-y-3">
+        <button data-action="new-device" class="px-3 py-2 lw-btn-primary rounded-lg text-sm">+ Add Device</button>
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="w-full text-sm"><thead><tr class="text-left border-b"><th class="p-2">Id</th><th class="p-2">Role</th><th class="p-2">Station</th><th class="p-2">Team</th><th class="p-2">Last Seen</th><th></th></tr></thead><tbody id="devicesTable"></tbody></table>
+        </div>
+      </div>
+
+      <div id="subtab-suppliers" class="subtab-content hidden space-y-3">
+        <div class="text-xs text-slate-500">
+          Other farmers who use the pack house to process their own fruit. Each supplier's lots are
+          kept separate from the farm's own harvest everywhere in the dashboard and reports.
+        </div>
+        <button data-action="new-supplier" class="px-3 py-2 lw-btn-primary rounded-lg text-sm">+ Add Supplier</button>
+        <div class="bg-white rounded-xl shadow overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b">
+              <th class="p-2">Name</th><th class="p-2">Contact</th><th class="p-2">Rate</th>
+              <th class="p-2">Active</th><th></th>
+            </tr></thead>
+            <tbody id="suppliersTable"></tbody>
+          </table>
+        </div>
+
+        <div class="bg-white rounded-xl shadow p-4 space-y-3">
+          <div class="font-semibold">Facility Billing</div>
+          <div class="flex flex-wrap gap-2 items-end">
+            <div>
+              <label class="text-xs text-slate-500 block">Supplier</label>
+              <select id="billingSupplierSelect" class="border border-slate-300 rounded-lg p-2"></select>
+            </div>
+            <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="billingStart" class="border border-slate-300 rounded-lg p-2"></div>
+            <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="billingEnd" class="border border-slate-300 rounded-lg p-2"></div>
+            <button id="calcBillingBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Calculate</button>
+          </div>
+          <div id="billingSummary" class="text-sm font-semibold hidden"></div>
+          <div class="bg-slate-50 rounded-lg overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="text-left border-b"><th class="p-2">Slip Number</th><th class="p-2">Received</th><th class="p-2">Crates</th><th class="p-2">Kg</th></tr></thead>
+              <tbody id="billingTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENTS -->
+    <div id="tab-payments" class="tab-content hidden space-y-4">
+      <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-2 items-end">
+        <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="payStart" class="border border-slate-300 rounded-lg p-2"></div>
+        <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="payEnd" class="border border-slate-300 rounded-lg p-2"></div>
+        <button id="calcPayBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Calculate Wages</button>
+        <button id="exportPayBtn" class="px-4 py-2 bg-slate-200 rounded-lg">Export Wage Sheet</button>
+      </div>
+      <div class="bg-white rounded-xl shadow overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left border-b"><th class="p-2">Worker</th><th class="p-2">Kg</th><th class="p-2">Rate (R/kg)</th><th class="p-2">Due</th><th class="p-2">Paid</th><th class="p-2">Status</th><th></th></tr></thead>
+          <tbody id="paymentsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="tab-reports" class="tab-content hidden space-y-4">
+      <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-2 items-end">
+        <div><label class="text-xs text-slate-500 block">Day / period start</label><input type="date" id="reportDate1" class="border border-slate-300 rounded-lg p-2"></div>
+        <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="reportDate2" class="border border-slate-300 rounded-lg p-2"></div>
+        <button id="setSeasonDatesBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Use Season</button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3" id="reportsGrid"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="tab-settings" class="tab-content hidden space-y-4">
+      <div class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="font-semibold">Farm settings</div>
+        <div><label class="text-xs text-slate-500 block">Farm name</label><input id="setFarmName" class="w-full border border-slate-300 rounded-lg p-2"></div>
+        <div><label class="text-xs text-slate-500 block">Location description</label><input id="setFarmLocation" class="w-full border border-slate-300 rounded-lg p-2"></div>
+        <div><label class="text-xs text-slate-500 block">Current harvest season (year)</label><input type="number" id="setHarvestYear" class="w-full border border-slate-300 rounded-lg p-2"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="text-xs text-slate-500 block">Green → Yellow (minutes)</label><input type="number" id="setGreenYellow" class="w-full border border-slate-300 rounded-lg p-2"></div>
+          <div><label class="text-xs text-slate-500 block">Yellow → Red (minutes)</label><input type="number" id="setYellowRed" class="w-full border border-slate-300 rounded-lg p-2"></div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 mb-1">GPS coordinates (for weather capture)</div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-xs text-slate-400 block">Latitude</label><input type="number" step="any" id="setGpsLat" placeholder="-28.123456" class="w-full border border-slate-300 rounded-lg p-2"></div>
+            <div><label class="text-xs text-slate-400 block">Longitude</label><input type="number" step="any" id="setGpsLon" placeholder="31.456789" class="w-full border border-slate-300 rounded-lg p-2"></div>
+          </div>
+          <button id="pickMapBtn" class="text-sm text-blue-700 underline mt-1">Pick on map</button>
+        </div>
+        <button id="saveSystemSettingsBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Save</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="font-semibold">Harvest rate (piecework)</div>
+        <div><label class="text-xs text-slate-500 block">Rate per kg (R)</label><input type="number" step="0.01" id="setRatePerKg" class="w-full border border-slate-300 rounded-lg p-2"></div>
+        <button id="saveRateSettingsBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Save Rate</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4 space-y-3">
+        <div class="font-semibold">Change admin password</div>
+        <input type="password" id="newPassword" placeholder="New password" class="w-full border border-slate-300 rounded-lg p-2">
+        <button id="changePasswordBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Change Password</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Generic edit modal (workers/teams/blocks/devices) -->
+<div id="editModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-40">
+  <div class="bg-white rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <div class="font-bold text-lg mb-3" id="editModalTitle">Edit</div>
+    <div id="editModalFields" class="space-y-2"></div>
+    <div class="flex gap-2 mt-4">
+      <button id="editModalCancel" class="flex-1 rounded-lg py-3 bg-slate-100">Cancel</button>
+      <button id="editModalSave" class="flex-1 lw-btn-primary rounded-lg py-3 font-semibold">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Map picker modal -->
+<div id="mapModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-xl p-4 w-full max-w-2xl">
+    <div class="font-bold mb-2">Click to pin farm location</div>
+    <div class="text-xs text-slate-500 mb-2" id="mapCoordDisplay">Click the map to pick coordinates</div>
+    <div id="mapContainer" style="height: 420px; z-index: 1;"></div>
+    <div class="flex gap-2 mt-3">
+      <button id="closeMapBtn" class="flex-1 rounded-lg py-2 bg-slate-100">Cancel</button>
+      <button id="confirmMapBtn" class="flex-1 lw-btn-primary rounded-lg py-2 font-semibold">Use this location</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

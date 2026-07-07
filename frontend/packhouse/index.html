@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pack House Receiving - Laughing Waters</title>
+<script src="../shared/tailwind.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="../shared/styles.css">
+<script src="../shared/api.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen pb-6">
+
+<div class="lw-header p-4 flex items-center justify-between">
+  <div>
+    <div class="font-bold text-lg">Pack House Receiving</div>
+    <div class="text-xs opacity-80" id="stationLabel">Station</div>
+  </div>
+  <div class="text-right">
+    <button id="refreshBtn" class="text-white/90"><i class="fa-solid fa-rotate"></i></button>
+    <div class="text-xs opacity-70 mt-1" id="lastUpdatedLabel">updating...</div>
+  </div>
+</div>
+
+<div class="p-4 max-w-md mx-auto">
+  <div class="flex items-center justify-between mb-2 gap-2">
+    <div class="text-xs text-slate-500">
+      In-transit lots, oldest (most urgent) first - offload red lots before green ones.
+    </div>
+    <button id="externalLotBtn" class="shrink-0 px-3 py-2 bg-slate-200 rounded-lg text-xs font-semibold whitespace-nowrap">
+      <i class="fa-solid fa-plus"></i> Log External Delivery
+    </button>
+  </div>
+  <div id="lotsList" class="space-y-2"></div>
+  <div id="emptyState" class="text-center text-slate-400 py-10 hidden">No lots in transit right now.</div>
+</div>
+
+<!-- Receiving modal -->
+<div id="receiveModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-40">
+  <div class="bg-white rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <div class="font-bold text-lg mb-1" id="modalSlip">Slip</div>
+    <div class="text-sm text-slate-500 mb-4" id="modalMeta"></div>
+
+    <label class="text-xs text-slate-500">Expected crates</label>
+    <div id="expectedCrates" class="text-lg font-semibold mb-3">-</div>
+
+    <label class="text-xs text-slate-500">Actual crates received</label>
+    <input id="actualCrates" type="number" inputmode="numeric" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-3">
+
+    <label class="text-xs text-slate-500">Condition</label>
+    <div class="flex flex-wrap gap-3 mb-3" id="conditionOptions">
+      <label class="flex items-center gap-1"><input type="checkbox" value="Good" checked> Good</label>
+      <label class="flex items-center gap-1"><input type="checkbox" value="Damaged"> Damaged</label>
+      <label class="flex items-center gap-1"><input type="checkbox" value="Wet"> Wet</label>
+      <label class="flex items-center gap-1"><input type="checkbox" value="Other"> Other</label>
+    </div>
+
+    <div class="bg-amber-50 border-2 border-amber-400 rounded-lg p-3 mb-3">
+      <label class="text-sm font-bold text-amber-700">Pre-pack crates (XXL/XL, only if pre-pack is running today)</label>
+      <input id="prePackCrates" type="number" inputmode="numeric" value="0" min="0" class="w-full border border-amber-300 rounded-lg p-3 text-lg mt-1 bg-white font-semibold">
+    </div>
+
+    <label class="text-xs text-slate-500">Notes</label>
+    <textarea id="notes" class="w-full border border-slate-300 rounded-lg p-3 mb-3" rows="2"></textarea>
+
+    <label class="text-xs text-slate-500">Received by</label>
+    <input id="receivedBy" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-4">
+
+    <div class="flex gap-2">
+      <button id="cancelReceiveBtn" class="flex-1 rounded-lg py-3 bg-slate-100">Cancel</button>
+      <button id="confirmReceiveBtn" class="flex-1 lw-btn-primary rounded-lg py-3 font-semibold">Confirm Receipt</button>
+    </div>
+  </div>
+</div>
+
+<!-- External delivery modal (another farmer's fruit, no field-device dispatch) -->
+<div id="externalLotModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-40">
+  <div class="bg-white rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <div class="font-bold text-lg mb-3">Log External Delivery</div>
+
+    <label class="text-xs text-slate-500">Supplier</label>
+    <select id="extSupplierSelect" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-3"></select>
+
+    <label class="text-xs text-slate-500">Crates</label>
+    <input id="extCrates" type="number" inputmode="numeric" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-3">
+
+    <label class="text-xs text-slate-500">Total Kg</label>
+    <input id="extKg" type="number" inputmode="decimal" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-3">
+
+    <label class="text-xs text-slate-500">Driver</label>
+    <input id="extDriver" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-3">
+
+    <label class="text-xs text-slate-500">Notes</label>
+    <textarea id="extNotes" class="w-full border border-slate-300 rounded-lg p-3 mb-3" rows="2"></textarea>
+
+    <div class="flex gap-2">
+      <button id="cancelExternalLotBtn" class="flex-1 rounded-lg py-3 bg-slate-100">Cancel</button>
+      <button id="confirmExternalLotBtn" class="flex-1 lw-btn-primary rounded-lg py-3 font-semibold">Add to In-transit</button>
+    </div>
+  </div>
+</div>
+
+<script src="receiving.js"></script>
+</body>
+</html>
