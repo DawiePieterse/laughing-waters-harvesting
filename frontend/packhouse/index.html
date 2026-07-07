@@ -41,6 +41,8 @@
     <div class="font-bold text-lg mb-1" id="modalSlip">Slip</div>
     <div class="text-sm text-slate-500 mb-4" id="modalMeta"></div>
 
+    <div id="relatedLotsBox" class="hidden bg-amber-50 border border-amber-300 rounded-lg p-3 mb-3"></div>
+
     <label class="text-xs text-slate-500">Expected crates</label>
     <div id="expectedCrates" class="text-lg font-semibold mb-3">-</div>
 
@@ -51,13 +53,9 @@
     <div class="flex flex-wrap gap-3 mb-3" id="conditionOptions">
       <label class="flex items-center gap-1"><input type="checkbox" value="Good" checked> Good</label>
       <label class="flex items-center gap-1"><input type="checkbox" value="Damaged"> Damaged</label>
+      <label class="flex items-center gap-1"><input type="checkbox" value="Sunburn"> Sunburn</label>
       <label class="flex items-center gap-1"><input type="checkbox" value="Wet"> Wet</label>
       <label class="flex items-center gap-1"><input type="checkbox" value="Other"> Other</label>
-    </div>
-
-    <div class="bg-amber-50 border-2 border-amber-400 rounded-lg p-3 mb-3">
-      <label class="text-sm font-bold text-amber-700">Pre-pack crates (XXL/XL, only if pre-pack is running today)</label>
-      <input id="prePackCrates" type="number" inputmode="numeric" value="0" min="0" class="w-full border border-amber-300 rounded-lg p-3 text-lg mt-1 bg-white font-semibold">
     </div>
 
     <label class="text-xs text-slate-500">Notes</label>

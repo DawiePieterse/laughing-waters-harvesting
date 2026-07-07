@@ -60,6 +60,10 @@ async function refresh() {
           <div class="text-xs text-slate-500">${lot.age_minutes} min ago</div>
         </div>
       </div>
+      ${lot.related_lots && lot.related_lots.length ? `
+        <div class="text-xs text-amber-700 font-semibold mt-1">
+          <i class="fa-solid fa-triangle-exclamation"></i> Split load - ${lot.related_lots.length} related slip(s)
+        </div>` : ""}
     </button>
   `).join("");
 
@@ -78,6 +82,30 @@ function updateLastUpdatedLabel() {
   el.textContent = secs < 5 ? "just now" : `${secs}s ago`;
 }
 
+function renderRelatedLots(lot) {
+  const box = document.getElementById("relatedLotsBox");
+  const related = lot.related_lots || [];
+  if (!related.length) {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  const statusText = (r) => {
+    if (r.status === "received") return `received ${new Date(r.received_at).toLocaleTimeString()}`;
+    if (r.status === "in_transit") return "still in transit";
+    return "still being picked in the field";
+  };
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <div class="text-xs font-semibold text-amber-700 mb-1">
+      <i class="fa-solid fa-triangle-exclamation"></i> Split load - part of this pickup was also sent separately:
+    </div>
+    ${related.map((r) => `
+      <div class="text-xs text-amber-700">Slip ${r.slip_number} - ${r.total_crates} crates / ${r.total_kg.toFixed(1)} kg - ${statusText(r)}</div>
+    `).join("")}
+  `;
+}
+
 function openReceiveModal(lot) {
   selectedLot = lot;
   document.getElementById("modalSlip").textContent = lot.slip_number;
@@ -85,10 +113,10 @@ function openReceiveModal(lot) {
     `${lot.supplier_name ? lot.supplier_name + " - " : ""}Team ${lot.team_id || "?"} - Driver ${lot.driver || "?"} - dispatched ${lot.age_minutes} min ago`;
   document.getElementById("expectedCrates").textContent = lot.total_crates;
   document.getElementById("actualCrates").value = lot.total_crates;
-  document.getElementById("prePackCrates").value = 0;
   document.getElementById("notes").value = "";
   document.getElementById("receivedBy").value = LW.getLastReceivedBy();
   document.querySelectorAll("#conditionOptions input").forEach((cb) => { cb.checked = cb.value === "Good"; });
+  renderRelatedLots(lot);
 
   document.getElementById("receiveModal").classList.remove("hidden");
   document.getElementById("receiveModal").classList.add("flex");
@@ -109,9 +137,6 @@ async function confirmReceipt() {
   if (!receivedBy) { LW.toast("Enter who received this lot"); return; }
   LW.setLastReceivedBy(receivedBy);
 
-  let prePackCrates = parseInt(document.getElementById("prePackCrates").value, 10) || 0;
-  if (prePackCrates > actualCrates) prePackCrates = actualCrates;
-
   try {
     await LW.api("/api/receiving", {
       method: "POST",
@@ -130,20 +155,7 @@ async function confirmReceipt() {
     return;
   }
 
-  if (prePackCrates > 0) {
-    try {
-      await LW.api("/api/processing/prepack", {
-        method: "POST",
-        body: { lot_id: selectedLot.id, crates: prePackCrates, operator: receivedBy },
-      });
-      LW.toast("Receipt confirmed and pre-pack crates pulled");
-    } catch (e) {
-      LW.toast("Receipt confirmed, but pre-pack pull failed: " + (e.message || e));
-    }
-  } else {
-    LW.toast("Receipt confirmed");
-  }
-
+  LW.toast("Receipt confirmed");
   closeModal();
   await refresh();
 }

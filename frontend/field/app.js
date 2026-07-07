@@ -57,7 +57,6 @@ async function init() {
   syncLoop();
 
   bindKeypad();
-  document.getElementById("workerSelect").addEventListener("change", updateWorkerDisplay);
   updateWorkerDisplay();
   renderDispatchedLots();
   document.getElementById("saveCrateBtn").addEventListener("click", saveCrate);
@@ -209,7 +208,17 @@ async function renderLot() {
     .join("") || `<div class="text-slate-400">No crates yet</div>`;
 }
 
-function openDriverModal() {
+function updateOfflineSplitHint() {
+  document.getElementById("offlineSplitHint").classList.toggle("hidden", navigator.onLine);
+}
+
+async function openDriverModal() {
+  const slip = getCurrentSlip();
+  const crates = await IDB.getBySlip(slip);
+  const input = document.getElementById("cratesGoingInput");
+  input.value = crates.length;
+  input.max = crates.length;
+  updateOfflineSplitHint();
   document.getElementById("driverModal").classList.remove("hidden");
   document.getElementById("driverModal").classList.add("flex");
 }
@@ -218,13 +227,50 @@ function closeDriverModal() {
   document.getElementById("driverModal").classList.remove("flex");
 }
 
+// Splits off a lot's most-recently-captured crates onto a fresh placeholder
+// lot (server picks FIFO - oldest stay on the departing lot) so a truck can
+// take only part of what's been picked, leaving the rest to combine with the
+// next batch of picking into a later dispatch. Requires connectivity: the
+// server is the only source of truth for exactly which crates currently
+// share this lot, so unlike a normal dispatch this can't be queued offline.
+async function splitAndAdopt(slip, keepCount) {
+  const result = await LW.api(`/api/lots/by-slip/${encodeURIComponent(slip)}/split`, {
+    method: "POST",
+    body: { keep_count: keepCount },
+  });
+  await IDB.reassignSlip(result.moved_uuids, result.new_lot.slip_number);
+  localStorage.setItem(CURRENT_SLIP_KEY, result.new_lot.slip_number);
+  return result;
+}
+
 async function sendPickingSlip() {
   const driver = document.getElementById("driverInput").value.trim();
   if (!driver) { LW.toast("Enter the driver's name"); return; }
 
   const slip = getCurrentSlip();
-  const crates = await IDB.getBySlip(slip);
+  let crates = await IDB.getBySlip(slip);
   if (crates.length === 0) { LW.toast("No crates logged yet"); return; }
+
+  const totalPending = crates.length;
+  const cratesGoing = parseInt(document.getElementById("cratesGoingInput").value, 10) || totalPending;
+  let didSplit = false;
+
+  if (cratesGoing < totalPending) {
+    if (!navigator.onLine) {
+      updateOfflineSplitHint();
+      LW.toast("Reconnect to send a partial load, or dispatch everything now.");
+      return;
+    }
+    try {
+      const splitResult = await splitAndAdopt(slip, totalPending - cratesGoing);
+      const movedUuids = new Set(splitResult.moved_uuids);
+      crates = crates.filter((c) => !movedUuids.has(c.uuid));
+      didSplit = true;
+    } catch (e) {
+      LW.toast("Could not split the load - try again: " + (e.message || e));
+      return;
+    }
+  }
 
   const first = crates.reduce((min, c) => (c.timestamp < min ? c.timestamp : min), crates[0].timestamp);
   const totalKg = crates.reduce((s, c) => s + c.weight_kg - (c.deduction_kg || 0), 0);
@@ -252,7 +298,7 @@ async function sendPickingSlip() {
 
   addDispatchedLot(slip, crates.length, totalKg);
   renderDispatchedLots();
-  localStorage.removeItem(CURRENT_SLIP_KEY);
+  if (!didSplit) localStorage.removeItem(CURRENT_SLIP_KEY);
   closeDriverModal();
   document.getElementById("driverInput").value = "";
   showSlipSuccess(slip, crates.length, totalKg);

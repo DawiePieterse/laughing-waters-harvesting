@@ -55,7 +55,7 @@
       </div>
       <i class="fa-solid fa-user-check text-2xl text-slate-200" id="workerCheckIcon"></i>
     </div>
-    <div>
+    <div class="hidden">
       <label class="text-xs text-slate-400">Or select manually</label>
       <select id="workerSelect" class="w-full border border-slate-300 rounded-lg p-2 mt-1"></select>
     </div>
@@ -88,7 +88,7 @@
   </div>
 
   <button id="sendSlipBtn" class="w-full lw-btn-danger rounded-xl py-4 text-lg font-bold">
-    <i class="fa-solid fa-truck"></i> Transport Full - Send Picking Slip
+    <i class="fa-solid fa-truck"></i> Send Picking Slip
   </button>
 
   <!-- Success banner (hidden until slip sent) -->
@@ -129,6 +129,12 @@
 <div id="driverModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4">
   <div class="bg-white rounded-xl p-5 w-full max-w-sm">
     <div class="font-bold text-lg mb-3">Send Picking Slip</div>
+    <label class="text-xs text-slate-500">Crates going now</label>
+    <input id="cratesGoingInput" type="number" inputmode="numeric" min="1"
+           class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-1">
+    <div id="offlineSplitHint" class="hidden text-xs text-amber-600 mb-3">
+      Partial loads need a connection - reconnect to split, or send everything now.
+    </div>
     <label class="text-xs text-slate-500">Driver name</label>
     <input id="driverInput" class="w-full border border-slate-300 rounded-lg p-3 text-lg mb-4">
     <div class="flex gap-2">

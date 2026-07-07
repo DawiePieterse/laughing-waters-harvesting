@@ -64,6 +64,19 @@ const IDB = (() => {
         };
       }
     },
+    async reassignSlip(uuids, newSlip) {
+      const store = await tx("readwrite");
+      for (const uuid of uuids) {
+        const getReq = store.get(uuid);
+        getReq.onsuccess = () => {
+          const rec = getReq.result;
+          if (rec) {
+            rec.slip_number = newSlip;
+            store.put(rec);
+          }
+        };
+      }
+    },
     async recent(limit = 5) {
       const store = await tx("readonly");
       return new Promise((resolve) => {

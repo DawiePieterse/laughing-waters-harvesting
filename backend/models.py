@@ -139,6 +139,11 @@ class Lot(SQLModel, table=True):
     weather_temp: Optional[float] = None
     weather_humidity: Optional[float] = None
     weather_condition: str = ""
+    # Set when this lot was carved out of an earlier lot via a split
+    # (routers/lots.py split_lot) - the ORIGINAL lot's slip_number, so receiving
+    # staff can tell this pickup was part of a multi-load session and the rest
+    # may arrive (or has already arrived) separately.
+    split_from_slip_number: Optional[str] = None
 
 
 class HarvestRecord(SQLModel, table=True):

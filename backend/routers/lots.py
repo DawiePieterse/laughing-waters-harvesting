@@ -1,3 +1,5 @@
+import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -25,6 +27,10 @@ class LotIn(SQLModel):
     status: LotStatus = LotStatus.created
     whatsapp_sent: bool = False
     notes: str = ""
+
+
+class SplitLotIn(SQLModel):
+    keep_count: int  # how many of this lot's crates to hold back onto a new lot
 
 
 class ExternalLotIn(SQLModel):
@@ -63,6 +69,49 @@ def _with_urgency(lot: Lot, settings: SystemSetting, suppliers: dict) -> dict:
 
 def _supplier_map(session: Session) -> dict:
     return {s.id: s for s in session.exec(select(Supplier)).all()}
+
+
+def _build_split_index(session: Session):
+    """One-hop split lineage index: every lot ever carved out of an earlier
+    one via split_lot() knows its parent's slip_number - this fetches all
+    such children plus their parent rows once per request (not per-lot), so
+    attaching related-lot info to a list of lots doesn't trigger N+1 queries."""
+    children = session.exec(select(Lot).where(Lot.split_from_slip_number != None)).all()  # noqa: E711
+    parent_slips = {c.split_from_slip_number for c in children}
+    parents = session.exec(select(Lot).where(Lot.slip_number.in_(parent_slips))).all() if parent_slips else []
+    parents_by_slip = {p.slip_number: p for p in parents}
+    children_by_parent_slip = defaultdict(list)
+    for c in children:
+        children_by_parent_slip[c.split_from_slip_number].append(c)
+    return parents_by_slip, children_by_parent_slip
+
+
+def _related_lots(session: Session, lot: Lot, parents_by_slip: dict, children_by_parent_slip: dict) -> list:
+    related = []
+    if lot.split_from_slip_number and lot.split_from_slip_number in parents_by_slip:
+        related.append(parents_by_slip[lot.split_from_slip_number])
+    related.extend(children_by_parent_slip.get(lot.slip_number, []))
+
+    result = []
+    for r in related:
+        if r.status == LotStatus.created:
+            # Still-pending lots don't have real totals stored yet (see
+            # list_pending) - compute them live so the relative's crate/kg
+            # count shown at receiving isn't misleadingly 0.
+            crates = session.exec(select(HarvestRecord).where(HarvestRecord.lot_id == r.id)).all()
+            total_crates = len(crates)
+            total_kg = round(sum(c.weight_kg - c.deduction_kg for c in crates), 1)
+        else:
+            total_crates = r.total_crates
+            total_kg = r.total_kg
+        result.append({
+            "slip_number": r.slip_number,
+            "status": r.status,
+            "total_crates": total_crates,
+            "total_kg": total_kg,
+            "received_at": r.received_at,
+        })
+    return result
 
 
 @router.get("/pending")
@@ -117,7 +166,12 @@ def list_in_transit(supplier_id: Optional[int] = None, period: Optional[str] = N
     if period is not None:
         query = query.where(Lot.timestamp >= period_start_utc(period))
     lots = session.exec(query.order_by(Lot.timestamp.asc())).all()
-    enriched = [_with_urgency(l, settings, suppliers) for l in lots]
+    parents_by_slip, children_by_parent_slip = _build_split_index(session)
+    enriched = []
+    for l in lots:
+        e = _with_urgency(l, settings, suppliers)
+        e["related_lots"] = _related_lots(session, l, parents_by_slip, children_by_parent_slip)
+        enriched.append(e)
     enriched.sort(key=lambda r: r["age_minutes"], reverse=True)
     return enriched
 
@@ -172,6 +226,11 @@ def upsert_lot(lot_in: LotIn, session: Session = Depends(get_session)):
     if data.get("supplier_id") is None:
         data["supplier_id"] = get_own_supplier_id(session)
     lot = Lot(**data, id=existing.id if existing else None)
+    if existing:
+        # LotIn doesn't carry split_from_slip_number (dispatch never sets it),
+        # so without this the merge below would silently wipe it back to None
+        # every time an existing lot is re-upserted (e.g. field->in_transit).
+        lot.split_from_slip_number = existing.split_from_slip_number
 
     if not existing and lot_in.status == LotStatus.in_transit:
         settings = session.exec(select(SystemSetting)).first()
@@ -185,6 +244,54 @@ def upsert_lot(lot_in: LotIn, session: Session = Depends(get_session)):
     session.commit()
     session.refresh(saved)
     return saved
+
+
+@router.post("/by-slip/{slip_number}/split")
+def split_lot(slip_number: str, body: SplitLotIn, session: Session = Depends(get_session)):
+    """A truck arrives before a field station has finished filling out today's
+    picking slip - only some of the currently-pending crates go on this load.
+    The oldest crates stay on this lot (what's being dispatched now, FIFO -
+    whatever's been sitting longest goes out first); the newest `keep_count`
+    crates move onto a brand-new placeholder lot so they can combine with
+    whatever gets picked next, for a later dispatch."""
+    lot = session.exec(select(Lot).where(Lot.slip_number == slip_number)).first()
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+    if lot.status != LotStatus.created:
+        raise HTTPException(409, "Lot already dispatched")
+
+    crates = session.exec(select(HarvestRecord).where(HarvestRecord.lot_id == lot.id)).all()
+    if body.keep_count <= 0 or body.keep_count >= len(crates):
+        raise HTTPException(400, "keep_count must be between 1 and total_crates - 1")
+
+    crates_sorted = sorted(crates, key=lambda c: c.timestamp)
+    held_back = crates_sorted[-body.keep_count:]
+
+    new_slip = f"{lot.device_id or 'split'}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    new_lot = Lot(
+        slip_number=new_slip,
+        timestamp=datetime.now(timezone.utc),
+        device_id=lot.device_id,
+        team_id=lot.team_id,
+        supplier_id=lot.supplier_id,
+        status=LotStatus.created,
+        split_from_slip_number=lot.slip_number,
+    )
+    session.add(new_lot)
+    session.flush()
+
+    for c in held_back:
+        c.lot_id = new_lot.id
+        session.add(c)
+
+    session.commit()
+    session.refresh(new_lot)
+
+    total_kg = sum(c.weight_kg - c.deduction_kg for c in held_back)
+    return {
+        "new_lot": {**new_lot.model_dump(), "total_crates": len(held_back), "total_kg": round(total_kg, 1)},
+        "moved_uuids": [c.uuid for c in held_back],
+    }
 
 
 @router.post("/external")

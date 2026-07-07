@@ -117,12 +117,20 @@ function openEditModal(title, fields, initial, onSave) {
         : f.type === "checkbox"
         ? `<label class="flex items-center gap-2 mt-1"><input data-key="${f.key}" type="checkbox" class="w-4 h-4"> <span class="text-sm">${f.label}</span></label>`
         : f.type === "file"
-        ? `<input data-key="${f.key}" type="file" accept="image/*" capture="environment" class="w-full border border-slate-300 rounded-lg p-2">`
+        ? `<div class="flex gap-2">
+             <input data-key="${f.key}" type="file" accept="image/*" capture="environment" class="flex-1 min-w-0 border border-slate-300 rounded-lg p-2">
+             <button type="button" data-camera-for="${f.key}" title="Take photo with camera" class="px-3 border border-slate-300 rounded-lg bg-slate-50"><i class="fa-solid fa-camera"></i></button>
+           </div>`
         : `<input data-key="${f.key}" type="${f.type || "text"}" ${f.disabled ? "disabled" : ""} class="w-full border border-slate-300 rounded-lg p-2">`}
     </div>
   `).join("");
   fields.forEach((f) => {
-    if (f.type === "file") return; // file inputs can't have their value set programmatically
+    if (f.type === "file") {
+      const input = container.querySelector(`[data-key="${f.key}"]`);
+      const camBtn = container.querySelector(`[data-camera-for="${f.key}"]`);
+      if (camBtn && input) camBtn.addEventListener("click", () => openCameraCapture(input));
+      return; // file inputs can't have their value set programmatically
+    }
     const el = container.querySelector(`[data-key="${f.key}"]`);
     const value = initial ? initial[f.key] : "";
     if (f.type === "checkbox") el.checked = !!value;
@@ -137,6 +145,62 @@ function closeEditModal() {
   document.getElementById("editModal").classList.add("hidden");
   document.getElementById("editModal").classList.remove("flex");
   editContext = null;
+  stopCameraStream();
+}
+
+// ---------------------------------------------------------------------
+// Camera capture (for the Photo field in Add/Edit Worker)
+// ---------------------------------------------------------------------
+let _cameraStream = null;
+let _cameraTargetInput = null;
+
+function stopCameraStream() {
+  if (_cameraStream) {
+    _cameraStream.getTracks().forEach((t) => t.stop());
+    _cameraStream = null;
+  }
+}
+
+async function openCameraCapture(inputEl) {
+  _cameraTargetInput = inputEl;
+  const modal = document.getElementById("cameraModal");
+  const video = document.getElementById("cameraPreview");
+  const errEl = document.getElementById("cameraError");
+  errEl.classList.add("hidden");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  try {
+    _cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    video.srcObject = _cameraStream;
+  } catch (e) {
+    errEl.textContent = "Could not access camera: " + (e.message || e);
+    errEl.classList.remove("hidden");
+  }
+}
+
+function closeCameraModal() {
+  document.getElementById("cameraModal").classList.add("hidden");
+  document.getElementById("cameraModal").classList.remove("flex");
+  stopCameraStream();
+  _cameraTargetInput = null;
+}
+
+function captureCameraPhoto() {
+  const video = document.getElementById("cameraPreview");
+  if (!video.videoWidth) return; // stream not ready yet
+  const canvas = document.getElementById("cameraCanvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+  canvas.toBlob((blob) => {
+    if (!blob || !_cameraTargetInput) return;
+    const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    _cameraTargetInput.files = dt.files;
+    _cameraTargetInput.dispatchEvent(new Event("change", { bubbles: true }));
+    closeCameraModal();
+  }, "image/jpeg", 0.9);
 }
 
 function bindMasterData() {
@@ -159,6 +223,8 @@ function bindMasterData() {
   document.getElementById("importWorkers").addEventListener("change", (e) => importFile(e, "/api/workers/import", loadWorkers));
   document.getElementById("importBlocks").addEventListener("change", (e) => importFile(e, "/api/blocks/import", loadBlocks));
   document.getElementById("workerSupplierFilter").addEventListener("change", renderWorkersTable);
+  document.getElementById("cameraCancelBtn").addEventListener("click", closeCameraModal);
+  document.getElementById("cameraCaptureBtn").addEventListener("click", captureCameraPhoto);
 }
 
 async function importFile(event, url, reload) {
