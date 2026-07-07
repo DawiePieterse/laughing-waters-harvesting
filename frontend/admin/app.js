@@ -116,10 +116,13 @@ function openEditModal(title, fields, initial, onSave) {
         ? `<select data-key="${f.key}" class="w-full border border-slate-300 rounded-lg p-2">${f.options.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}</select>`
         : f.type === "checkbox"
         ? `<label class="flex items-center gap-2 mt-1"><input data-key="${f.key}" type="checkbox" class="w-4 h-4"> <span class="text-sm">${f.label}</span></label>`
+        : f.type === "file"
+        ? `<input data-key="${f.key}" type="file" accept="image/*" capture="environment" class="w-full border border-slate-300 rounded-lg p-2">`
         : `<input data-key="${f.key}" type="${f.type || "text"}" ${f.disabled ? "disabled" : ""} class="w-full border border-slate-300 rounded-lg p-2">`}
     </div>
   `).join("");
   fields.forEach((f) => {
+    if (f.type === "file") return; // file inputs can't have their value set programmatically
     const el = container.querySelector(`[data-key="${f.key}"]`);
     const value = initial ? initial[f.key] : "";
     if (f.type === "checkbox") el.checked = !!value;
@@ -142,6 +145,7 @@ function bindMasterData() {
     if (!editContext) return;
     const values = {};
     editContext.fields.forEach((f) => {
+      if (f.type === "file") return; // handled separately by the caller's onSave, not part of the JSON body
       const el = document.getElementById("editModalFields").querySelector(`[data-key="${f.key}"]`);
       values[f.key] = f.type === "checkbox" ? el.checked : el.value;
     });
@@ -154,6 +158,7 @@ function bindMasterData() {
   });
   document.getElementById("importWorkers").addEventListener("change", (e) => importFile(e, "/api/workers/import", loadWorkers));
   document.getElementById("importBlocks").addEventListener("change", (e) => importFile(e, "/api/blocks/import", loadBlocks));
+  document.getElementById("workerSupplierFilter").addEventListener("change", renderWorkersTable);
 }
 
 async function importFile(event, url, reload) {
@@ -173,9 +178,11 @@ async function importFile(event, url, reload) {
 
 async function handleAction(action) {
   if (action === "export-workers-xlsx") return exportFile("/api/workers/export?fmt=xlsx", "Workers.xlsx");
-  if (action === "export-workers-csv") return exportFile("/api/workers/export?fmt=csv", "Workers.csv");
   if (action === "export-blocks-xlsx") return exportFile("/api/blocks/export?fmt=xlsx", "Blocks.xlsx");
   if (action === "new-worker") return editWorker();
+  if (action === "print-selected") return printSelectedWorkers();
+  if (action === "print-all") return printAllWorkers();
+  if (action === "print-filtered") return printFilteredWorkers();
   if (action === "new-team") return editTeam();
   if (action === "new-block") return editBlock();
   if (action === "new-device") return editDevice();
@@ -195,15 +202,30 @@ async function loadAllMasterData() {
 async function loadWorkers() {
   const workers = await LW.api("/api/workers");
   window._workersCache = workers;
-  document.getElementById("workersTable").innerHTML = workers.map((w) => `
+  renderWorkersTable();
+}
+
+function renderWorkersTable() {
+  const workers = window._workersCache || [];
+  const suppliers = new Map((window._suppliersCache || []).map((s) => [s.id, s.name]));
+  const filterVal = document.getElementById("workerSupplierFilter")?.value || "";
+  const filtered = filterVal ? workers.filter((w) => String(w.supplier_id ?? "") === filterVal) : workers;
+  window._workersFiltered = filtered;
+
+  document.getElementById("workersTable").innerHTML = filtered.map((w) => `
     <tr class="border-b ${w.active ? "" : "opacity-50"}">
+      <td class="p-2"><input type="checkbox" class="worker-select-checkbox w-4 h-4" data-select="${w.id}"></td>
+      <td class="p-2">${w.photo_filename
+        ? `<img src="/photos/${w.photo_filename}" class="w-8 h-8 rounded-full object-cover">`
+        : '<span class="w-8 h-8 rounded-full bg-slate-200 inline-flex items-center justify-center text-slate-400 text-xs">?</span>'}</td>
       <td class="p-2 font-mono">${w.id}</td>
       <td class="p-2">${w.first_name || ""}</td>
       <td class="p-2">${w.last_name || w.name || ""}</td>
+      <td class="p-2 text-xs">${suppliers.get(w.supplier_id) || ""}</td>
       <td class="p-2">${w.active ? '<span class="text-green-600 text-xs">Active</span>' : '<span class="text-slate-400 text-xs">Inactive</span>'}</td>
       <td class="p-2 text-right space-x-2">
         <button class="text-blue-700 text-xs" data-edit="${w.id}">Edit</button>
-        <button class="text-slate-500 text-xs" data-qr="${w.id}" data-name="${(w.name || w.id).replace(/"/g, '&quot;')}">QR</button>
+        <button class="text-slate-500 text-xs" data-qr="${w.id}">QR</button>
       </td>
     </tr>
   `).join("");
@@ -212,13 +234,48 @@ async function loadWorkers() {
   });
   document.querySelectorAll("#workersTable [data-qr]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const url = `print-qr.html?emp=${encodeURIComponent(btn.dataset.qr)}&name=${encodeURIComponent(btn.dataset.name)}`;
-      window.open(url, "_blank");
+      window.open(`print-badge.html?ids=${encodeURIComponent(btn.dataset.qr)}`, "_blank");
     });
   });
+  const selectAll = document.getElementById("selectAllWorkers");
+  if (selectAll) {
+    selectAll.checked = false;
+    selectAll.onchange = (e) => {
+      document.querySelectorAll(".worker-select-checkbox").forEach((cb) => { cb.checked = e.target.checked; });
+    };
+  }
+}
+
+function populateWorkerSupplierFilter(suppliers) {
+  const select = document.getElementById("workerSupplierFilter");
+  if (!select) return;
+  const current = select.value;
+  const active = suppliers.filter((s) => s.active);
+  select.innerHTML = `<option value="">All farms / suppliers</option>` +
+    active.map((s) => `<option value="${s.id}">${s.name}${s.is_own_farm ? " (Own Farm)" : ""}</option>`).join("");
+  if (current) select.value = current;
+}
+
+function printBadges(ids) {
+  if (!ids.length) { LW.toast("No workers selected"); return; }
+  window.open(`print-badge.html?ids=${encodeURIComponent(ids.join(","))}`, "_blank");
+}
+
+function printSelectedWorkers() {
+  const ids = Array.from(document.querySelectorAll(".worker-select-checkbox:checked")).map((cb) => cb.dataset.select);
+  printBadges(ids);
+}
+
+function printAllWorkers() {
+  printBadges((window._workersCache || []).filter((w) => w.active).map((w) => w.id));
+}
+
+function printFilteredWorkers() {
+  printBadges((window._workersFiltered || []).filter((w) => w.active).map((w) => w.id));
 }
 
 function editWorker(worker) {
+  const suppliers = (window._suppliersCache || []).filter((s) => s.active);
   openEditModal(worker ? "Edit Worker" : "Add Worker", [
     { key: "id", label: "Employee Number (e.g. 001)", disabled: !!worker },
     { key: "first_name", label: "First Name" },
@@ -227,12 +284,30 @@ function editWorker(worker) {
     { key: "bank", label: "Bank" },
     { key: "account", label: "Account Number" },
     { key: "whatsapp_number", label: "WhatsApp Number" },
+    { key: "supplier_id", label: "Farm / Supplier", type: "select",
+      options: [{ value: "", label: "(none)" }, ...suppliers.map((s) => ({ value: s.id, label: s.name }))] },
+    { key: "photo", label: "Photo (camera or file)", type: "file" },
     { key: "active", label: "Active", type: "checkbox" },
   ], worker || { active: true }, async (values) => {
+    const { photo, ...workerValues } = values;
     await LW.api("/api/workers", {
       method: "POST", auth: true,
-      body: { ...values, active: !!values.active },
+      body: { ...workerValues, supplier_id: workerValues.supplier_id || null, active: !!workerValues.active },
     });
+    const fileInput = document.getElementById("editModalFields").querySelector('[data-key="photo"]');
+    const file = fileInput && fileInput.files[0];
+    if (file) {
+      const workerId = worker ? worker.id : workerValues.id;
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        await LW.api(`/api/workers/${encodeURIComponent(workerId)}/photo`, { method: "POST", auth: true, body: form, isForm: true });
+      } catch (e) {
+        LW.toast("Worker saved, but photo upload failed - try again");
+        await loadWorkers();
+        return;
+      }
+    }
     LW.toast("Worker saved");
     await loadWorkers();
   });
@@ -354,6 +429,8 @@ async function loadSuppliers() {
     btn.addEventListener("click", () => editSupplier(suppliers.find((s) => s.id == btn.dataset.edit)));
   });
   populateBillingSupplierSelect(suppliers);
+  populateWorkerSupplierFilter(suppliers);
+  if (window._workersCache) renderWorkersTable(); // resolve supplier names if workers loaded first
 }
 
 function editSupplier(supplier) {
@@ -448,11 +525,6 @@ function renderPayments(payments) {
   document.getElementById("paymentsTable").innerHTML = payments.map((p) => {
     const w = workers.get(p.worker_id);
     const displayName = w ? (w.name || `${w.first_name} ${w.last_name}`.trim() || w.id) : p.worker_id;
-    const waBtn = w && w.whatsapp_number
-      ? `<button class="text-green-600 text-xs ml-1" title="Send payslip via WhatsApp"
-           onclick="sendPayslipWhatsApp('${p.worker_id}', ${p.total_kg}, ${p.rate_applied}, ${p.amount_due})">
-           <i class="fa-brands fa-whatsapp"></i></button>`
-      : "";
     return `
       <tr class="border-b">
         <td class="p-2">${displayName}</td>
@@ -467,7 +539,7 @@ function renderPayments(payments) {
             <option value="Paid" ${p.status === "Paid" ? "selected" : ""}>Paid</option>
           </select>
         </td>
-        <td class="p-2"><button class="text-blue-700 text-xs" data-save="${p.id}">Save</button>${waBtn}</td>
+        <td class="p-2"><button class="text-blue-700 text-xs" data-save="${p.id}">Save</button></td>
       </tr>
     `;
   }).join("");
@@ -481,19 +553,6 @@ function renderPayments(payments) {
       LW.toast("Payment updated");
     });
   });
-}
-
-function sendPayslipWhatsApp(workerId, totalKg, rate, amountDue) {
-  const w = (window._workersCache || []).find((x) => x.id === workerId);
-  if (!w || !w.whatsapp_number) { LW.toast("No WhatsApp number for this worker"); return; }
-  let number = w.whatsapp_number.replace(/\D/g, "");
-  if (number.startsWith("0")) number = "27" + number.slice(1);
-  const start = document.getElementById("payStart").value;
-  const end = document.getElementById("payEnd").value;
-  const farm = (_systemSettings && _systemSettings.farm_name) || "Laughing Waters";
-  const name = w.name || `${w.first_name} ${w.last_name}`.trim() || w.id;
-  const text = `${farm} — Payslip\nPeriod: ${start} to ${end}\n${name}\nKg picked: ${totalKg}\nRate: R${rate}/kg\nAmount due: R${amountDue}`;
-  window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, "_blank");
 }
 
 async function exportPayments() {

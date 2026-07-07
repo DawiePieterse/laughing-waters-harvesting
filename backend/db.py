@@ -8,6 +8,8 @@ from models import AdminUser, Block, Device, DeviceRole, RateSetting, RateType, 
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 os.makedirs(DATA_DIR, exist_ok=True)
+PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
+os.makedirs(PHOTOS_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "laughing_waters.db")
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 

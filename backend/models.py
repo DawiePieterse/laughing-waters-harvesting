@@ -65,6 +65,8 @@ class Worker(SQLModel, table=True):
     account: str = ""
     team_id: Optional[str] = Field(default=None, foreign_key="team.id")  # kept for compat; not used in UI
     whatsapp_number: str = ""
+    supplier_id: Optional[int] = Field(default=None, foreign_key="supplier.id")  # which farm/supplier this worker belongs to
+    photo_filename: str = ""  # basename under data/photos/, e.g. "001.jpg"; empty = no photo
     active: bool = True
 
 

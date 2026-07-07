@@ -1,12 +1,13 @@
+import os
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from sqlmodel import Session, SQLModel, select
 
-from db import get_session
+from db import PHOTOS_DIR, get_session
 from excel_io import parse_uploaded_table, rows_to_csv_bytes, rows_to_xlsx_bytes
-from models import Block, RateSetting, RateType, SystemSetting, Team, Worker
+from models import Block, RateSetting, RateType, Supplier, SystemSetting, Team, Worker
 from security import get_current_admin
 
 router = APIRouter(prefix="/api", tags=["master-data"])
@@ -125,9 +126,34 @@ def upsert_worker(worker: Worker, session: Session = Depends(get_session), admin
         worker.name = f"{worker.first_name} {worker.last_name}".strip()
     elif not worker.name:
         worker.name = worker.id
+    existing = session.get(Worker, worker.id)
+    if existing:
+        worker.photo_filename = existing.photo_filename
     session.merge(worker)
     session.commit()
     return {"ok": True}
+
+
+@router.post("/workers/{worker_id}/photo")
+async def upload_worker_photo(worker_id: str, file: UploadFile, session: Session = Depends(get_session),
+                               admin=Depends(get_current_admin)):
+    worker = session.get(Worker, worker_id)
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise HTTPException(400, "Unsupported image type")
+    if worker.photo_filename:
+        old_path = os.path.join(PHOTOS_DIR, worker.photo_filename)
+        if os.path.exists(old_path):
+            os.remove(old_path)  # avoid orphan if extension changes between uploads
+    filename = f"{worker_id}{ext}"
+    with open(os.path.join(PHOTOS_DIR, filename), "wb") as f:
+        f.write(await file.read())
+    worker.photo_filename = filename
+    session.add(worker)
+    session.commit()
+    return {"ok": True, "photo_filename": filename}
 
 
 @router.delete("/workers/{worker_id}")
@@ -144,8 +170,11 @@ def deactivate_worker(worker_id: str, session: Session = Depends(get_session), a
 def export_workers(fmt: str = Query("xlsx", pattern="^(csv|xlsx)$"), session: Session = Depends(get_session),
                     admin=Depends(get_current_admin)):
     workers = session.exec(select(Worker)).all()
-    headers = ["emp_nr", "first_name", "last_name", "id_number", "bank", "account", "whatsapp_number", "active"]
-    rows = [[w.id, w.first_name, w.last_name, w.id_number, w.bank, w.account, w.whatsapp_number, w.active]
+    supplier_names = {s.id: s.name for s in session.exec(select(Supplier)).all()}
+    headers = ["emp_nr", "first_name", "last_name", "id_number", "bank", "account", "whatsapp_number",
+               "supplier_id", "supplier_name", "active"]
+    rows = [[w.id, w.first_name, w.last_name, w.id_number, w.bank, w.account, w.whatsapp_number,
+             w.supplier_id, supplier_names.get(w.supplier_id, ""), w.active]
             for w in workers]
     return _export(headers, rows, fmt, "Workers")
 
@@ -171,8 +200,10 @@ async def import_workers(file: UploadFile, session: Session = Depends(get_sessio
             parts = legacy_name.split(" ", 1)
             first_name = parts[0]
             last_name = parts[1] if len(parts) > 1 else ""
+        emp_id = str(emp_nr).strip()
+        existing = session.get(Worker, emp_id)
         session.merge(Worker(
-            id=str(emp_nr).strip(),
+            id=emp_id,
             first_name=str(first_name).strip(),
             last_name=str(last_name).strip(),
             name=display_name,
@@ -180,6 +211,8 @@ async def import_workers(file: UploadFile, session: Session = Depends(get_sessio
             bank=r.get("bank") or "",
             account=str(r.get("account") or ""),
             whatsapp_number=str(r.get("whatsapp_number") or ""),
+            supplier_id=int(r["supplier_id"]) if r.get("supplier_id") else None,
+            photo_filename=existing.photo_filename if existing else "",
             active=active,
         ))
         count += 1

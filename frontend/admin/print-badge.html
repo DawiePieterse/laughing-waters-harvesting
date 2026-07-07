@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worker ID Badges</title>
+<script src="../shared/qrcode.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #eee; }
+  .toolbar { padding: 16px; text-align: center; }
+  .toolbar button { padding: 10px 24px; font-size: 16px; cursor: pointer; border: 1px solid #333; border-radius: 8px; background: #f0f0f0; }
+  /* Plain flow layout (not flex/grid) so the browser's print engine can
+     paginate badges across multiple A4 sheets correctly - flex/grid
+     containers aren't fragmentation-aware and can cut or overlap rows
+     across page boundaries even with page-break-inside: avoid on children. */
+  #badgesContainer { padding: 0.3cm; font-size: 0; }
+  .badge {
+    display: inline-block; vertical-align: top;
+    width: 9cm; height: 7cm; box-sizing: border-box;
+    margin: 0.15cm;
+    border: 1px dashed #999; border-radius: 4px;
+    background: white;
+    overflow: hidden;
+    page-break-inside: avoid; break-inside: avoid;
+    padding: 6px;
+    font-size: 16px; /* reset the container's font-size:0 whitespace-collapse trick */
+  }
+  .badge-inner {
+    display: flex; flex-direction: column; height: 100%;
+  }
+  .badge-farm { font-size: 11px; color: #666; text-align: center; margin-bottom: 4px; }
+  .badge-row { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 0; }
+  .badge-photo { width: 2.6cm; height: 2.6cm; flex: none; border-radius: 6px; overflow: hidden; background: #ddd; display: flex; align-items: center; justify-content: center; }
+  .badge-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .badge-photo .placeholder { color: #999; font-size: 32px; }
+  .badge-qr canvas { display: block; }
+  .badge-name { font-size: 16px; font-weight: bold; text-align: center; margin-top: 4px; }
+  .badge-emp { font-size: 20px; font-weight: bold; letter-spacing: 2px; text-align: center; color: #333; }
+  .no-data { padding: 24px; text-align: center; color: #666; }
+  @page { size: A4; margin: 1cm; }
+  @media print {
+    .no-print { display: none; }
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+  <button onclick="window.print()">Print</button>
+</div>
+<div id="badgesContainer"></div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const ids = (params.get("ids") || "").split(",").map((s) => s.trim()).filter(Boolean);
+
+  async function init() {
+    const container = document.getElementById("badgesContainer");
+    if (!ids.length) {
+      container.innerHTML = '<div class="no-data">No workers specified.</div>';
+      return;
+    }
+    const [workers, settings] = await Promise.all([
+      fetch("/api/workers").then((r) => r.json()),
+      fetch("/api/system-settings").then((r) => r.json()).catch(() => null),
+    ]);
+    const farmName = (settings && settings.farm_name) || "Laughing Waters";
+    const byId = new Map(workers.map((w) => [w.id, w]));
+    const selected = ids.map((id) => byId.get(id)).filter(Boolean);
+
+    if (!selected.length) {
+      container.innerHTML = '<div class="no-data">No matching workers found.</div>';
+      return;
+    }
+
+    container.innerHTML = selected.map((w) => `<div class="badge"><div class="badge-inner">
+        <div class="badge-farm">${farmName}</div>
+        <div class="badge-row">
+          <div class="badge-photo">
+            ${w.photo_filename
+              ? `<img src="/photos/${w.photo_filename}">`
+              : '<span class="placeholder">&#9787;</span>'}
+          </div>
+          <div class="badge-qr"><canvas id="qr-${w.id}"></canvas></div>
+        </div>
+        <div class="badge-name">${w.first_name || ""} ${w.last_name || w.name || ""}</div>
+        <div class="badge-emp">#${w.id}</div>
+      </div></div>`).join("");
+
+    selected.forEach((w) => {
+      QRCode.toCanvas(document.getElementById(`qr-${w.id}`), w.id, { width: 120, margin: 1 }, (err) => {
+        if (err) console.error(err);
+      });
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>

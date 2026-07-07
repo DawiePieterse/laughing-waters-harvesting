@@ -60,16 +60,25 @@
       </div>
 
       <div id="subtab-workers" class="subtab-content space-y-3">
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 items-end">
           <button data-action="export-workers-xlsx" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Export .xlsx</button>
-          <button data-action="export-workers-csv" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Export .csv</button>
           <label class="px-3 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Import <input type="file" id="importWorkers" class="hidden" accept=".csv,.xlsx"></label>
+          <div>
+            <label class="text-xs text-slate-500 block">Filter by Farm / Supplier</label>
+            <select id="workerSupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select>
+          </div>
+          <button data-action="print-filtered" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Print Badges (filtered)</button>
+          <button data-action="print-selected" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Print Badges (selected)</button>
+          <button data-action="print-all" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Print Badges (all)</button>
           <button data-action="new-worker" class="px-3 py-2 lw-btn-primary rounded-lg text-sm ml-auto">+ Add Worker</button>
         </div>
         <div class="bg-white rounded-xl shadow overflow-x-auto">
           <table class="w-full text-sm">
             <thead><tr class="text-left border-b">
+              <th class="p-2"><input type="checkbox" id="selectAllWorkers" class="w-4 h-4"></th>
+              <th class="p-2">Photo</th>
               <th class="p-2">Emp Nr</th><th class="p-2">First Name</th><th class="p-2">Last Name</th>
+              <th class="p-2">Farm / Supplier</th>
               <th class="p-2">Active</th><th></th>
             </tr></thead>
             <tbody id="workersTable"></tbody>

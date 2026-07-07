@@ -90,25 +90,8 @@ def main():
             token=token)
     print(f"  teams: {len(INDUNAS)} updated with indunas")
 
-    # --- Workers ---------------------------------------------------------
-    for emp, first, last in WORKERS:
-        api("/api/workers", {
-            "id": emp, "first_name": first, "last_name": last,
-            "id_number": f"850{random.randint(100, 999)}{random.randint(1000000, 9999999)}",
-            "bank": random.choice(BANKS),
-            "account": str(random.randint(10**9, 10**10 - 1)),
-            "whatsapp_number": f"08{random.randint(2, 4)}{random.randint(1000000, 9999999)}",
-            "active": True,
-        }, token=token)
-    print(f"  workers: {len(WORKERS)}")
-
-    # --- Block details ----------------------------------------------------
-    for block_id, (variety, trees, hectares) in BLOCK_DETAILS.items():
-        api("/api/blocks", {"id": block_id, "name": f"Block {block_id}", "variety": variety,
-                             "trees": trees, "hectares": hectares, "active": True}, token=token)
-    print(f"  blocks: {len(BLOCK_DETAILS)} updated with variety/trees/hectares")
-
-    # --- External suppliers ------------------------------------------------
+    # --- External suppliers (seeded before Workers so their ids are ------
+    # --- available to assign as a worker's farm/supplier below) ----------
     suppliers = api("/api/suppliers")
     existing_names = {s["name"] for s in suppliers}
     for name, contact, phone, per_kg, per_crate in [
@@ -122,6 +105,30 @@ def main():
                 "packing_rate_per_kg": per_kg, "packing_rate_per_crate": per_crate,
                 "active": True,
             }, token=token)
+    suppliers = api("/api/suppliers")
+    jansen = next(s for s in suppliers if s["name"] == "Jansen Boerdery")
+
+    # --- Workers ---------------------------------------------------------
+    # emp 007/008 belong to an external supplier's crew; the rest are the
+    # farm's own workers (supplier_id left unset).
+    supplier_by_emp = {"007": jansen["id"], "008": jansen["id"]}
+    for emp, first, last in WORKERS:
+        api("/api/workers", {
+            "id": emp, "first_name": first, "last_name": last,
+            "id_number": f"850{random.randint(100, 999)}{random.randint(1000000, 9999999)}",
+            "bank": random.choice(BANKS),
+            "account": str(random.randint(10**9, 10**10 - 1)),
+            "whatsapp_number": f"08{random.randint(2, 4)}{random.randint(1000000, 9999999)}",
+            "supplier_id": supplier_by_emp.get(emp),
+            "active": True,
+        }, token=token)
+    print(f"  workers: {len(WORKERS)} ({len(supplier_by_emp)} tagged to Jansen Boerdery)")
+
+    # --- Block details ----------------------------------------------------
+    for block_id, (variety, trees, hectares) in BLOCK_DETAILS.items():
+        api("/api/blocks", {"id": block_id, "name": f"Block {block_id}", "variety": variety,
+                             "trees": trees, "hectares": hectares, "active": True}, token=token)
+    print(f"  blocks: {len(BLOCK_DETAILS)} updated with variety/trees/hectares")
     suppliers = api("/api/suppliers")
     external = [s for s in suppliers if not s["is_own_farm"]]
     print(f"  suppliers: {len(external)} external ({', '.join(s['name'] for s in external)})")

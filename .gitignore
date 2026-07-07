@@ -3,5 +3,6 @@ backend/__pycache__/
 backend/**/__pycache__/
 data/*.db
 data/*.db-journal
+data/photos/
 .DS_Store
 *.pyc
