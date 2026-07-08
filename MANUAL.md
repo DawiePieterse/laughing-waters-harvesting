@@ -79,17 +79,168 @@ anything green."
 
 The app is a single Python service (FastAPI) that serves its own frontend
 and stores everything in a local SQLite database file - there's no
-separate database server or build step to run.
+separate database server, cloud account, or build step involved. It runs
+on one ordinary computer in the farm office (the "server"), and every
+other device (field phones/tablets, pack house devices) just opens a web
+address pointing at that computer - nothing needs to be installed on
+those other devices.
 
 ### Prerequisites
 
-- Python 3.9
+- A Windows, Mac, or Linux computer that can be left switched on and
+  connected to the network for the whole harvest season - this is the
+  "server" referred to throughout this manual. It does not need to be
+  powerful; any normal office PC is enough.
+- Python 3.9 or newer (3.11 is a safe default if installing fresh).
 - Network access from every device that needs to reach the app (the same
   Wi-Fi/LAN the farm already uses, or a Tailscale network if devices need
   to reach it from outside the farm's own network - the app itself doesn't
-  care which, it just needs to be reachable)
+  care which, it just needs to be reachable).
+- The app's project folder, copied onto that computer (via USB drive,
+  email/zip, or `git clone` - however it was given to you). This manual
+  assumes it ends up at **`C:\LaughingWaters`** on Windows, or
+  `~/LaughingWaters` on Mac/Linux; adjust the paths below if you use a
+  different location.
 
-### Installation
+### Setting up on a Windows PC (step by step)
+
+This is the most common setup, since most farm offices run Windows. Every
+step is done once, when first setting up the server.
+
+**Step 1 - Copy the app folder onto the PC.**
+Place the whole project folder somewhere permanent and easy to find, e.g.
+`C:\LaughingWaters`. Avoid Desktop or Downloads, since those are more
+likely to get tidied up or deleted by accident.
+
+**Step 2 - Install Python.**
+
+1. Go to `python.org` in a browser and download the latest Python 3
+   installer for Windows (64-bit).
+2. Run the installer. **On the very first screen, tick the checkbox at
+   the bottom that says "Add python.exe to PATH"** before clicking
+   "Install Now" - this step is easy to miss and, if skipped, every command
+   below will fail with `'python' is not recognized`.
+3. Once installation finishes, click "Close".
+
+**Step 3 - Open Command Prompt in the `backend` folder.**
+
+1. Open the `C:\LaughingWaters\backend` folder in File Explorer.
+2. Click into the empty area of the address bar at the top of the
+   window, type `cmd`, and press Enter. A black Command Prompt window
+   opens already pointed at that folder (confirm the prompt reads
+   `C:\LaughingWaters\backend>`).
+
+**Step 4 - Create a virtual environment.**
+A virtual environment keeps this app's Python packages separate from
+anything else on the PC. In the Command Prompt window, run:
+```bat
+python -m venv .venv
+```
+This creates a `.venv` folder inside `backend` and takes a few seconds.
+
+**Step 5 - Activate the virtual environment.**
+```bat
+.venv\Scripts\activate
+```
+The prompt changes to start with `(.venv)` once this has worked - check
+for that before continuing. You'll need to repeat this activation step
+every time you open a new Command Prompt window to work with the app
+(but *not* every time the server itself runs day-to-day - see Step 10).
+
+**Step 6 - Install the app's dependencies.**
+```bat
+pip install -r requirements.txt
+```
+This downloads everything the app needs (FastAPI, the database library,
+etc.) into the virtual environment. It can take a few minutes on the
+first run, depending on the internet connection. If it fails partway with
+a build/compiler error, the most common cause is a 32-bit Python install -
+uninstall it and reinstall the 64-bit version from Step 2.
+
+**Step 7 - Run the server for the first time.**
+```bat
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+- `--host 0.0.0.0` makes the server reachable from other devices on the
+  network, not just this PC - this is required for field/pack house
+  devices to connect.
+- `8000` is just an example port; any free port works, but stick with one
+  number once devices are configured against it.
+- The window will print a few lines ending in something like
+  `Uvicorn running on http://0.0.0.0:8000` and then go quiet - that's
+  normal; it means the server is up and waiting. **Leave this Command
+  Prompt window open** - closing it stops the server.
+
+**Step 8 - Confirm it's working.**
+On the same PC, open a browser and go to `http://localhost:8000/`. You
+should see the app's device setup screen (see [chapter 3](#3-device-setup)).
+If you see this, the server itself is working correctly.
+
+**Step 9 - Find this PC's network address.**
+Other devices don't use `localhost` - they need this PC's actual address
+on the network. Open a **second** Command Prompt window (leave the server
+running in the first one) and run:
+```bat
+ipconfig
+```
+Look for **"IPv4 Address"** under the network adapter that's actually
+connected (Wi-Fi or Ethernet) - it looks like `192.168.1.50`. Other
+devices will reach the app at `http://192.168.1.50:8000/` (using this
+PC's own address and the port from Step 7).
+
+**Step 10 - Allow the app through Windows Firewall.**
+Windows will usually pop up a "Windows Defender Firewall has blocked some
+features of this app" prompt the first time the server starts - tick both
+"Private networks" and "Public networks" (if shown) and click "Allow
+access". If that prompt was missed or dismissed, add the rule manually:
+
+1. Open **Windows Security → Firewall & network protection → Advanced
+   settings**.
+2. Click **Inbound Rules → New Rule…**.
+3. Choose **Port** → Next.
+4. Choose **TCP**, and under "Specific local ports" enter the port from
+   Step 7 (e.g. `8000`) → Next.
+5. Choose **Allow the connection** → Next.
+6. Leave Domain/Private/Public all ticked → Next.
+7. Give it a name, e.g. "Laughing Waters Server" → Finish.
+
+**Step 11 - Stop the PC from going to sleep.**
+The server only works while the PC is awake. Go to **Settings → System →
+Power & battery → Screen and sleep**, and set "When plugged in, put my
+device to sleep" to **Never**. (The screen itself can still turn off -
+that doesn't affect the server - only "sleep"/"hibernate" does.)
+
+**Step 12 - (Recommended) Make the server start automatically.**
+Without this step, someone has to manually repeat Steps 3, 5, and 7 every
+time the PC restarts (e.g. after a power cut or Windows update). To avoid
+that, first create a new text file at `C:\LaughingWaters\start_server.bat`
+containing exactly:
+
+```bat
+@echo off
+cd /d "C:\LaughingWaters\backend"
+call .venv\Scripts\activate.bat
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Then set Windows to run it automatically on startup:
+
+1. Open **Task Scheduler** (search for it in the Start menu).
+2. Click **Create Basic Task…**, name it "Laughing Waters Server", Next.
+3. Trigger: choose **"When the computer starts"**, Next.
+4. Action: choose **"Start a program"**, Next, then browse to and select
+   `C:\LaughingWaters\start_server.bat`, Next, Finish.
+5. Find the new task in the Task Scheduler Library, right-click →
+   **Properties**, and on the **General** tab tick **"Run whether user is
+   logged on or not"** so it starts even before anyone signs in. You'll be
+   asked for the Windows account password when you save this.
+6. Restart the PC once to confirm the server comes up on its own (check
+   from another device by browsing to `http://<this-pc's-IP>:8000/`).
+
+With this in place the server behaves like any other piece of office
+equipment - it just needs the PC left on.
+
+### Setting up on Mac or Linux
 
 From the `backend/` folder:
 
@@ -99,24 +250,91 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Running the server
-
-From the `backend/` folder, with the virtual environment activated:
+Then, to run it:
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 - `--host 0.0.0.0` makes the server reachable from other devices on the
-  network, not just the machine it's running on - this is required for
-  field/pack house devices to connect.
-- Pick any free port (8000 is just an example); once running, other
-  devices reach it at `http://<server-ip>:<port>/`.
-- Leave this running continuously during harvest season - the app expects
-  to be a long-lived local service, not something started and stopped
-  around each use. (The automatic nightly backup, [chapter 11](#11-admin---settings),
-  only fires if the server happens to be running at 02:00 - see that
-  chapter's note on this limitation.)
+  network, not just the machine it's running on.
+- Find this machine's network address with `ifconfig` (look for `inet`
+  under the active Wi-Fi/Ethernet adapter) so other devices can reach
+  `http://<that-address>:8000/`.
+- To keep the server running after closing the terminal, and to have it
+  restart automatically after a reboot, use your platform's standard
+  approach for long-running services (e.g. a `launchd` agent on Mac, or a
+  `systemd` service on Linux) pointed at the same `uvicorn` command above.
+
+### Connecting external users with Tailscale (only if needed)
+
+Skip this section entirely if every device (field, pack house, admin) stays
+on the farm's own Wi-Fi/LAN - it's only needed if someone **outside** that
+network has to reach the server, e.g. a remote bookkeeper checking Reports,
+an off-site owner checking the Dashboard, or a partner farm's own admin
+accessing their supplier data from elsewhere. Tailscale is a free, private
+network that lets specific outside devices reach the server securely over
+the internet, without opening any ports on the farm's router or exposing
+the app to the public internet.
+
+**Step 1 - Install Tailscale on the server.**
+
+1. On the same PC the server runs on, go to `tailscale.com/download` in a
+   browser and download the installer for its operating system (Windows,
+   Mac, or Linux).
+2. Run the installer, then sign in when prompted (with a Google, Microsoft,
+   or email account) - this creates your farm's own private Tailscale
+   network (a "tailnet"), separate from anyone else's.
+3. Once signed in, Tailscale assigns this server a private address like
+   `100.x.x.x`. Find it by clicking the Tailscale icon in the system tray
+   (Windows) or menu bar (Mac) and reading the address shown there, or by
+   running `tailscale ip -4` in a Command Prompt/terminal.
+4. Make sure Tailscale is set to start automatically: right-click its tray
+   icon → **Preferences/Settings** → confirm **"Start on login"** (or
+   equivalent) is ticked, so it reconnects on its own after every restart,
+   the same way the server itself does ([Step 12](#setting-up-on-a-windows-pc-step-by-step)
+   on Windows).
+
+**Step 2 - Share (not invite) access to just this one machine.**
+
+Tailscale's **"Share"** feature grants an outside person access to only
+this one server, without adding them to the rest of the farm's tailnet or
+letting them see any other device on it - this is the right option for an
+external user, as opposed to "Invite" (which adds someone as a full member
+of the tailnet).
+
+1. In a browser, go to `login.tailscale.com/admin/machines` and sign in
+   with the same account used in Step 1.
+2. Find this server in the machine list, click the **"…"** menu next to
+   it, and choose **Share…**.
+3. Enter the external person's email address and send the invite (or copy
+   the generated link and send it yourself, e.g. via WhatsApp or email).
+4. The external person accepts the invite, creating their own free
+   Tailscale account if they don't already have one, and installs
+   Tailscale on their own phone, tablet, or PC (same download step as
+   Step 1, but signing in with their own account).
+
+**Step 3 - Connecting.**
+Once accepted, the external device can reach this one server at its
+Tailscale address from anywhere with an internet connection - e.g.
+`http://100.x.x.x:8000/` - exactly the same way a device on the farm's own
+Wi-Fi reaches it by LAN address. Everything else (the device setup screen,
+roles, admin login) works identically; Tailscale only changes how the
+device reaches the server, not what it can do once it's there.
+
+**Step 4 - Removing access later.**
+When an external person no longer needs access (e.g. a contractor's
+season is over), go back to `login.tailscale.com/admin/machines`, find
+their device under the server's sharing settings, and remove it - this
+revokes their access immediately without affecting anyone else.
+
+### Keeping the server running
+
+However it's started, leave it running continuously during harvest
+season - the app expects to be a long-lived local service, not something
+started and stopped around each use. (The automatic nightly backup,
+[chapter 11](#11-admin---settings), only fires if the server happens to
+be running at 02:00 - see that chapter's note on this limitation.)
 
 ### What happens on first startup
 
