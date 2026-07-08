@@ -16,9 +16,23 @@ function updateBannerClock() {
   el.textContent = `${dateStr}  ·  ${timeStr}`;
 }
 
+async function updateBannerWeather() {
+  const el = document.getElementById("headerWeather");
+  if (!el) return;
+  try {
+    const w = await LW.api("/api/weather/current");
+    if (w && w.temp !== undefined && w.temp !== null) {
+      el.textContent = `${Math.round(w.temp)}°C · ${w.condition}${w.humidity != null ? ` · ${w.humidity}% humidity` : ""}`;
+    }
+  } catch (e) {
+    // weather is a nice-to-have - never blocks or errors the rest of the header
+  }
+}
+
 function initBanner() {
   updateBannerFarmName();
   updateBannerClock();
+  updateBannerWeather();
   setInterval(updateBannerClock, 1000);
 }
 
@@ -906,6 +920,35 @@ function bindSettings() {
   document.getElementById("pickMapBtn").addEventListener("click", openMapModal);
   document.getElementById("closeMapBtn").addEventListener("click", closeMapModal);
   document.getElementById("confirmMapBtn").addEventListener("click", confirmMapLocation);
+  document.getElementById("runBackupBtn").addEventListener("click", runBackupNow);
+}
+
+async function loadBackupsList() {
+  const backups = await LW.api("/api/backups", { auth: true });
+  document.getElementById("backupsTable").innerHTML = backups.map((b) => `
+    <tr class="border-b">
+      <td class="p-2">${new Date(b.created_at).toLocaleString()}</td>
+      <td class="p-2">${(b.size_bytes / 1024 / 1024).toFixed(2)} MB</td>
+      <td class="p-2 text-right"><a href="#" class="text-blue-700 text-xs" data-download="${b.filename}">Download</a></td>
+    </tr>
+  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="3">No backups yet</td></tr>`;
+  document.querySelectorAll("#backupsTable [data-download]").forEach((a) => {
+    a.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const blob = await LW.api(`/api/backups/${a.dataset.download}/download`, { auth: true });
+      LW.downloadBlob(blob, a.dataset.download);
+    });
+  });
+}
+
+async function runBackupNow() {
+  try {
+    await LW.api("/api/backups", { method: "POST", auth: true });
+    LW.toast("Backup created");
+    await loadBackupsList();
+  } catch (e) {
+    LW.toast("Backup failed");
+  }
 }
 
 async function loadSettingsForm() {
@@ -924,6 +967,7 @@ async function loadSettingsForm() {
   if (rate) {
     document.getElementById("setRatePerKg").value = rate.default_rate_per_kg;
   }
+  await loadBackupsList();
 }
 
 async function saveSystemSettings() {
