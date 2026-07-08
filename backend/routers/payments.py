@@ -6,12 +6,41 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlmodel import Session, select
 
-from db import get_session
+from db import get_own_supplier_id, get_session
 from excel_io import rows_to_xlsx_bytes
-from models import HarvestRecord, Payment, PaymentStatus, RateSetting, RateType, Worker
+from models import HarvestRecord, Payment, RateSetting, RateType, Supplier, Worker
 from security import get_current_admin
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
+
+
+def _worker_ids_for_supplier(session: Session, supplier_id: Optional[int]) -> Optional[set]:
+    """Resolve which workers belong to a supplier filter, or None for no filter.
+    Own-farm workers are seeded with supplier_id left unset (None) rather than
+    pointing at the "Own Farm" Supplier row (see master_data.py/seed_demo.py),
+    so matching the own-farm supplier has to include NULL too - a plain
+    equality check would silently return zero workers for that case."""
+    if supplier_id is None:
+        return None
+    own_id = get_own_supplier_id(session)
+    if supplier_id == own_id:
+        ids = session.exec(select(Worker.id).where(
+            (Worker.supplier_id == None) | (Worker.supplier_id == own_id)  # noqa: E711
+        )).all()
+    else:
+        ids = session.exec(select(Worker.id).where(Worker.supplier_id == supplier_id)).all()
+    return set(ids)
+
+
+def _supplier_display_name(worker: Optional[Worker], suppliers_by_id: dict, own_id: Optional[int],
+                            own_name: str) -> str:
+    """Resolve the farm/supplier name to show for a worker, for grouping the
+    wage sheet - own-farm workers have supplier_id left unset (None), so they
+    fall back to the own-farm supplier's name rather than an "Unknown" group."""
+    if not worker or worker.supplier_id is None or worker.supplier_id == own_id:
+        return own_name
+    supplier = suppliers_by_id.get(worker.supplier_id)
+    return supplier.name if supplier else "Unknown"
 
 
 def _tier_rate_for_weight(weight_kg: float, tiers: dict[str, float]) -> float:
@@ -29,12 +58,14 @@ def _tier_rate_for_weight(weight_kg: float, tiers: dict[str, float]) -> float:
     return tiers[str(chosen) if str(chosen) in tiers else next(k for k in tiers if float(k) == chosen)]
 
 
-def _worker_totals(session: Session, period_start: date, period_end: date):
+def _worker_totals(session: Session, period_start: date, period_end: date, supplier_id: Optional[int] = None):
     start_dt = datetime.combine(period_start, time.min)
     end_dt = datetime.combine(period_end, time.max)
-    records = session.exec(
-        select(HarvestRecord).where(HarvestRecord.timestamp >= start_dt, HarvestRecord.timestamp <= end_dt)
-    ).all()
+    query = select(HarvestRecord).where(HarvestRecord.timestamp >= start_dt, HarvestRecord.timestamp <= end_dt)
+    worker_ids = _worker_ids_for_supplier(session, supplier_id)
+    if worker_ids is not None:
+        query = query.where(HarvestRecord.worker_id.in_(worker_ids))
+    records = session.exec(query).all()
     setting = session.exec(select(RateSetting).order_by(RateSetting.effective_date.desc())).first()
     tiers = json.loads(setting.tier_rates_json) if setting else {}
 
@@ -53,9 +84,9 @@ def _worker_totals(session: Session, period_start: date, period_end: date):
 
 
 @router.post("/calculate")
-def calculate_payments(period_start: date, period_end: date, session: Session = Depends(get_session),
-                        admin=Depends(get_current_admin)):
-    totals, setting = _worker_totals(session, period_start, period_end)
+def calculate_payments(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                        session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    totals, setting = _worker_totals(session, period_start, period_end, supplier_id)
     rate_applied = setting.default_rate_per_kg if setting else 0.0
     results = []
     for worker_id, data in totals.items():
@@ -67,8 +98,6 @@ def calculate_payments(period_start: date, period_end: date, session: Session = 
         payment.total_kg = round(data["total_kg"], 2)
         payment.rate_applied = rate_applied
         payment.amount_due = round(data["amount"], 2)
-        if payment.status != PaymentStatus.paid:
-            payment.status = PaymentStatus.pending if payment.amount_paid == 0 else PaymentStatus.partial
         session.add(payment)
         results.append(payment)
     session.commit()
@@ -88,36 +117,44 @@ def list_payments(period_start: Optional[date] = None, period_end: Optional[date
     return session.exec(query).all()
 
 
-@router.patch("/{payment_id}")
-def update_payment(payment_id: int, amount_paid: float, status: PaymentStatus,
-                    session: Session = Depends(get_session), admin=Depends(get_current_admin)):
-    payment = session.get(Payment, payment_id)
-    if not payment:
-        return {"error": "not found"}
-    payment.amount_paid = amount_paid
-    payment.status = status
-    session.add(payment)
-    session.commit()
-    session.refresh(payment)
-    return payment
-
-
 @router.get("/export")
-def export_payments(period_start: date, period_end: date, fmt: str = Query("xlsx", pattern="^(csv|xlsx)$"),
+def export_payments(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                     fmt: str = Query("xlsx", pattern="^(csv|xlsx)$"),
                      session: Session = Depends(get_session), admin=Depends(get_current_admin)):
     payments = session.exec(
         select(Payment).where(Payment.period_start == period_start, Payment.period_end == period_end)
     ).all()
+    worker_ids = _worker_ids_for_supplier(session, supplier_id)
+    if worker_ids is not None:
+        payments = [p for p in payments if p.worker_id in worker_ids]
     workers = {w.id: w for w in session.exec(select(Worker)).all()}
+    suppliers_by_id = {s.id: s for s in session.exec(select(Supplier)).all()}
+    own_id = get_own_supplier_id(session)
+    own_supplier = suppliers_by_id.get(own_id)
+    own_name = own_supplier.name if own_supplier else "Own Farm"
 
-    headers = ["Emp Nr", "Naam & Van", "Total Kg", "Rate", "Amount Due", "Amount Paid", "Bank", "Account", "Status"]
-    rows = []
+    groups: dict[str, list[Payment]] = {}
     for p in payments:
-        w = workers.get(p.worker_id)
-        rows.append([
-            p.worker_id, w.name if w else "", p.total_kg, p.rate_applied, p.amount_due,
-            p.amount_paid, w.bank if w else "", w.account if w else "", p.status.value,
-        ])
+        name = _supplier_display_name(workers.get(p.worker_id), suppliers_by_id, own_id, own_name)
+        groups.setdefault(name, []).append(p)
+    group_names = sorted(groups.keys(), key=lambda n: (n != own_name, n))
+
+    headers = ["Farm/Supplier", "Emp Nr", "Naam & Van", "Total Kg", "Rate", "Amount Due", "Bank", "Account"]
+    rows = []
+    for name in group_names:
+        group_payments = groups[name]
+        worker_count = len(group_payments)
+        total_kg = round(sum(p.total_kg for p in group_payments), 1)
+        total_wages = round(sum(p.amount_due for p in group_payments), 2)
+        summary = (f"{name} - {worker_count} worker{'s' if worker_count != 1 else ''} - "
+                   f"{total_kg} kg - R{total_wages:.2f} total wages")
+        rows.append([summary, "", "", "", "", "", "", ""])
+        for p in group_payments:
+            w = workers.get(p.worker_id)
+            rows.append([
+                name, p.worker_id, w.name if w else "", p.total_kg, p.rate_applied, p.amount_due,
+                w.bank if w else "", w.account if w else "",
+            ])
 
     if fmt == "xlsx":
         data = rows_to_xlsx_bytes(headers, rows, "Payments")

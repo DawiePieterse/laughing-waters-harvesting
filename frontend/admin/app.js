@@ -312,8 +312,8 @@ function renderWorkersTable() {
   }
 }
 
-function populateWorkerSupplierFilter(suppliers) {
-  const select = document.getElementById("workerSupplierFilter");
+function populateSupplierFilterSelect(elementId, suppliers) {
+  const select = document.getElementById(elementId);
   if (!select) return;
   const current = select.value;
   const active = suppliers.filter((s) => s.active);
@@ -486,7 +486,7 @@ async function loadSuppliers() {
     <tr class="border-b ${s.active ? "" : "opacity-50"}">
       <td class="p-2">${s.name}${s.is_own_farm ? ' <span class="text-xs text-blue-700 font-semibold">(Own Farm)</span>' : ""}</td>
       <td class="p-2 text-xs">${s.contact_name || ""}${s.contact_phone ? ` - ${s.contact_phone}` : ""}</td>
-      <td class="p-2 text-xs">${s.packing_rate_per_kg > 0 ? `R${s.packing_rate_per_kg}/kg` : s.packing_rate_per_crate > 0 ? `R${s.packing_rate_per_crate}/crate` : "-"}</td>
+      <td class="p-2 text-xs">${s.packing_rate_per_kg > 0 ? `R${s.packing_rate_per_kg.toFixed(2)}/kg` : s.packing_rate_per_crate > 0 ? `R${s.packing_rate_per_crate.toFixed(2)}/crate` : "-"}</td>
       <td class="p-2">${s.active ? '<span class="text-green-600 text-xs">Active</span>' : '<span class="text-slate-400 text-xs">Inactive</span>'}</td>
       <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit="${s.id}">Edit</button></td>
     </tr>
@@ -495,7 +495,8 @@ async function loadSuppliers() {
     btn.addEventListener("click", () => editSupplier(suppliers.find((s) => s.id == btn.dataset.edit)));
   });
   populateBillingSupplierSelect(suppliers);
-  populateWorkerSupplierFilter(suppliers);
+  populateSupplierFilterSelect("workerSupplierFilter", suppliers);
+  populateSupplierFilterSelect("paySupplierFilter", suppliers);
   if (window._workersCache) renderWorkersTable(); // resolve supplier names if workers loaded first
 }
 
@@ -553,7 +554,7 @@ async function calculateBilling() {
   try {
     const data = await LW.api(`/api/suppliers/${supplierId}/billing?period_start=${start}&period_end=${end}`, { auth: true });
     const summaryEl = document.getElementById("billingSummary");
-    summaryEl.textContent = `${data.lots.length} lot${data.lots.length === 1 ? "" : "s"} - ${data.total_crates} crates - ${data.total_kg} kg - Rate: R${data.rate} ${data.rate_type === "per_kg" ? "/kg" : "/crate"} - Amount Due: R${data.amount_due}`;
+    summaryEl.textContent = `${data.lots.length} lot${data.lots.length === 1 ? "" : "s"} - ${data.total_crates} crates - ${data.total_kg} kg - Rate: R${data.rate.toFixed(2)} ${data.rate_type === "per_kg" ? "/kg" : "/crate"} - Amount Due: R${data.amount_due.toFixed(2)}`;
     summaryEl.classList.remove("hidden");
     document.getElementById("billingTable").innerHTML = data.lots.map((l) => `
       <tr class="border-b">
@@ -577,54 +578,95 @@ function bindPayments() {
   document.getElementById("payEnd").value = today;
   document.getElementById("calcPayBtn").addEventListener("click", calculatePayments);
   document.getElementById("exportPayBtn").addEventListener("click", exportPayments);
+
+  document.getElementById("payTodayBtn").addEventListener("click", () => {
+    const t = new Date().toISOString().slice(0, 10);
+    document.getElementById("payStart").value = t;
+    document.getElementById("payEnd").value = t;
+  });
+  document.getElementById("payWeekBtn").addEventListener("click", () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 6);
+    document.getElementById("payStart").value = start.toISOString().slice(0, 10);
+    document.getElementById("payEnd").value = end.toISOString().slice(0, 10);
+  });
+  document.getElementById("paySeasonBtn").addEventListener("click", () => {
+    if (_systemSettings) {
+      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
+      document.getElementById("payStart").value = `${year}-01-01`;
+      document.getElementById("payEnd").value = `${year}-12-31`;
+    }
+  });
 }
 
 async function calculatePayments() {
   const start = document.getElementById("payStart").value;
   const end = document.getElementById("payEnd").value;
-  const payments = await LW.api(`/api/payments/calculate?period_start=${start}&period_end=${end}`, { method: "POST", auth: true });
+  const supplierId = document.getElementById("paySupplierFilter").value;
+  const supplierParam = supplierId ? `&supplier_id=${supplierId}` : "";
+  const payments = await LW.api(`/api/payments/calculate?period_start=${start}&period_end=${end}${supplierParam}`, { method: "POST", auth: true });
   renderPayments(payments);
+}
+
+function supplierNameForWorker(worker, suppliers) {
+  const own = suppliers.find((s) => s.is_own_farm);
+  if (!worker || worker.supplier_id == null || (own && worker.supplier_id === own.id)) {
+    return own ? own.name : "Own Farm";
+  }
+  const supplier = suppliers.find((s) => s.id === worker.supplier_id);
+  return supplier ? supplier.name : "Unknown";
 }
 
 function renderPayments(payments) {
   const workers = new Map((window._workersCache || []).map((w) => [w.id, w]));
-  document.getElementById("paymentsTable").innerHTML = payments.map((p) => {
-    const w = workers.get(p.worker_id);
-    const displayName = w ? (w.name || `${w.first_name} ${w.last_name}`.trim() || w.id) : p.worker_id;
-    return `
-      <tr class="border-b">
-        <td class="p-2">${displayName}</td>
-        <td class="p-2">${p.total_kg}</td>
-        <td class="p-2">R${p.rate_applied}/kg</td>
-        <td class="p-2">R${p.amount_due}</td>
-        <td class="p-2"><input type="number" step="0.01" value="${p.amount_paid}" class="w-20 border rounded p-1" data-paid="${p.id}"></td>
-        <td class="p-2">
-          <select data-status="${p.id}" class="border rounded p-1">
-            <option value="Pending" ${p.status === "Pending" ? "selected" : ""}>Pending</option>
-            <option value="Partial" ${p.status === "Partial" ? "selected" : ""}>Partial</option>
-            <option value="Paid" ${p.status === "Paid" ? "selected" : ""}>Paid</option>
-          </select>
-        </td>
-        <td class="p-2"><button class="text-blue-700 text-xs" data-save="${p.id}">Save</button></td>
+  const suppliers = window._suppliersCache || [];
+  const ownName = (suppliers.find((s) => s.is_own_farm) || {}).name;
+
+  const groups = new Map();
+  for (const p of payments) {
+    const name = supplierNameForWorker(workers.get(p.worker_id), suppliers);
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(p);
+  }
+  const groupNames = Array.from(groups.keys()).sort((a, b) => {
+    if (a === ownName) return -1;
+    if (b === ownName) return 1;
+    return a.localeCompare(b);
+  });
+
+  document.getElementById("paymentsTable").innerHTML = groupNames.map((name) => {
+    const groupPayments = groups.get(name);
+    const totalKg = groupPayments.reduce((sum, p) => sum + p.total_kg, 0);
+    const totalWages = groupPayments.reduce((sum, p) => sum + p.amount_due, 0);
+    const summaryRow = `
+      <tr class="bg-slate-100 font-semibold">
+        <td class="p-2" colspan="5">${name} - ${groupPayments.length} worker${groupPayments.length === 1 ? "" : "s"} - ${totalKg.toFixed(1)} kg - R${totalWages.toFixed(2)} total wages</td>
       </tr>
     `;
+    const rows = groupPayments.map((p) => {
+      const w = workers.get(p.worker_id);
+      const displayName = w ? (w.name || `${w.first_name} ${w.last_name}`.trim() || w.id) : p.worker_id;
+      return `
+        <tr class="border-b">
+          <td class="p-2 text-xs text-slate-500">${name}</td>
+          <td class="p-2">${displayName}</td>
+          <td class="p-2">${p.total_kg}</td>
+          <td class="p-2">R${p.rate_applied.toFixed(2)}/kg</td>
+          <td class="p-2">R${p.amount_due.toFixed(2)}</td>
+        </tr>
+      `;
+    }).join("");
+    return summaryRow + rows;
   }).join("");
-
-  document.querySelectorAll("#paymentsTable [data-save]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const id = btn.dataset.save;
-      const amountPaid = document.querySelector(`[data-paid="${id}"]`).value;
-      const status = document.querySelector(`[data-status="${id}"]`).value;
-      await LW.api(`/api/payments/${id}?amount_paid=${amountPaid}&status=${status}`, { method: "PATCH", auth: true });
-      LW.toast("Payment updated");
-    });
-  });
 }
 
 async function exportPayments() {
   const start = document.getElementById("payStart").value;
   const end = document.getElementById("payEnd").value;
-  const blob = await LW.api(`/api/payments/export?period_start=${start}&period_end=${end}&fmt=xlsx`, { auth: true });
+  const supplierId = document.getElementById("paySupplierFilter").value;
+  const supplierParam = supplierId ? `&supplier_id=${supplierId}` : "";
+  const blob = await LW.api(`/api/payments/export?period_start=${start}&period_end=${end}${supplierParam}&fmt=xlsx`, { auth: true });
   LW.downloadBlob(blob, `Wages_${start}_${end}.xlsx`);
 }
 

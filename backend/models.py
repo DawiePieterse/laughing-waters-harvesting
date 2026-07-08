@@ -29,12 +29,6 @@ class RateType(str, Enum):
     per_crate_tier = "per_crate_tier"
 
 
-class PaymentStatus(str, Enum):
-    pending = "Pending"
-    partial = "Partial"
-    paid = "Paid"
-
-
 # ---------------------------------------------------------------------------
 # Master data
 # ---------------------------------------------------------------------------
@@ -191,8 +185,6 @@ class Payment(SQLModel, table=True):
     total_kg: float = 0.0
     rate_applied: float = 0.0
     amount_due: float = 0.0
-    amount_paid: float = 0.0
-    status: PaymentStatus = PaymentStatus.pending
 
 
 # ---------------------------------------------------------------------------

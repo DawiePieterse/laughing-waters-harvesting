@@ -152,14 +152,18 @@
     <!-- PAYMENTS -->
     <div id="tab-payments" class="tab-content hidden space-y-4">
       <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-2 items-end">
+        <div><label class="text-xs text-slate-500 block">Farm / Supplier</label><select id="paySupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select></div>
         <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="payStart" class="border border-slate-300 rounded-lg p-2"></div>
         <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="payEnd" class="border border-slate-300 rounded-lg p-2"></div>
+        <button id="payTodayBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Today</button>
+        <button id="payWeekBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">This Week</button>
+        <button id="paySeasonBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Season</button>
         <button id="calcPayBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Calculate Wages</button>
         <button id="exportPayBtn" class="px-4 py-2 bg-slate-200 rounded-lg">Export Wage Sheet</button>
       </div>
       <div class="bg-white rounded-xl shadow overflow-x-auto">
         <table class="w-full text-sm">
-          <thead><tr class="text-left border-b"><th class="p-2">Worker</th><th class="p-2">Kg</th><th class="p-2">Rate (R/kg)</th><th class="p-2">Due</th><th class="p-2">Paid</th><th class="p-2">Status</th><th></th></tr></thead>
+          <thead><tr class="text-left border-b"><th class="p-2">Farm / Supplier</th><th class="p-2">Worker</th><th class="p-2">Kg</th><th class="p-2">Rate (R/kg)</th><th class="p-2">Due</th></tr></thead>
           <tbody id="paymentsTable"></tbody>
         </table>
       </div>
