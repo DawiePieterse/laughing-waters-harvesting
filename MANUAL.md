@@ -90,7 +90,8 @@ those other devices.
 - A Windows, Mac, or Linux computer that can be left switched on and
   connected to the network for the whole harvest season - this is the
   "server" referred to throughout this manual. It does not need to be
-  powerful; any normal office PC is enough.
+  powerful; any normal office PC is enough (see the recommended spec
+  below).
 - Python 3.9 or newer (3.11 is a safe default if installing fresh).
 - Network access from every device that needs to reach the app (the same
   Wi-Fi/LAN the farm already uses, or a Tailscale network if devices need
@@ -102,10 +103,70 @@ those other devices.
   `~/LaughingWaters` on Mac/Linux; adjust the paths below if you use a
   different location.
 
+#### Recommended server PC spec
+
+This is a lightweight app (one Python process, a local SQLite database, no
+heavy computation) - it does not need server-grade hardware, just an
+ordinary PC that stays switched on.
+
+| Spec | Minimum | Recommended |
+|---|---|---|
+| OS | Windows 10/11 64-bit, macOS, or Linux | Same |
+| CPU | Any dual-core from the last ~10 years (Celeron/i3-class) | Any modern i3/Ryzen 3 or better |
+| RAM | 4 GB | 8 GB |
+| Storage | 60 GB free | 128 GB+ SSD |
+| Network | Wi-Fi or Ethernet, same LAN as field/pack house devices | Ethernet, with a static IP or DHCP reservation |
+
+The app itself (Python plus all its dependencies) takes up around
+150 MB, and the database, worker photos, and 14 rolling backups together
+typically stay in the tens-to-low-hundreds of MB even after a full
+season - storage capacity is not a real constraint here.
+
+A small **UPS (uninterruptible power supply)** is worth adding even
+though it's not strictly required: the one real risk on a farm is a power
+cut corrupting the SQLite database mid-write, and a UPS gives the PC
+enough time to either ride out a brief outage or shut down cleanly. No
+GPU or other special hardware is needed.
+
+### Quick setup: the automated installer (recommended)
+
+The project folder includes `install.bat`, which automates everything in
+the manual step-by-step section below - installing Python if it's
+missing, creating the virtual environment, installing dependencies,
+opening the firewall port, and registering the server to auto-start with
+Windows (no login or password needed for it to start). It's safe to
+double-click again later if something needs redoing - each step checks
+what's already in place first.
+
+1. Copy the whole project folder onto the PC (see Step 1 below).
+2. Double-click **`install.bat`** at the top of that folder.
+3. If Windows shows a blue **"Windows protected your PC"** screen, click
+   **"More info"**, then **"Run anyway"**. This is normal for any script
+   that isn't from a large, registered publisher - it doesn't mean
+   anything is wrong with it.
+4. If a **User Account Control** prompt appears asking to let the app
+   make changes, click **"Yes"** - administrator rights are needed to
+   configure the firewall and register the auto-start task.
+5. Wait for it to finish. A black window will print its progress (this
+   can take a few minutes the first time, mostly spent downloading Python
+   and the app's dependencies) and finish with the address to browse to
+   from other devices. Press Enter to close the window when it says
+   "Setup complete!".
+6. **Change the default admin password immediately** - the installer
+   does not do this for you. Log in with username `admin` and password
+   `ChangeMe123!`, then go to Settings → Change admin password.
+
+If the installer fails partway, or you'd rather understand/do each part
+by hand, use the manual steps below instead - they're exactly what the
+installer automates.
+
 ### Setting up on a Windows PC (step by step)
 
 This is the most common setup, since most farm offices run Windows. Every
-step is done once, when first setting up the server.
+step is done once, when first setting up the server. **Most farms can
+skip straight to the automated installer above** - use these steps
+instead if you prefer to do it by hand, or need to troubleshoot one
+specific part.
 
 **Step 1 - Copy the app folder onto the PC.**
 Place the whole project folder somewhere permanent and easy to find, e.g.
