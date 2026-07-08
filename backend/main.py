@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db import PHOTOS_DIR, create_db_and_tables, seed_defaults
-from routers import auth, devices, master_data, lots, payments, processing, receiving, reports, suppliers, sync
+from routers import auth, dashboard, devices, master_data, lots, payments, processing, receiving, reports, suppliers, sync
 
 app = FastAPI(title="Laughing Waters Harvest & Receiving")
 
@@ -26,6 +26,7 @@ app.include_router(payments.router)
 app.include_router(reports.router)
 app.include_router(sync.router)
 app.include_router(processing.router)
+app.include_router(dashboard.router)
 
 
 @app.on_event("startup")

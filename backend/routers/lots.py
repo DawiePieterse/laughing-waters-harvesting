@@ -1,6 +1,6 @@
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +8,6 @@ from sqlmodel import Session, SQLModel, select
 
 from db import get_own_supplier_id, get_session
 from models import HarvestRecord, Lot, LotStatus, Supplier, SystemSetting
-from timeutil import period_start_utc
 from weather import fetch_weather as _fetch_weather
 
 router = APIRouter(prefix="/api/lots", tags=["lots"])
@@ -114,24 +113,25 @@ def _related_lots(session: Session, lot: Lot, parents_by_slip: dict, children_by
 
 
 @router.get("/pending")
-def list_pending(supplier_id: Optional[int] = None, period: Optional[str] = None,
-                  session: Session = Depends(get_session)):
+def list_pending(supplier_id: Optional[int] = None, period_start: Optional[date] = None,
+                  period_end: Optional[date] = None, session: Session = Depends(get_session)):
     """Crates already captured in the field whose picking slip hasn't been
     dispatched yet ('Send Picking Slip' not tapped). These lots exist only
     as placeholders (status=created, created on first crate sync) so their
     totals are computed live from HarvestRecord rather than stored on Lot.
     Always the farm's own fruit - other suppliers don't use field devices.
 
-    period is optional and only applied when passed (dashboard KPI use) -
-    left unfiltered by default so device screens always see every pending
-    lot regardless of when picking started."""
+    period_start/period_end are optional and only applied when both are
+    passed (dashboard KPI use) - left unfiltered by default so device screens
+    always see every pending lot regardless of when picking started."""
     settings = session.exec(select(SystemSetting)).first() or SystemSetting()
     suppliers = _supplier_map(session)
     query = select(Lot).where(Lot.status == LotStatus.created)
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
-    if period is not None:
-        query = query.where(Lot.timestamp >= period_start_utc(period))
+    if period_start is not None and period_end is not None:
+        query = query.where(Lot.timestamp >= datetime.combine(period_start, time.min),
+                             Lot.timestamp <= datetime.combine(period_end, time.max))
     lots = session.exec(query.order_by(Lot.timestamp.asc())).all()
     result = []
     for l in lots:
@@ -148,22 +148,24 @@ def list_pending(supplier_id: Optional[int] = None, period: Optional[str] = None
 
 
 @router.get("/in-transit")
-def list_in_transit(supplier_id: Optional[int] = None, period: Optional[str] = None,
-                     session: Session = Depends(get_session)):
+def list_in_transit(supplier_id: Optional[int] = None, period_start: Optional[date] = None,
+                     period_end: Optional[date] = None, session: Session = Depends(get_session)):
     """Landing view for the pack house app: dispatched lots not yet
     received, oldest (most urgent, red) first - own fruit and other
     suppliers' fruit together, distinguished by supplier_name.
 
-    period is optional and only applied when passed (dashboard KPI use) -
-    left unfiltered by default so the pack house gate always sees every
-    truck currently on its way, regardless of when it was dispatched."""
+    period_start/period_end are optional and only applied when both are
+    passed (dashboard KPI use) - left unfiltered by default so the pack
+    house gate always sees every truck currently on its way, regardless of
+    when it was dispatched."""
     settings = session.exec(select(SystemSetting)).first() or SystemSetting()
     suppliers = _supplier_map(session)
     query = select(Lot).where(Lot.status == LotStatus.in_transit)
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
-    if period is not None:
-        query = query.where(Lot.timestamp >= period_start_utc(period))
+    if period_start is not None and period_end is not None:
+        query = query.where(Lot.timestamp >= datetime.combine(period_start, time.min),
+                             Lot.timestamp <= datetime.combine(period_end, time.max))
     lots = session.exec(query.order_by(Lot.timestamp.asc())).all()
     parents_by_slip, children_by_parent_slip = _build_split_index(session)
     enriched = []
@@ -176,19 +178,20 @@ def list_in_transit(supplier_id: Optional[int] = None, period: Optional[str] = N
 
 
 @router.get("/received")
-def list_received(period: str = "today", supplier_id: Optional[int] = None,
-                   session: Session = Depends(get_session)):
-    """Recently received lots for the dashboard, matching the period selector."""
+def list_received(period_start: Optional[date] = None, period_end: Optional[date] = None,
+                   supplier_id: Optional[int] = None, session: Session = Depends(get_session)):
+    """Recently received lots for the dashboard, newest-received first.
+
+    period_start/period_end are optional and only applied when both are
+    passed - left unfiltered by default (all received lots, any time)."""
     settings = session.exec(select(SystemSetting)).first() or SystemSetting()
     suppliers = _supplier_map(session)
-    since = period_start_utc(period)
     # received_at is only ever set at gate check-in, so it alone defines
     # "received" - graded lots (status=processing_complete) stay in the list.
-    query = (
-        select(Lot)
-        .where(Lot.received_at != None)  # noqa: E711
-        .where(Lot.received_at >= since)
-    )
+    query = select(Lot).where(Lot.received_at != None)  # noqa: E711
+    if period_start is not None and period_end is not None:
+        query = query.where(Lot.received_at >= datetime.combine(period_start, time.min),
+                             Lot.received_at <= datetime.combine(period_end, time.max))
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
     lots = session.exec(query.order_by(Lot.received_at.desc())).all()

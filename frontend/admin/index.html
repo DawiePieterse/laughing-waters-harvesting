@@ -42,7 +42,8 @@
   </div>
 
   <div class="flex overflow-x-auto bg-white shadow sticky top-0 z-10">
-    <button class="tab-btn active" data-tab="masterdata">Master Data</button>
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="masterdata">Master Data</button>
     <button class="tab-btn" data-tab="payments">Payments</button>
     <button class="tab-btn" data-tab="reports">Reports</button>
     <button class="tab-btn" data-tab="settings">Settings</button>
@@ -50,7 +51,72 @@
 
   <div class="p-4 max-w-7xl mx-auto">
 
-    <div id="tab-masterdata" class="tab-content space-y-4">
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content space-y-4">
+      <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-2 items-end">
+        <div><label class="text-xs text-slate-500 block">Farm / Supplier</label><select id="dashSupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select></div>
+        <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="dashStart" class="border border-slate-300 rounded-lg p-2"></div>
+        <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="dashEnd" class="border border-slate-300 rounded-lg p-2"></div>
+        <button id="dashTodayBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Today</button>
+        <button id="dashWeekBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">This Week</button>
+        <button id="dashSeasonBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Season</button>
+        <button id="dashRefreshBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Refresh</button>
+      </div>
+
+      <div id="dashKpiGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-harvesting-body">
+          <span id="dash-harvesting-title" class="font-semibold">Harvesting - 0 crates / 0 kg</span>
+          <i class="fa-solid fa-chevron-down text-slate-400"></i>
+        </button>
+        <div id="dash-harvesting-body" class="collapsible-body hidden border-t divide-y"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-intransit-body">
+          <span id="dash-intransit-title" class="font-semibold">In transit - 0 crates / 0 kg</span>
+          <i class="fa-solid fa-chevron-down text-slate-400"></i>
+        </button>
+        <div id="dash-intransit-body" class="collapsible-body hidden border-t divide-y"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-received-body">
+          <span id="dash-received-title" class="font-semibold">Received - 0 crates / 0 kg</span>
+          <i class="fa-solid fa-chevron-down text-slate-400"></i>
+        </button>
+        <div id="dash-received-body" class="collapsible-body hidden border-t divide-y"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-workers-body">
+          <span id="dash-workers-title" class="font-semibold">Workers - 0 workers</span>
+          <i class="fa-solid fa-chevron-down text-slate-400"></i>
+        </button>
+        <div id="dash-workers-body" class="collapsible-body hidden border-t overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b"><th class="p-2">Worker</th><th class="p-2">Farm/Supplier</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Amount Due</th><th class="p-2">Avg Kg/Crate</th></tr></thead>
+            <tbody id="dash-workers-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-blocks-body">
+          <span id="dash-blocks-title" class="font-semibold">Blocks - 0 blocks</span>
+          <i class="fa-solid fa-chevron-down text-slate-400"></i>
+        </button>
+        <div id="dash-blocks-body" class="collapsible-body hidden border-t overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b"><th class="p-2">Block</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th><th class="p-2">Avg Kg/Tree</th></tr></thead>
+            <tbody id="dash-blocks-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-masterdata" class="tab-content hidden space-y-4">
       <div class="flex overflow-x-auto gap-2">
         <button class="subtab-btn active" data-subtab="workers">Workers</button>
         <button class="subtab-btn" data-subtab="teams">Teams</button>
@@ -172,9 +238,12 @@
     <!-- REPORTS -->
     <div id="tab-reports" class="tab-content hidden space-y-4">
       <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-2 items-end">
+        <div><label class="text-xs text-slate-500 block">Farm / Supplier</label><select id="reportsSupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select></div>
         <div><label class="text-xs text-slate-500 block">Day / period start</label><input type="date" id="reportDate1" class="border border-slate-300 rounded-lg p-2"></div>
         <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="reportDate2" class="border border-slate-300 rounded-lg p-2"></div>
-        <button id="setSeasonDatesBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Use Season</button>
+        <button id="reportsTodayBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Today</button>
+        <button id="reportsWeekBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">This Week</button>
+        <button id="setSeasonDatesBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Season</button>
       </div>
       <div class="grid md:grid-cols-2 gap-3" id="reportsGrid"></div>
     </div>

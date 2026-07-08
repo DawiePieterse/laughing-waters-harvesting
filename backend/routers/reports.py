@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -7,6 +8,9 @@ from sqlmodel import Session, select
 from db import get_session
 from excel_io import rows_to_xlsx_bytes
 from models import Block, HarvestRecord, Lot, ReceivingRecord, Supplier, Team
+from routers.dashboard import dashboard_summary
+from routers.lots import list_in_transit, list_pending, list_received
+from routers.payments import _worker_ids_for_supplier
 from security import get_current_admin
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -24,12 +28,14 @@ def _day_bounds(day: date):
 
 
 @router.get("/daily-harvest")
-def daily_harvest_report(day: date = Query(default_factory=date.today), session: Session = Depends(get_session),
-                          admin=Depends(get_current_admin)):
+def daily_harvest_report(day: date = Query(default_factory=date.today), supplier_id: Optional[int] = None,
+                          session: Session = Depends(get_session), admin=Depends(get_current_admin)):
     start, end = _day_bounds(day)
-    records = session.exec(
-        select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
-    ).all()
+    query = select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
+    worker_ids = _worker_ids_for_supplier(session, supplier_id)
+    if worker_ids is not None:
+        query = query.where(HarvestRecord.worker_id.in_(worker_ids))
+    records = session.exec(query).all()
     blocks = {b.id: b for b in session.exec(select(Block)).all()}
     teams = {t.id: t for t in session.exec(select(Team)).all()}
 
@@ -53,12 +59,13 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), session:
 
 
 @router.get("/lot-receiving")
-def lot_receiving_report(date_from: date, date_to: date, session: Session = Depends(get_session),
-                          admin=Depends(get_current_admin)):
+def lot_receiving_report(date_from: date, date_to: date, supplier_id: Optional[int] = None,
+                          session: Session = Depends(get_session), admin=Depends(get_current_admin)):
     start, end = _day_bounds(date_from)[0], _day_bounds(date_to)[1]
-    lots = session.exec(
-        select(Lot).where(Lot.timestamp >= start, Lot.timestamp <= end).order_by(Lot.timestamp)
-    ).all()
+    query = select(Lot).where(Lot.timestamp >= start, Lot.timestamp <= end)
+    if supplier_id is not None:
+        query = query.where(Lot.supplier_id == supplier_id)
+    lots = session.exec(query.order_by(Lot.timestamp)).all()
     receiving_by_lot = {}
     for rec in session.exec(select(ReceivingRecord)).all():
         receiving_by_lot.setdefault(rec.lot_id, rec)
@@ -83,3 +90,66 @@ def lot_receiving_report(date_from: date, date_to: date, session: Session = Depe
             lot.weather_condition or "",
         ])
     return _xlsx_response(headers, rows, "Lot & Receiving", f"Lot_Receiving_{date_from}_{date_to}.xlsx")
+
+
+def _lot_rows(lots_data: list) -> list:
+    return [[
+        l["slip_number"], l["supplier_name"], l["team_id"] or "", l["driver"], l["total_crates"], l["total_kg"],
+        l["age_minutes"],
+    ] for l in lots_data]
+
+
+@router.get("/harvesting-list")
+def harvesting_list_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                            session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    lots_data = list_pending(supplier_id=supplier_id, period_start=period_start, period_end=period_end,
+                              session=session)
+    headers = ["Slip Number", "Farm/Supplier", "Team", "Driver", "Crates", "Kg", "Age (min)"]
+    return _xlsx_response(headers, _lot_rows(lots_data), "Harvesting",
+                           f"Harvesting_{period_start}_{period_end}.xlsx")
+
+
+@router.get("/in-transit-list")
+def in_transit_list_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                            session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    lots_data = list_in_transit(supplier_id=supplier_id, period_start=period_start, period_end=period_end,
+                                 session=session)
+    headers = ["Slip Number", "Farm/Supplier", "Team", "Driver", "Crates", "Kg", "Age (min)"]
+    return _xlsx_response(headers, _lot_rows(lots_data), "In Transit",
+                           f"In_Transit_{period_start}_{period_end}.xlsx")
+
+
+@router.get("/received-list")
+def received_list_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                          session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    lots_data = list_received(period_start=period_start, period_end=period_end, supplier_id=supplier_id,
+                               session=session)
+    headers = ["Slip Number", "Farm/Supplier", "Team", "Driver", "Crates", "Kg", "Received At"]
+    rows = [[
+        l["slip_number"], l["supplier_name"], l["team_id"] or "", l["driver"], l["total_crates"], l["total_kg"],
+        l["received_at"].isoformat(sep=" ", timespec="minutes") if l["received_at"] else "",
+    ] for l in lots_data]
+    return _xlsx_response(headers, rows, "Received", f"Received_{period_start}_{period_end}.xlsx")
+
+
+@router.get("/worker-harvest")
+def worker_harvest_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                           session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    summary = dashboard_summary(period_start, period_end, supplier_id, session, admin)
+    headers = ["Emp Nr", "Name", "Farm/Supplier", "Crates", "Kg", "Amount Due", "Avg Kg/Crate"]
+    rows = [[
+        w["worker_id"], w["name"], w["supplier_name"], w["crates"], w["total_kg"], w["amount_due"],
+        w["avg_kg_crate"],
+    ] for w in summary["workers"]]
+    return _xlsx_response(headers, rows, "Worker Harvest", f"Worker_Harvest_{period_start}_{period_end}.xlsx")
+
+
+@router.get("/block-harvest")
+def block_harvest_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                          session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    summary = dashboard_summary(period_start, period_end, supplier_id, session, admin)
+    headers = ["Block", "Crates", "Kg", "Avg Kg/Crate", "Avg Kg/Tree"]
+    rows = [[
+        b["name"], b["crates"], b["total_kg"], b["avg_kg_crate"], b["avg_kg_tree"] if b["avg_kg_tree"] is not None else "",
+    ] for b in summary["blocks"]]
+    return _xlsx_response(headers, rows, "Block Harvest", f"Block_Harvest_{period_start}_{period_end}.xlsx")

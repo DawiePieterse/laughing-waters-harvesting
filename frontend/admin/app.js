@@ -47,6 +47,8 @@ async function showApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   bindTabs();
+  bindCollapsibles();
+  bindDashboard();
   bindMasterData();
   bindPayments();
   bindReports();
@@ -55,6 +57,7 @@ async function showApp() {
   await loadSettingsForm();
   initBanner();
   await loadAllMasterData();
+  refreshDashboard();
 }
 
 async function login() {
@@ -99,8 +102,154 @@ function bindTabs() {
 }
 
 // ---------------------------------------------------------------------
-// Dashboard (deleted below)
+// Dashboard
 // ---------------------------------------------------------------------
+function bindCollapsibles() {
+  document.querySelectorAll(".collapsible-header").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById(btn.dataset.target).classList.toggle("hidden");
+      const icon = btn.querySelector(".fa-chevron-down, .fa-chevron-up");
+      if (icon) { icon.classList.toggle("fa-chevron-down"); icon.classList.toggle("fa-chevron-up"); }
+    });
+  });
+}
+
+function bindDashboard() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById("dashStart").value = today;
+  document.getElementById("dashEnd").value = today;
+  document.getElementById("dashRefreshBtn").addEventListener("click", refreshDashboard);
+  document.querySelector('.tab-btn[data-tab="dashboard"]').addEventListener("click", refreshDashboard);
+
+  document.getElementById("dashTodayBtn").addEventListener("click", () => {
+    const t = new Date().toISOString().slice(0, 10);
+    document.getElementById("dashStart").value = t;
+    document.getElementById("dashEnd").value = t;
+  });
+  document.getElementById("dashWeekBtn").addEventListener("click", () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 6);
+    document.getElementById("dashStart").value = start.toISOString().slice(0, 10);
+    document.getElementById("dashEnd").value = end.toISOString().slice(0, 10);
+  });
+  document.getElementById("dashSeasonBtn").addEventListener("click", () => {
+    if (_systemSettings) {
+      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
+      document.getElementById("dashStart").value = `${year}-01-01`;
+      document.getElementById("dashEnd").value = `${year}-12-31`;
+    }
+  });
+}
+
+async function refreshDashboard() {
+  const start = document.getElementById("dashStart").value;
+  const end = document.getElementById("dashEnd").value;
+  const supplierId = document.getElementById("dashSupplierFilter").value;
+  const supplierParam = supplierId ? `&supplier_id=${supplierId}` : "";
+  const qs = `period_start=${start}&period_end=${end}${supplierParam}`;
+
+  const [harvesting, inTransit, received, summary] = await Promise.all([
+    LW.api(`/api/lots/pending?${qs}`),
+    LW.api(`/api/lots/in-transit?${qs}`),
+    LW.api(`/api/lots/received?${qs}`),
+    LW.api(`/api/dashboard/summary?${qs}`, { auth: true }),
+  ]);
+
+  renderDashboardKpis(harvesting, inTransit, received, summary);
+  renderDashboardLists(harvesting, inTransit, received, summary);
+}
+
+function _lotTotals(lots) {
+  return {
+    crates: lots.reduce((s, l) => s + l.total_crates, 0),
+    kg: lots.reduce((s, l) => s + l.total_kg, 0),
+  };
+}
+
+function renderDashboardKpis(harvesting, inTransit, received, summary) {
+  const h = _lotTotals(harvesting);
+  const t = _lotTotals(inTransit);
+  const r = _lotTotals(received);
+  const allLots = [...harvesting, ...inTransit, ...received];
+  const totalCrates = h.crates + t.crates + r.crates;
+  const totalKg = h.kg + t.kg + r.kg;
+  const avgKgPerLot = allLots.length ? totalKg / allLots.length : 0;
+  const avgKgPerCrate = totalCrates ? totalKg / totalCrates : 0;
+
+  const cards = [
+    ["Teams Active", `${summary.active_teams} teams`],
+    ["Workers Active", `${summary.active_workers} workers`],
+    ["Blocks Active", `${summary.active_blocks} blocks`],
+    ["Total Kg", `${totalKg.toFixed(1)} kg`],
+    ["Total Crates", `${totalCrates} crates`],
+    ["Avg Kg/Lot", avgKgPerLot.toFixed(1)],
+    ["Avg Kg/Crate", avgKgPerCrate.toFixed(1)],
+    ["Harvesting", `${h.crates} crates / ${h.kg.toFixed(1)} kg`],
+    ["In Transit", `${t.crates} crates / ${t.kg.toFixed(1)} kg`],
+    ["Received", `${r.crates} crates / ${r.kg.toFixed(1)} kg`],
+  ];
+  document.getElementById("dashKpiGrid").innerHTML = cards.map(([label, value]) => `
+    <div class="bg-white rounded-xl shadow p-4">
+      <div class="text-xs text-slate-500">${label}</div>
+      <div class="text-xl font-bold">${value}</div>
+    </div>
+  `).join("");
+}
+
+function renderDashboardLists(harvesting, inTransit, received, summary) {
+  const h = _lotTotals(harvesting);
+  const t = _lotTotals(inTransit);
+  const r = _lotTotals(received);
+
+  document.getElementById("dash-harvesting-title").textContent = `Harvesting - ${h.crates} crates / ${h.kg.toFixed(1)} kg`;
+  document.getElementById("dash-harvesting-body").innerHTML = harvesting.map((l) => `
+    <div class="p-3 urgency-${l.urgency}">
+      <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - ${l.age_minutes} min ago</div>
+    </div>
+  `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing currently being harvested</div>`;
+
+  document.getElementById("dash-intransit-title").textContent = `In transit - ${t.crates} crates / ${t.kg.toFixed(1)} kg`;
+  document.getElementById("dash-intransit-body").innerHTML = inTransit.map((l) => `
+    <div class="p-3 urgency-${l.urgency}">
+      <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - ${l.age_minutes} min ago</div>
+    </div>
+  `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing currently in transit</div>`;
+
+  document.getElementById("dash-received-title").textContent = `Received - ${r.crates} crates / ${r.kg.toFixed(1)} kg`;
+  document.getElementById("dash-received-body").innerHTML = received.map((l) => `
+    <div class="p-3">
+      <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${new Date(l.received_at).toLocaleString()}</div>
+    </div>
+  `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing received in this period</div>`;
+
+  document.getElementById("dash-workers-title").textContent = `Workers - ${summary.workers.length} workers`;
+  document.getElementById("dash-workers-rows").innerHTML = summary.workers.map((w) => `
+    <tr class="border-b">
+      <td class="p-2">${w.name}</td>
+      <td class="p-2">${w.supplier_name}</td>
+      <td class="p-2">${w.crates}</td>
+      <td class="p-2">${w.total_kg}</td>
+      <td class="p-2">R${w.amount_due.toFixed(2)}</td>
+      <td class="p-2">${w.avg_kg_crate}</td>
+    </tr>
+  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="6">No harvest activity in this period</td></tr>`;
+
+  document.getElementById("dash-blocks-title").textContent = `Blocks - ${summary.blocks.length} blocks`;
+  document.getElementById("dash-blocks-rows").innerHTML = summary.blocks.map((b) => `
+    <tr class="border-b">
+      <td class="p-2">${b.name}</td>
+      <td class="p-2">${b.crates}</td>
+      <td class="p-2">${b.total_kg}</td>
+      <td class="p-2">${b.avg_kg_crate}</td>
+      <td class="p-2">${b.avg_kg_tree ?? "-"}</td>
+    </tr>
+  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="5">No harvest activity in this period</td></tr>`;
+}
+
 // ---------------------------------------------------------------------
 // Master data (generic table + modal editor)
 // ---------------------------------------------------------------------
@@ -497,6 +646,8 @@ async function loadSuppliers() {
   populateBillingSupplierSelect(suppliers);
   populateSupplierFilterSelect("workerSupplierFilter", suppliers);
   populateSupplierFilterSelect("paySupplierFilter", suppliers);
+  populateSupplierFilterSelect("dashSupplierFilter", suppliers);
+  populateSupplierFilterSelect("reportsSupplierFilter", suppliers);
   if (window._workersCache) renderWorkersTable(); // resolve supplier names if workers loaded first
 }
 
@@ -674,8 +825,20 @@ async function exportPayments() {
 // Reports
 // ---------------------------------------------------------------------
 const REPORTS = [
-  { key: "daily-harvest", label: "Daily Harvest Summary", icon: "fa-sun", params: (d1) => `day=${d1}` },
-  { key: "lot-receiving", label: "Lot & Receiving Report", icon: "fa-truck", params: (d1, d2) => `date_from=${d1}&date_to=${d2}` },
+  { key: "daily-harvest", label: "Daily Harvest Summary", icon: "fa-sun",
+    params: (d1, d2, s) => `day=${d1}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "lot-receiving", label: "Lot & Receiving Report", icon: "fa-truck",
+    params: (d1, d2, s) => `date_from=${d1}&date_to=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "harvesting-list", label: "Harvesting List", icon: "fa-seedling",
+    params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "in-transit-list", label: "In Transit List", icon: "fa-truck-fast",
+    params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "received-list", label: "Received List", icon: "fa-warehouse",
+    params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "worker-harvest", label: "Worker Harvest Report", icon: "fa-users",
+    params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "block-harvest", label: "Block Harvest Report", icon: "fa-tree",
+    params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
 ];
 
 function bindReports() {
@@ -683,6 +846,18 @@ function bindReports() {
   document.getElementById("reportDate1").value = today;
   document.getElementById("reportDate2").value = today;
 
+  document.getElementById("reportsTodayBtn").addEventListener("click", () => {
+    const t = new Date().toISOString().slice(0, 10);
+    document.getElementById("reportDate1").value = t;
+    document.getElementById("reportDate2").value = t;
+  });
+  document.getElementById("reportsWeekBtn").addEventListener("click", () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 6);
+    document.getElementById("reportDate1").value = start.toISOString().slice(0, 10);
+    document.getElementById("reportDate2").value = end.toISOString().slice(0, 10);
+  });
   document.getElementById("setSeasonDatesBtn").addEventListener("click", () => {
     if (_systemSettings) {
       const year = _systemSettings.current_harvest_year || new Date().getFullYear();
@@ -709,8 +884,9 @@ async function downloadReport(key) {
   const report = REPORTS.find((r) => r.key === key);
   const d1 = document.getElementById("reportDate1").value;
   const d2 = document.getElementById("reportDate2").value;
+  const supplierId = document.getElementById("reportsSupplierFilter").value;
   try {
-    const blob = await LW.api(`/api/reports/${key}?${report.params(d1, d2)}`, { auth: true });
+    const blob = await LW.api(`/api/reports/${key}?${report.params(d1, d2, supplierId)}`, { auth: true });
     LW.downloadBlob(blob, `${report.label.replace(/[^a-zA-Z0-9]+/g, "_")}.xlsx`);
   } catch (e) {
     LW.toast("Could not generate report");
