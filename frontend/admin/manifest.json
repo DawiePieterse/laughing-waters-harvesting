@@ -1,6 +1,6 @@
 {
-  "name": "Laughing Waters - Field Harvest",
-  "short_name": "LW Harvest",
+  "name": "Laughing Waters - Admin",
+  "short_name": "LW Admin",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -449,6 +449,35 @@ straight into a role's screen.
    on the server) - it won't ask again on future visits, and will jump
    straight to its role's screen.
 
+### Installing as an app icon (optional, recommended)
+
+Each of the three screens - Field, Pack House, Admin - is a small
+installable app (a "PWA") with its own name and icon, so a device can show
+"LW Harvest", "LW Pack House", or "LW Admin" on its home screen like any
+other app, instead of a browser tab/bookmark. This isn't required (the
+browser bookmark/URL works fine on its own), but it makes the right screen
+one tap away and avoids anyone confusing a browser address bar with the
+actual app.
+
+**Important: install from the role's own screen, not the setup screen.**
+Let the device auto-route itself first (steps above), then install from
+the resulting URL (e.g. `.../field/`, `.../packhouse/`, `.../admin/`) -
+installing from the very first device-ID entry screen would just save a
+generic icon, not the role-specific one.
+
+- **Android (Chrome)**: tap the three-dot menu (top right) → **"Add to
+  Home screen"** (or look for an automatic "Install app" banner/icon in
+  the address bar).
+- **iPhone/iPad (Safari)**: tap the **Share** icon → **"Add to Home
+  Screen"**.
+- **Windows/Mac (Chrome or Edge)**: look for an **install icon** (a
+  monitor with a down-arrow) at the right end of the address bar, or use
+  the three-dot/three-line menu → **"Install [app name]..."**.
+
+Each installs independently with its own icon and name - installing the
+Field app on a phone doesn't affect what a Pack House tablet or the
+office admin computer shows.
+
 ### "Unknown device id"
 
 If the entered ID isn't recognized, the device shows an error and refuses

@@ -202,4 +202,8 @@ async function confirmExternalLot() {
   }
 }
 
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+}
+
 init();
