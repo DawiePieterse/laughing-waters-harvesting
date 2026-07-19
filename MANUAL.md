@@ -128,6 +128,78 @@ cut corrupting the SQLite database mid-write, and a UPS gives the PC
 enough time to either ride out a brief outage or shut down cleanly. No
 GPU or other special hardware is needed.
 
+### Getting the code onto the server: GitHub (recommended) or USB/zip
+
+The app's source code is kept in a **private** GitHub repository at
+`github.com/DawiePieterse/laughing-waters-harvesting`. Deploying from
+GitHub is the recommended way to get it onto a new server, and also the
+way to pull future updates onto a server that's already running - it
+avoids re-copying files by hand and keeps a clear record of exactly what
+code is running. Copying the folder via USB drive or a zip file (see
+[Prerequisites](#prerequisites)) still works fine if preferred; skip to
+[Step 2](#setting-up-on-a-windows-pc-step-by-step) below if so.
+
+**Step A - Install Git for Windows.**
+Go to `git-scm.com/download/win` and download/run the 64-bit installer.
+The default options on every screen are fine - just click "Next" through
+to "Install". This gives the PC the `git` command used below (Windows
+already includes the underlying `ssh`/`ssh-keygen` tools it needs, via
+its built-in OpenSSH client).
+
+**Step B - Generate an SSH key for this server.**
+Since the repo is private, this PC needs its own key to prove it's
+allowed to read it. Open Command Prompt and run:
+```bat
+ssh-keygen -t ed25519 -C "farm-server"
+```
+Press Enter three times to accept the default file location and no
+passphrase. Then display the public key so it can be copied:
+```bat
+type %USERPROFILE%\.ssh\id_ed25519.pub
+```
+
+**Step C - Add the key to GitHub as a deploy key.**
+1. In a browser, go to the repository on GitHub, then
+   **Settings → Deploy keys → Add deploy key**.
+2. Give it a title (e.g. "Farm server"), paste in the public key from
+   Step B, and **leave "Allow write access" unchecked** - this server only
+   needs to *read* the code, never push changes back, so a read-only key
+   is the safer choice.
+3. Click **Add key**.
+
+**Step D - Confirm the connection, then clone.**
+Test the key against the repository specifically (a plain `ssh -T
+git@github.com` does **not** reliably confirm a deploy key - test against
+the actual repository URL instead):
+```bat
+git ls-remote git@github.com:DawiePieterse/laughing-waters-harvesting.git
+```
+This should print a list of branches/commits with no error. If it
+prints `Permission denied (publickey)`, the key from Step B wasn't added
+correctly in Step C - double check it and retry. Once it works, clone the
+repo to wherever the app should live, e.g.:
+```bat
+git clone git@github.com:DawiePieterse/laughing-waters-harvesting.git C:\LaughingWaters
+```
+Continue from [Step 2 (Install Python)](#setting-up-on-a-windows-pc-step-by-step)
+below - the clone replaces Step 1 (copying the folder by hand).
+
+**Pulling future updates.**
+Once new commits are pushed to GitHub, update an already-running server
+by opening Command Prompt in `C:\LaughingWaters` and running:
+```bat
+git pull
+```
+This only touches the app's code - the database, worker photos, and
+backups all live in the gitignored `data/` folder and are never affected
+by a pull. If `backend/requirements.txt` changed, re-run the installer
+(`install.bat`) or `pip install -r requirements.txt` to pick up any new
+dependencies, then restart the server (stop and re-run
+`start_server.bat`, or restart the PC if it auto-starts via
+[Task Scheduler](#setting-up-on-a-windows-pc-step-by-step)) so the
+running process picks up the new code - a `git pull` alone does not
+restart anything.
+
 ### Quick setup: the automated installer (recommended)
 
 The project folder includes `install.bat`, which automates everything in
@@ -138,7 +210,9 @@ Windows (no login or password needed for it to start). It's safe to
 double-click again later if something needs redoing - each step checks
 what's already in place first.
 
-1. Copy the whole project folder onto the PC (see Step 1 below).
+1. Get the project folder onto the PC, e.g. by
+   [cloning it from GitHub](#getting-the-code-onto-the-server-github-recommended-or-usbzip)
+   or copying it via USB/zip (see Step 1 below).
 2. Double-click **`install.bat`** at the top of that folder.
 3. If Windows shows a blue **"Windows protected your PC"** screen, click
    **"More info"**, then **"Run anyway"**. This is normal for any script
@@ -168,8 +242,10 @@ skip straight to the automated installer above** - use these steps
 instead if you prefer to do it by hand, or need to troubleshoot one
 specific part.
 
-**Step 1 - Copy the app folder onto the PC.**
-Place the whole project folder somewhere permanent and easy to find, e.g.
+**Step 1 - Get the app folder onto the PC.**
+Either [clone it from GitHub](#getting-the-code-onto-the-server-github-recommended-or-usbzip)
+(recommended), or copy the whole project folder over via USB drive or a
+zip file. Either way, place it somewhere permanent and easy to find, e.g.
 `C:\LaughingWaters`. Avoid Desktop or Downloads, since those are more
 likely to get tidied up or deleted by accident.
 
