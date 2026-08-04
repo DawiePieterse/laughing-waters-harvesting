@@ -465,6 +465,74 @@ season is over), go back to `login.tailscale.com/admin/machines`, find
 their device under the server's sharing settings, and remove it - this
 revokes their access immediately without affecting anyone else.
 
+### Enabling the QR camera scanner (HTTPS via Tailscale - required for Field devices)
+
+Android's and iOS's browsers only allow a page to use the camera if it's
+loaded over HTTPS or from `localhost` - a plain LAN address like
+`http://192.168.1.50:8000/` fails that check, so **Scan Worker QR** in the
+Field app (see [chapter 4](#4-field-app---capturing-the-harvest)) will fail
+with **"Camera unavailable"** on every device that reaches the server this
+way. Since worker identification is QR-only with no manual picker
+fallback, this isn't optional - it must be set up before Field devices can
+capture harvest data at all.
+
+Fixing this means putting Tailscale's HTTPS in front of the app, which
+requires no changes to the app itself:
+
+1. Install Tailscale on the server first (see Step 1 above) if not already
+   done.
+2. Turn on certificates for the tailnet: go to
+   `login.tailscale.com/admin/dns` and enable **"HTTPS Certificates"**
+   (requires MagicDNS, which is on by default).
+3. On the server, run:
+   ```bash
+   tailscale serve --bg --https=443 http://localhost:8000
+   ```
+   (use whichever port the app actually runs on). This runs in the
+   background and proxies HTTPS traffic straight through to the existing
+   plain-HTTP app - `uvicorn`/`main.py` don't need to change.
+4. Find the exact address to use with `tailscale status` - it looks like
+   `https://<server-name>.<tailnet-name>.ts.net/`.
+5. **Every Field/Pack House device now needs the Tailscale app installed
+   and connected** (see the next section for keeping it connected
+   reliably) - being on the farm's own Wi-Fi is no longer enough on its
+   own, since the device has to reach the server through its Tailscale
+   address to get the HTTPS connection.
+6. On each device, open the new `https://...ts.net/` address instead of
+   the old LAN IP. This is a different origin, so it'll show the Device
+   Setup screen again ([chapter 3](#3-device-setup)) - re-enter that
+   device's ID once.
+7. Reinstall the home-screen app icon from the new HTTPS address (see
+   [Installing as an app icon](#installing-as-an-app-icon-optional-recommended)),
+   then delete the old icon that points at the `http://` address.
+
+### Keeping Tailscale always-on on Android field devices
+
+Once Field/Pack House devices depend on Tailscale to reach the server (see
+above), Android's aggressive battery management can silently kill the
+Tailscale connection in the background, which then breaks the app until
+someone notices and reopens Tailscale manually. To stop that happening:
+
+1. **Turn on Always-on VPN.** Settings → **Network & Internet → VPN** → tap
+   the gear icon next to Tailscale → enable **"Always-on VPN"**. This
+   makes Android keep it running and reconnect it automatically after a
+   restart.
+2. **Exempt Tailscale from battery optimization.** Settings → **Apps →
+   Tailscale → Battery** → set to **"Unrestricted"** (some phones label
+   this "Unmonitored app" or "Don't optimize"). Without this, Android
+   periodically freezes the app in the background and the connection drops
+   until someone opens it again.
+3. **Check for a manufacturer-specific app killer.** Samsung, Xiaomi,
+   Huawei, and OnePlus phones ship an extra battery manager on top of
+   stock Android that can re-kill apps even after Step 2 - look for a
+   separate "Sleeping apps," "Protected apps," or "Autostart manager" list
+   under that phone's battery/device-care settings and make sure Tailscale
+   is excluded/allowed there. [dontkillmyapp.com](https://dontkillmyapp.com)
+   has exact steps per phone model.
+4. **Stay signed in.** If Tailscale ever gets signed out, it stops
+   connecting entirely until someone signs back in - it won't silently
+   reconnect on its own.
+
 ### Keeping the server running
 
 However it's started, leave it running continuously during harvest
@@ -912,6 +980,13 @@ check of conditions without leaving the app.
 The device ID hasn't been created yet. An admin must add it in
 [Master Data → Devices](#8-admin---master-data) first - see
 [chapter 3](#3-device-setup).
+
+**"Camera unavailable" when tapping Scan Worker QR**
+The device is reaching the server over plain `http://` (a LAN IP) rather
+than HTTPS - Android/iOS block camera access on any page that isn't a
+secure origin, regardless of camera permissions. See
+[Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale---required-for-field-devices)
+to set up Tailscale HTTPS, which fixes this for every device at once.
 
 **"QR code doesn't match a known worker" when scanning a badge**
 Either the worker doesn't exist in [Master Data → Workers](#8-admin---master-data)
