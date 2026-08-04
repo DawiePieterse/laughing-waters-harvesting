@@ -7,3 +7,4 @@ data/photos/
 data/backups/
 .DS_Store
 *.pyc
+heartbeat_url.txt
