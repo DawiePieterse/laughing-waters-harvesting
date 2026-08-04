@@ -226,6 +226,27 @@ startup anyway, just restarting the PC has the same effect as End + Run.
 the server PC itself - if the device setup screen loads, it's up. There's
 no window to glance at for this, since the task runs headless.
 
+### Confirming devices picked up an update (version numbers)
+
+Every screen - Field, Pack House, Admin - shows a small **v{number}** in
+its top-right corner (e.g. `v1`). This is the one reliable way to confirm
+a device is actually running the latest code after a `git pull` and
+restart, since the Field/Pack House/Admin apps are installable PWAs with
+an offline cache ([chapter 3](#3-device-setup)) - a device can stay on an
+older cached version even after the server itself has been updated, until
+its cache is refreshed.
+
+**After deploying an update:** check the version number on a few devices.
+If one is behind, do a normal open-close-reopen of the app icon (see
+[chapter 12](#12-troubleshooting--faq) - same fix as a stuck "Camera
+unavailable" screen); a full close and reopen is what lets the app notice
+and install the new cached version in the background, then show it on the
+next open.
+
+The version number only changes when the code that ships it changes
+- it's incremented deliberately each time a real update goes out, not
+tied to the date or any automatic counter.
+
 ### Quick setup: the automated installer (recommended)
 
 The project folder includes `install.bat`, which automates everything in
@@ -1059,6 +1080,12 @@ than HTTPS - Android/iOS block camera access on any page that isn't a
 secure origin, regardless of camera permissions. See
 [Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale---required-for-field-devices)
 to set up Tailscale HTTPS, which fixes this for every device at once.
+
+**A device shows an older version number than expected**
+Its offline app cache hasn't refreshed yet - see
+[Confirming devices picked up an update](#confirming-devices-picked-up-an-update-version-numbers).
+Fully close the app (not just background it) and reopen it; if that
+doesn't clear it, clear the site's data in the browser and reopen.
 
 **"QR code doesn't match a known worker" when scanning a badge**
 Either the worker doesn't exist in [Master Data → Workers](#8-admin---master-data)
