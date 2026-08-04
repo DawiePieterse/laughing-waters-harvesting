@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "cwd": "backend",
+      "runtimeExecutable": ".venv/bin/python3",
+      "runtimeArgs": ["run_preview.py"],
+      "port": 8811,
+      "autoPort": true
+    }
+  ]
+}
