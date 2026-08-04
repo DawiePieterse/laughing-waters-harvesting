@@ -1,7 +1,7 @@
 // App-shell cache so the field PWA still loads with zero signal.
 // Data (worker/block lists, sync) always goes over the network when
 // available - this only guarantees the UI itself is installable/offline.
-const CACHE = "lw-field-v4";
+const CACHE = "lw-field-v5";
 const SHELL = [
   "./",
   "./index.html",
