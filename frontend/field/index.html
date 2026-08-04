@@ -19,7 +19,7 @@
 </head>
 <body class="bg-slate-100 min-h-screen pb-6">
 
-<div class="lw-header p-4">
+<div class="lw-header p-3">
   <div class="flex items-center justify-between">
     <div>
       <div class="font-bold text-lg">Harvest Capture</div>
@@ -31,10 +31,10 @@
   </div>
 </div>
 
-<div class="p-4 max-w-md mx-auto space-y-4">
+<div class="p-3 max-w-md mx-auto space-y-3">
 
   <!-- Current lot summary -->
-  <div id="lotCard" class="rounded-xl p-4 bg-white shadow urgency-green">
+  <div id="lotCard" class="rounded-xl p-3 bg-white shadow urgency-green">
     <div class="flex justify-between items-center">
       <div>
         <div class="text-2xl font-bold" id="crateCount">0 crates</div>
@@ -48,9 +48,9 @@
   </div>
 
   <!-- Worker & block selection -->
-  <div class="bg-white rounded-xl p-4 shadow space-y-3">
-    <button id="scanBtn" class="w-full lw-btn-primary rounded-xl py-5 text-xl font-bold flex items-center justify-center gap-3">
-      <i class="fa-solid fa-qrcode text-3xl"></i>
+  <div class="bg-white rounded-xl p-3 shadow space-y-2">
+    <button id="scanBtn" class="w-full lw-btn-primary rounded-xl py-3 text-lg font-bold flex items-center justify-center gap-3">
+      <i class="fa-solid fa-qrcode text-2xl"></i>
       <span>Scan Worker QR</span>
     </button>
     <div class="flex items-center justify-between px-1">
@@ -60,20 +60,17 @@
       </div>
       <i class="fa-solid fa-user-check text-2xl text-slate-200" id="workerCheckIcon"></i>
     </div>
-    <div class="hidden">
-      <label class="text-xs text-slate-400">Or select manually</label>
-      <select id="workerSelect" class="w-full border border-slate-300 rounded-lg p-2 mt-1"></select>
-    </div>
+    <select id="workerSelect" class="hidden"></select>
     <div>
       <label class="text-xs font-medium text-slate-500">Block</label>
-      <select id="blockSelect" class="w-full border border-slate-300 rounded-lg p-3 text-lg"></select>
+      <select id="blockSelect" class="w-full border border-slate-300 rounded-lg p-2 text-lg"></select>
     </div>
   </div>
 
   <!-- Weight keypad -->
-  <div class="bg-white rounded-xl p-4 shadow">
-    <div class="text-center text-4xl font-bold mb-3 h-12" id="weightDisplay">0</div>
-    <div class="grid grid-cols-3 gap-2">
+  <div class="bg-white rounded-xl p-3 shadow">
+    <div class="text-center text-3xl font-bold mb-2 h-10" id="weightDisplay">0</div>
+    <div class="grid grid-cols-3 gap-1.5">
       <button class="keypad-btn" data-k="1">1</button>
       <button class="keypad-btn" data-k="2">2</button>
       <button class="keypad-btn" data-k="3">3</button>
@@ -87,17 +84,17 @@
       <button class="keypad-btn" data-k="0">0</button>
       <button class="keypad-btn" data-k="back"><i class="fa-solid fa-delete-left"></i></button>
     </div>
-    <button id="saveCrateBtn" class="w-full lw-btn-primary rounded-xl py-4 text-xl font-bold mt-3">
+    <button id="saveCrateBtn" class="w-full lw-btn-primary rounded-xl py-3 text-lg font-bold mt-2">
       <i class="fa-solid fa-plus"></i> Save Crate
     </button>
   </div>
 
-  <button id="sendSlipBtn" class="w-full lw-btn-danger rounded-xl py-4 text-lg font-bold">
+  <button id="sendSlipBtn" class="w-full lw-btn-danger rounded-xl py-3 text-lg font-bold">
     <i class="fa-solid fa-truck"></i> Send Picking Slip
   </button>
 
   <!-- Success banner (hidden until slip sent) -->
-  <div id="slipSuccessBanner" class="hidden rounded-xl p-4 shadow text-white" style="background: #16a34a;">
+  <div id="slipSuccessBanner" class="hidden rounded-xl p-3 shadow text-white" style="background: #16a34a;">
     <div class="flex items-center gap-3">
       <i class="fa-solid fa-circle-check text-3xl"></i>
       <div>
@@ -108,13 +105,13 @@
   </div>
 
   <!-- Recent crates -->
-  <div class="bg-white rounded-xl p-4 shadow">
+  <div class="bg-white rounded-xl p-3 shadow">
     <div class="text-sm font-semibold text-slate-500 mb-2">Recent crates</div>
     <div id="recentList" class="space-y-1 text-sm"></div>
   </div>
 
   <!-- Dispatched lots today -->
-  <div class="bg-white rounded-xl p-4 shadow">
+  <div class="bg-white rounded-xl p-3 shadow">
     <div class="text-sm font-semibold text-slate-500 mb-2">Dispatched today from this station</div>
     <div id="dispatchedList" class="space-y-1 text-xs"></div>
     <div id="dispatchedSummary" class="text-xs font-semibold text-slate-600 mt-2 pt-2 border-t hidden"></div>
