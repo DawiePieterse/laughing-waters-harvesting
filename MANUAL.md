@@ -612,6 +612,46 @@ Windows updates, etc.) without physically being at the farm office.
 To connect: install AnyDesk on the device you're connecting from, enter
 this server's access code, and provide the password when prompted.
 
+### Uptime alerting (email if the server goes down)
+
+Gets you an email if the server is unreachable for more than an hour.
+This can't be done by anything running only on the server PC itself - if
+that PC loses power or its internet entirely, nothing on it can send you
+anything. Instead it uses a **"dead man's switch"**: the server pings an
+outside monitoring service every 10 minutes to say "still alive," and
+that outside service is the one that notices when the pings stop and
+emails you - it's watching for silence, not waiting to be told about a
+problem.
+
+**Step 1 - Create a healthchecks.io check.**
+1. Sign up free at [healthchecks.io](https://healthchecks.io).
+2. Create a check (e.g. named "Laughing Waters Server").
+3. Click **Edit** and set **Period** to **10 minutes** and **Grace Time**
+   to **1 hour** - this means an isolated missed ping (a brief network
+   blip) is tolerated, but if pings stop entirely for over an hour, it
+   emails the account's address.
+4. Copy the ping URL shown on the check's page (starts with
+   `https://hc-ping.com/...`).
+
+**Step 2 - Save the ping URL on the server.**
+Create a new text file at `heartbeat_url.txt`, in the same folder as
+`heartbeat.ps1` (the top of the project folder), containing just that one
+URL and nothing else. This file is deliberately **not** committed to
+git - like a password, it's account-specific and shouldn't live in
+version control (`.gitignore` already excludes it).
+
+**Step 3 - Register the heartbeat task.**
+Double-click **`setup_heartbeat.bat`**. It registers a Scheduled Task
+("Laughing Waters Heartbeat") that runs `heartbeat.ps1` every 10 minutes,
+which only pings healthchecks.io when `http://localhost:8000/` actually
+responds - so a crashed/hung server (not just a powered-off PC) also
+triggers the alert, since the heartbeat is contingent on the app itself
+working, not just the PC being on.
+
+That's it - as long as the check on healthchecks.io keeps receiving
+pings, nothing happens. If the server goes down and stays down past the
+1-hour grace period, healthchecks.io emails the account used to sign up.
+
 ### Keeping the server running
 
 However it's started, leave it running continuously during harvest
