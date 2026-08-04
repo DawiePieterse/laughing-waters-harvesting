@@ -458,6 +458,10 @@ the app to the public internet.
    the same way the server itself does ([Step 12](#setting-up-on-a-windows-pc-step-by-step)
    on Windows).
 
+> **This farm's setup:** the server is signed into a specific Tailscale
+> account, with its own tailnet address. Account, address, and password
+> are kept in a password manager, not this file.
+
 **Step 2 - Share (not invite) access to just this one machine.**
 
 Tailscale's **"Share"** feature grants an outside person access to only
@@ -558,6 +562,21 @@ someone notices and reopens Tailscale manually. To stop that happening:
 4. **Stay signed in.** If Tailscale ever gets signed out, it stops
    connecting entirely until someone signs back in - it won't silently
    reconnect on its own.
+
+### Remote desktop access via AnyDesk
+
+Separate from Tailscale (which only gets a device to the app itself),
+[AnyDesk](https://anydesk.com) is installed on the server PC for full
+remote-desktop control - useful for admin tasks that need the actual
+Windows desktop (restarting the Scheduled Task, running `git pull`,
+Windows updates, etc.) without physically being at the farm office.
+
+> **This farm's server:** has a fixed AnyDesk access code for unattended
+> access. Code and password are kept in a password manager, not this
+> file.
+
+To connect: install AnyDesk on the device you're connecting from, enter
+this server's access code, and provide the password when prompted.
 
 ### Keeping the server running
 
