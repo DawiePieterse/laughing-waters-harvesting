@@ -1,7 +1,7 @@
 // App-shell cache so the pack house PWA installs cleanly and its own UI
 // still loads if the connection briefly drops. Data (queue, receiving)
 // always goes over the network when available.
-const CACHE = "lw-packhouse-v2";
+const CACHE = "lw-packhouse-v3";
 const SHELL = [
   "./",
   "./index.html",

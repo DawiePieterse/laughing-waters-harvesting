@@ -3,6 +3,12 @@
 const API_BASE = "";
 
 const LW = {
+  // Bump on every deploy that touches frontend code. Shown in each screen's
+  // header so it's obvious at a glance whether a device's cached copy is
+  // actually up to date - especially useful given the service workers'
+  // cache-first strategy (see field/packhouse/admin service-worker.js).
+  VERSION: "1",
+
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },
   clearDeviceId() { localStorage.removeItem("lw_device_id"); },

@@ -32,6 +32,7 @@ function setPendingLots(lots) {
 }
 
 async function init() {
+  document.getElementById("appVersion").textContent = `v${LW.VERSION}`;
   const deviceId = LW.getDeviceId();
   if (!deviceId) { location.href = "../"; return; }
   try {

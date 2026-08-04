@@ -30,6 +30,7 @@ async function updateBannerWeather() {
 }
 
 function initBanner() {
+  document.getElementById("appVersion").textContent = `v${LW.VERSION}`;
   updateBannerFarmName();
   updateBannerClock();
   updateBannerWeather();

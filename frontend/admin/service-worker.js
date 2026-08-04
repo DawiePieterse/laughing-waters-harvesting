@@ -1,7 +1,7 @@
 // App-shell cache so the admin PWA installs cleanly and its own UI still
 // loads if the connection briefly drops. Data (dashboard, reports, etc.)
 // always goes over the network when available.
-const CACHE = "lw-admin-v1";
+const CACHE = "lw-admin-v2";
 const SHELL = [
   "./",
   "./index.html",
