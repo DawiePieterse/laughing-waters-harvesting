@@ -174,6 +174,7 @@ async function saveCrate() {
   document.getElementById("weightDisplay").textContent = "0";
   document.getElementById("workerSelect").value = "";
   updateWorkerDisplay();
+  LW.beepSaved();
   LW.toast("Crate saved");
   await renderLot();
   syncLoop();
@@ -352,6 +353,7 @@ function openScanner() {
       if (match) {
         select.value = decodedText.trim();
         updateWorkerDisplay();
+        LW.beepScanned();
         LW.toast("Worker selected");
       } else {
         LW.toast("QR code doesn't match a known worker");

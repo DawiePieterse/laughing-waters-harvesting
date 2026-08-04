@@ -155,6 +155,7 @@ async function confirmReceipt() {
     return;
   }
 
+  LW.beepSaved();
   LW.toast("Receipt confirmed");
   closeModal();
   await refresh();
@@ -194,6 +195,7 @@ async function confirmExternalLot() {
       method: "POST",
       body: { supplier_id: supplierId, driver, total_crates: crates, total_kg: kg, notes },
     });
+    LW.beepSaved();
     LW.toast("Delivery logged");
     closeExternalLotModal();
     await refresh();

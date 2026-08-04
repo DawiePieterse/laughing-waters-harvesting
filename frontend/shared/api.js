@@ -83,6 +83,29 @@ const LW = {
     el._timer = setTimeout(() => el.classList.remove("show"), 2200);
   },
 
+  // Short synthesized tones (no audio files needed, works fully offline).
+  // Two distinct patterns so a worker can tell them apart by ear:
+  // a single beep for a QR match, a two-note rising chime for a saved crate.
+  _tone(frequency, duration, delay = 0) {
+    try {
+      const ctx = LW._audioCtx || (LW._audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = frequency;
+      const startAt = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(0.2, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + duration);
+    } catch (e) { /* audio isn't critical - never block the capture flow on it */ }
+  },
+  beepScanned() { LW._tone(880, 0.12); },
+  beepSaved() { LW._tone(660, 0.09); LW._tone(988, 0.14, 0.1); },
+
   downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
