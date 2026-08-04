@@ -194,11 +194,37 @@ This only touches the app's code - the database, worker photos, and
 backups all live in the gitignored `data/` folder and are never affected
 by a pull. If `backend/requirements.txt` changed, re-run the installer
 (`install.bat`) or `pip install -r requirements.txt` to pick up any new
-dependencies, then restart the server (stop and re-run
-`start_server.bat`, or restart the PC if it auto-starts via
-[Task Scheduler](#setting-up-on-a-windows-pc-step-by-step)) so the
-running process picks up the new code - a `git pull` alone does not
-restart anything.
+dependencies, then restart the server (see
+[Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)
+below) so the running process picks up the new code - a `git pull` alone
+does not restart anything.
+
+### Stopping, starting, and restarting the server (Task Scheduler)
+
+If the server was set up via `install.bat` (or manual Step 12), it runs as
+a Scheduled Task named **"Laughing Waters Server"** that starts
+automatically at boot, as SYSTEM, with **no visible window** - there's no
+Command Prompt to close, so stopping/starting it goes through Task
+Scheduler instead.
+
+**Using the Task Scheduler app:**
+1. Open **Task Scheduler** (search for it in the Start menu).
+2. Find **"Laughing Waters Server"** in the Task Scheduler Library.
+3. Right-click it → **End** to stop the server, or **Run** to start it.
+   To restart (e.g. after a `git pull`), do **End** then **Run**.
+
+**Using Command Prompt (must be "Run as administrator"):**
+```bat
+schtasks /end /tn "Laughing Waters Server"
+schtasks /run /tn "Laughing Waters Server"
+```
+
+**Simplest restart:** since the task launches automatically on every
+startup anyway, just restarting the PC has the same effect as End + Run.
+
+**Checking it's actually running:** browse to `http://localhost:8000/` on
+the server PC itself - if the device setup screen loads, it's up. There's
+no window to glance at for this, since the task runs headless.
 
 ### Quick setup: the automated installer (recommended)
 
