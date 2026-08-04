@@ -185,8 +185,18 @@ Continue from [Step 2 (Install Python)](#setting-up-on-a-windows-pc-step-by-step
 below - the clone replaces Step 1 (copying the folder by hand).
 
 **Pulling future updates.**
-Once new commits are pushed to GitHub, update an already-running server
-by opening Command Prompt in `C:\LaughingWaters` and running:
+Once new commits are pushed to GitHub, update an already-running server.
+
+The easy way: double-click **`update_server.bat`** at the top of the
+project folder. It pulls the latest code, installs any new dependencies,
+and restarts the server (via the Scheduled Task) all in one step - this
+is the recommended way to deploy an update, since it's easy to forget the
+restart step if done by hand (a `git pull` alone does not restart
+anything, so the running server keeps serving the old code until it's
+explicitly restarted).
+
+The manual way, if you'd rather do each step yourself: open Command
+Prompt in `C:\LaughingWaters` and run:
 ```bat
 git pull
 ```
@@ -196,8 +206,11 @@ by a pull. If `backend/requirements.txt` changed, re-run the installer
 (`install.bat`) or `pip install -r requirements.txt` to pick up any new
 dependencies, then restart the server (see
 [Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)
-below) so the running process picks up the new code - a `git pull` alone
-does not restart anything.
+below).
+
+Either way, remember that each phone/tablet's installed app also needs a
+full close-and-reopen afterward to pick up the update - see
+[Confirming devices picked up an update](#confirming-devices-picked-up-an-update-version-numbers).
 
 ### Stopping, starting, and restarting the server (Task Scheduler)
 
