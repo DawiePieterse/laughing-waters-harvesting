@@ -974,6 +974,33 @@ Dashboard (Farm/Supplier + date range):
 > or similar is a simple, effective option. That off-machine copy is the
 > only real safeguard against losing everything if the hardware fails.
 
+### Restoring from a backup
+
+There's currently **no restore button in the app** - Settings only lets
+you create and download backups, not load one back in. Restoring means
+manually swapping files on the server, and it's a full replacement, not a
+merge: **everything captured after the backup's timestamp is lost**
+(crates, payments, worker/master-data edits, anything) once you restore
+it - there's no way to selectively bring back just part of it.
+
+**Before restoring, protect today's data in case you need it back:**
+Copy the *current* `data\laughing_waters.db` and `data\photos\` folder
+somewhere safe first (e.g. rename them or copy them out of `data\`). If
+the restore turns out to be the wrong call, you'll still have what was
+there before you overwrote it.
+
+**Steps:**
+1. Get the backup zip you want to restore - either downloaded from
+   Settings → Data Backup, or directly from `data\backups\` on the server
+   (filenames are timestamped, e.g. `backup_20260804_020000.zip`).
+2. Stop the server (see
+   [Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)).
+3. Unzip the backup - it contains `laughing_waters.db` and a `photos\`
+   folder.
+4. Copy those into `data\`, replacing the current
+   `data\laughing_waters.db` and `data\photos\`.
+5. Start the server again.
+
 ### Farm settings
 
 Farm name, location description, current harvest season (year - drives
