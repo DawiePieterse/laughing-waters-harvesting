@@ -58,12 +58,5 @@ class NoCacheStaticFiles(StaticFiles):
 
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 
-# Only ever serves the mkcert *public* root CA cert (rootCA.pem), for phones
-# to download and trust - see setup_local_https.ps1. The matching private
-# key and the server's own leaf cert live in certs/ca and certs/leaf, which
-# are never mounted here or anywhere else web-servable.
-CERTS_PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "certs", "public")
-app.mount("/certs", StaticFiles(directory=CERTS_PUBLIC_DIR, check_dir=False), name="certs")
-
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 app.mount("/", NoCacheStaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

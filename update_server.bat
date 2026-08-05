@@ -50,15 +50,6 @@ if %errorLevel% equ 0 (
     echo close and reopen that window yourself to pick up the update.
 )
 
-schtasks /query /tn "Laughing Waters Server (Local HTTPS)" >nul 2>&1
-if %errorLevel% equ 0 (
-    echo ==> Restarting the local HTTPS server too...
-    schtasks /end /tn "Laughing Waters Server (Local HTTPS)" >nul 2>&1
-    timeout /t 2 /nobreak >nul
-    schtasks /run /tn "Laughing Waters Server (Local HTTPS)" >nul 2>&1
-    echo Local HTTPS server restarted.
-)
-
 echo.
 echo ==> Done. Remember: each phone still needs its app fully closed and
 echo     reopened ^(not just backgrounded^) to pick up the new version -
