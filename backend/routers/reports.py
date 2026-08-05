@@ -1,3 +1,4 @@
+import os
 from datetime import date, datetime, time
 from typing import Optional
 
@@ -5,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlmodel import Session, select
 
-from db import get_session
+from db import DATA_DIR, get_session
 from excel_io import rows_to_xlsx_bytes
 from models import Block, HarvestRecord, Lot, ReceivingRecord, Supplier, Team
 from routers.dashboard import dashboard_summary
@@ -16,9 +17,17 @@ from security import get_current_admin
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+REPORTS_DIR = os.path.join(DATA_DIR, "reports")
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
 
 def _xlsx_response(headers, rows, sheet_title, filename):
     data = rows_to_xlsx_bytes(headers, rows, sheet_title)
+    # Every generated report is also kept on disk in data/reports/, so it's
+    # swept up by whatever backup routine already covers the data/ folder -
+    # not just left in whichever browser downloaded it.
+    with open(os.path.join(REPORTS_DIR, filename), "wb") as f:
+        f.write(data)
     return Response(content=data, media_type=XLSX_MEDIA,
                      headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 

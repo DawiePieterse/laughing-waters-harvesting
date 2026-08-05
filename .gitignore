@@ -5,6 +5,7 @@ data/*.db
 data/*.db-journal
 data/photos/
 data/backups/
+data/reports/
 .DS_Store
 *.pyc
 heartbeat_url.txt
