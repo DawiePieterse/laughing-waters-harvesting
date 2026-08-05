@@ -173,6 +173,10 @@
         <div class="flex flex-wrap gap-2">
           <button data-action="export-blocks-xlsx" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Export .xlsx</button>
           <label class="px-3 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Import <input type="file" id="importBlocks" class="hidden" accept=".csv,.xlsx"></label>
+          <label class="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600">
+            <input type="checkbox" id="importBlocksReplace">
+            Replace all (deactivate blocks not in the file)
+          </label>
           <button data-action="new-block" class="px-3 py-2 lw-btn-primary rounded-lg text-sm ml-auto">+ Add Block</button>
         </div>
         <div class="bg-white rounded-xl shadow overflow-x-auto">

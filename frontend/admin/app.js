@@ -385,7 +385,10 @@ function bindMasterData() {
     btn.addEventListener("click", () => handleAction(btn.dataset.action));
   });
   document.getElementById("importWorkers").addEventListener("change", (e) => importFile(e, "/api/workers/import", loadWorkers));
-  document.getElementById("importBlocks").addEventListener("change", (e) => importFile(e, "/api/blocks/import", loadBlocks));
+  document.getElementById("importBlocks").addEventListener("change", (e) => {
+    const replace = document.getElementById("importBlocksReplace").checked;
+    importFile(e, `/api/blocks/import?replace=${replace}`, loadBlocks);
+  });
   document.getElementById("workerSupplierFilter").addEventListener("change", renderWorkersTable);
   document.getElementById("cameraCancelBtn").addEventListener("click", closeCameraModal);
   document.getElementById("cameraCaptureBtn").addEventListener("click", captureCameraPhoto);
@@ -398,7 +401,8 @@ async function importFile(event, url, reload) {
   form.append("file", file);
   try {
     const result = await LW.api(url, { method: "POST", body: form, auth: true, isForm: true });
-    LW.toast(`Imported ${result.imported} rows`);
+    const extra = result.deactivated ? `, deactivated ${result.deactivated}` : "";
+    LW.toast(`Imported ${result.imported} rows${extra}`);
     await reload();
   } catch (e) {
     LW.toast("Import failed - check the file format");

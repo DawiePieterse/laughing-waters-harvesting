@@ -7,7 +7,7 @@ const LW = {
   // header so it's obvious at a glance whether a device's cached copy is
   // actually up to date - especially useful given the service workers'
   // cache-first strategy (see field/packhouse/admin service-worker.js).
-  VERSION: "2",
+  VERSION: "3",
 
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },

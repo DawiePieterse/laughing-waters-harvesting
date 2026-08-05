@@ -91,17 +91,21 @@ def export_blocks(fmt: str = Query("xlsx", pattern="^(csv|xlsx)$"), session: Ses
 
 
 @router.post("/blocks/import")
-async def import_blocks(file: UploadFile, session: Session = Depends(get_session),
+async def import_blocks(file: UploadFile, replace: bool = Query(False),
+                         session: Session = Depends(get_session),
                          admin=Depends(get_current_admin)):
     records = await parse_uploaded_table(file)
     count = 0
+    imported_ids = set()
     for r in records:
         if not r.get("id"):
             continue
+        block_id = str(r["id"]).strip()
+        imported_ids.add(block_id)
         active_raw = r.get("active", True)
         active = str(active_raw).strip().lower() not in ("false", "0", "no")
         session.merge(Block(
-            id=str(r["id"]).strip(),
+            id=block_id,
             name=r.get("name") or "",
             variety=r.get("variety") or "",
             trees=int(r.get("trees") or 0),
@@ -109,8 +113,21 @@ async def import_blocks(file: UploadFile, session: Session = Depends(get_session
             active=active,
         ))
         count += 1
+
+    deactivated = 0
+    if replace:
+        # "Replace all": this file is the new complete block list, so any
+        # existing active block that isn't in it is retired rather than
+        # deleted outright - historical harvest records still reference it
+        # by id, so it stays in the table, just no longer selectable.
+        for block in session.exec(select(Block).where(Block.active == True)).all():  # noqa: E712
+            if block.id not in imported_ids:
+                block.active = False
+                session.add(block)
+                deactivated += 1
+
     session.commit()
-    return {"imported": count}
+    return {"imported": count, "deactivated": deactivated}
 
 
 # --- Workers ---------------------------------------------------------------
