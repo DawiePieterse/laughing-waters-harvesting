@@ -620,10 +620,9 @@ database and seeds a clean starting baseline:
 
 - Two teams: **Span A** and **Span B** (indunas left blank - fill in via
   [Master Data](#8-admin---master-data))
-- The farm's **18 real block labels** (7, 8a, 8b, 9, 10, 11, 12, 13, 14, 15,
-  16, 17, 18, 19, 22, 23, 34, 35) - variety, tree count, and hectares are
-  left blank for the admin to fill in, since they weren't safe to guess
-  automatically
+- The farm's **21 real blocks** (7, 8a, 8b, 9, 10a, 10b, 11, 12, 13, 14,
+  15, 16, 17a, 17b, 18, 19a, 19b, 22, 23, 34, 35), each with its real
+  name, variety, tree count, and hectares already filled in
 - **8 devices**: `device-01` through `device-05` (field), `device-06` and
   `device-07` (pack house), and `admin-pc` (admin) - see
   [chapter 3](#3-device-setup) for how these get assigned to physical
@@ -1005,10 +1004,11 @@ ID (e.g. "A"), name (e.g. "Span A"), induna, active.
 
 ### Blocks
 
-The 18 preseeded block IDs (see [chapter 2](#2-initial-server-setup)) plus
-name, variety, tree count, hectares, active. Supports CSV/xlsx export/
-import, useful for filling in variety/trees/hectares in bulk rather than
-one block at a time.
+The 21 preseeded blocks (see [chapter 2](#2-initial-server-setup)), each
+with name, variety, tree count, hectares, active already filled in.
+Supports CSV/xlsx export/import for bulk edits rather than one block at a
+time - useful whenever the farm's actual block layout changes (e.g. a
+block gets re-divided by variety).
 
 **Import** always adds new block IDs and updates existing ones from the
 file, but never removes anything on its own - a block ID that used to
@@ -1241,7 +1241,7 @@ keys below match `backend/models.py` exactly.
 
 | Field | Type | Example | Notes / Limitations |
 |---|---|---|---|
-| `id` | text | `"8a"` | Primary key - a real farm block label. One of the 18 preseeded labels (see chapter 2); not free-form. |
+| `id` | text | `"8a"` | Primary key - a real farm block label. One of the 21 preseeded labels (see chapter 2); not free-form. |
 | `name` | text | `"Block 8a"` | |
 | `variety` | text | `"Mauritius"` | |
 | `trees` | number | `450` | Whole number of trees on the block. |
