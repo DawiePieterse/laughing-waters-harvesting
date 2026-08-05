@@ -1124,6 +1124,15 @@ Dashboard (Farm/Supplier + date range):
 | Worker Harvest Report | Per-worker crates/kg/amount-due/avg-kg-per-crate |
 | Block Harvest Report | Per-block crates/kg/avg-kg-per-crate/avg-kg-per-tree |
 
+Every generated report is also saved on the server itself, in
+`data\reports\` (same filename as the download, e.g.
+`Daily_Harvest_2026-08-05.xlsx`) - not just wherever the browser that
+downloaded it happened to save it. Regenerating the same report again
+(same type and date range) overwrites that file rather than piling up
+duplicates. This folder isn't covered by the automatic nightly backup
+(see [Data Backup](#data-backup) below) - back it up the same way you'd
+back up anything else in `data\`.
+
 ---
 
 ## 11. Admin - Settings
