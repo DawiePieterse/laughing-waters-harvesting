@@ -1010,6 +1010,15 @@ name, variety, tree count, hectares, active. Supports CSV/xlsx export/
 import, useful for filling in variety/trees/hectares in bulk rather than
 one block at a time.
 
+**Import** always adds new block IDs and updates existing ones from the
+file, but never removes anything on its own - a block ID that used to
+exist but isn't in the file just stays as it was. Tick **"Replace all
+(deactivate blocks not in the file)"** before importing when the file is
+a complete replacement for the block list (e.g. after re-dividing a block
+into smaller ones by variety) - any currently-active block whose ID isn't
+in the file gets deactivated, not deleted, so historical harvest records
+that reference it are unaffected.
+
 ### Devices
 
 ID, role (field/packhouse/admin), station name, team, induna, data
