@@ -529,7 +529,7 @@ season is over), go back to `login.tailscale.com/admin/machines`, find
 their device under the server's sharing settings, and remove it - this
 revokes their access immediately without affecting anyone else.
 
-### Enabling the QR camera scanner (HTTPS via Tailscale - required for Field devices)
+### Local HTTPS for field/pack house devices (recommended - no VPN needed)
 
 Android's and iOS's browsers only allow a page to use the camera if it's
 loaded over HTTPS or from `localhost` - a plain LAN address like
@@ -539,6 +539,84 @@ with **"Camera unavailable"** on every device that reaches the server this
 way. Since worker identification is QR-only with no manual picker
 fallback, this isn't optional - it must be set up before Field devices can
 capture harvest data at all.
+
+There are two ways to get HTTPS onto these devices - **this section's
+approach is the recommended one for Field/Pack House**, since those
+devices never actually leave the farm's own Wi-Fi. The alternative
+(Tailscale HTTPS, [below](#enabling-the-qr-camera-scanner-https-via-tailscale))
+makes every device depend on an always-on background VPN connection just
+to get a padlock icon - which sounds fine until Android's battery
+management starts killing it in the background, breaking the camera again
+with no obvious cause. Reserve Tailscale for devices that genuinely need
+to reach the server from *outside* the farm (see
+[Connecting external users with Tailscale](#connecting-external-users-with-tailscale-only-if-needed)).
+
+Instead, this approach installs a private, locally-issued certificate
+directly on the server for its own LAN address, and has each phone trust
+it - a one-time decision the phone remembers permanently, not a
+connection that has to stay alive.
+
+**Step 1 - Run the setup script on the server.**
+Double-click **`setup_local_https.bat`** (needs `install.bat` to have been
+run first, since it reuses that Python setup). It:
+1. Detects this PC's LAN IP address.
+2. Creates a private local certificate authority and issues this server a
+   certificate for that IP (using a tool called
+   [mkcert](https://github.com/FiloSottile/mkcert), downloaded
+   automatically).
+3. Starts a second server process on port **8443**, serving HTTPS with
+   that certificate - this runs *alongside* the existing plain-HTTP server
+   on port 8000, so nothing about the current setup (Admin, Tailscale,
+   AnyDesk) is affected.
+4. Prints the new address (`https://<this PC's IP>:8443/`) and where to
+   get the certificate for phones.
+
+> **If this PC's IP address ever changes** (no static IP or DHCP
+> reservation set - see [Recommended server PC spec](#recommended-server-pc-spec)),
+> re-run `setup_local_https.bat` to issue a fresh certificate for the new
+> address; the old one will stop matching.
+
+**Step 2 - Install the certificate on each Field/Pack House phone, once.**
+Get the certificate onto the phone first - either open
+`http://<server's LAN IP>:8000/certs/rootCA.pem` in the phone's browser
+while on the farm Wi-Fi (this step itself doesn't need HTTPS), or copy the
+file directly from `certs\public\rootCA.pem` on the server (e.g. via USB
+or email).
+
+- **Android:** Settings → **Security** (may be under "Security & privacy"
+  depending on the phone) → **More security settings** → **Encryption &
+  credentials** → **Install a certificate** → **CA certificate** → confirm
+  the warning → select the downloaded `rootCA.pem`.
+- **iPhone/iPad:** opening the downloaded file prompts to install a
+  configuration profile - accept it, then go to **Settings → General →
+  VPN & Device Management**, tap the profile, and install it. That alone
+  isn't enough on iOS: also go to **Settings → General → About →
+  Certificate Trust Settings** and toggle **full trust** on for this
+  certificate - iOS installs it but doesn't trust it for web browsing
+  until this second step.
+
+> **Expect a security notice after this.** Android shows a persistent
+> "Network may be monitored by an unknown third party" notification (and
+> sometimes a similar note on the lock screen) once any CA certificate is
+> user-installed - this is standard OS behavior for any installed
+> certificate, not a sign of a problem, and it's expected here since
+> that's exactly what a locally-issued certificate is. It's safe to
+> dismiss.
+
+**Step 3 - Point the device at the new address.**
+Same as switching to any new address (see
+[Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale)
+below, steps 6-7): open `https://<server's LAN IP>:8443/` on the device,
+re-enter its device ID on the Device Setup screen that appears, then
+reinstall the home-screen app icon from that address and remove the old
+one.
+
+### Enabling the QR camera scanner (HTTPS via Tailscale)
+
+Only needed for a device that must reach the server from *outside* the
+farm's own Wi-Fi - for Field/Pack House devices that stay on-site, use
+[local HTTPS](#local-https-for-fieldpack-house-devices-recommended---no-vpn-needed)
+above instead, which doesn't depend on an always-on VPN connection.
 
 Fixing this means putting Tailscale's HTTPS in front of the app, which
 requires no changes to the app itself:
@@ -557,11 +635,11 @@ requires no changes to the app itself:
    plain-HTTP app - `uvicorn`/`main.py` don't need to change.
 4. Find the exact address to use with `tailscale status` - it looks like
    `https://<server-name>.<tailnet-name>.ts.net/`.
-5. **Every Field/Pack House device now needs the Tailscale app installed
-   and connected** (see the next section for keeping it connected
-   reliably) - being on the farm's own Wi-Fi is no longer enough on its
-   own, since the device has to reach the server through its Tailscale
-   address to get the HTTPS connection.
+5. **The device needs the Tailscale app installed and connected** (see the
+   next section for keeping it connected reliably on Android) - being on
+   the farm's own Wi-Fi isn't enough on its own for this address, since
+   the device has to reach the server through its Tailscale connection to
+   get the HTTPS connection.
 6. On each device, open the new `https://...ts.net/` address instead of
    the old LAN IP. This is a different origin, so it'll show the Device
    Setup screen again ([chapter 3](#3-device-setup)) - re-enter that
@@ -572,8 +650,15 @@ requires no changes to the app itself:
 
 ### Keeping Tailscale always-on on Android field devices
 
-Once Field/Pack House devices depend on Tailscale to reach the server (see
-above), Android's aggressive battery management can silently kill the
+If a device only needs Tailscale because it stays on the farm's own
+Wi-Fi and was set up before
+[local HTTPS](#local-https-for-fieldpack-house-devices-recommended---no-vpn-needed)
+existed, switching it over removes this problem entirely instead of
+fighting it - that section covers moving a device across. The steps below
+are for devices that genuinely need Tailscale (off-farm access).
+
+Once a device depends on Tailscale to reach the server (see above),
+Android's aggressive battery management can silently kill the
 Tailscale connection in the background, which then breaks the app until
 someone notices and reopens Tailscale manually. To stop that happening:
 
@@ -1131,8 +1216,10 @@ The device ID hasn't been created yet. An admin must add it in
 The device is reaching the server over plain `http://` (a LAN IP) rather
 than HTTPS - Android/iOS block camera access on any page that isn't a
 secure origin, regardless of camera permissions. See
-[Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale---required-for-field-devices)
-to set up Tailscale HTTPS, which fixes this for every device at once.
+[Local HTTPS for field/pack house devices](#local-https-for-fieldpack-house-devices-recommended---no-vpn-needed)
+to fix this without needing an always-on VPN, or
+[Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale)
+if the device needs Tailscale anyway for off-farm access.
 
 **A device shows an older version number than expected**
 Its offline app cache hasn't refreshed yet - see
