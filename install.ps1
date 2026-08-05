@@ -168,6 +168,23 @@ cd /d "$BackendDir"
     Write-Warn "does not do that step for you."
     Write-Host ""
     Write-Host " The server will now start automatically every time this PC turns on."
+
+    Write-Host ""
+    Write-Host "================================================" -ForegroundColor Cyan
+    Write-Host " Optional extras available in this folder" -ForegroundColor Cyan
+    Write-Host "================================================" -ForegroundColor Cyan
+    Write-Host " These are separate, opt-in scripts - none of them ran just now."
+    Write-Host " See MANUAL.md chapter 2 for details on each."
+    Write-Host ""
+    Write-Host " update_server.bat      - pulls the latest code from GitHub and"
+    Write-Host "                          restarts the server in one step, for"
+    Write-Host "                          future updates."
+    Write-Host " setup_local_https.bat  - lets Field/Pack House phones use the QR"
+    Write-Host "                          camera scanner over the farm's own"
+    Write-Host "                          Wi-Fi, without needing Tailscale running."
+    Write-Host " setup_heartbeat.bat    - emails you if the server goes down for"
+    Write-Host "                          more than an hour (needs a free"
+    Write-Host "                          healthchecks.io account first)."
 } catch {
     Write-Host ""
     Write-Err "Something went wrong:"
