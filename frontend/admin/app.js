@@ -900,11 +900,18 @@ async function downloadReport(key) {
   const d1 = document.getElementById("reportDate1").value;
   const d2 = document.getElementById("reportDate2").value;
   const supplierId = document.getElementById("reportsSupplierFilter").value;
+  if (!d1 || !d2) { LW.toast("Pick both dates first"); return; }
   try {
     const blob = await LW.api(`/api/reports/${key}?${report.params(d1, d2, supplierId)}`, { auth: true });
     LW.downloadBlob(blob, `${report.label.replace(/[^a-zA-Z0-9]+/g, "_")}.xlsx`);
   } catch (e) {
-    LW.toast("Could not generate report");
+    console.error("Report generation failed:", e);
+    const status = parseInt(String(e.message).slice(0, 3), 10);
+    if (status === 401 || status === 403) {
+      LW.toast("Session expired - sign in again");
+    } else {
+      LW.toast("Could not generate report - see browser console for details");
+    }
   }
 }
 
