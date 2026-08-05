@@ -8,3 +8,7 @@ data/backups/
 .DS_Store
 *.pyc
 heartbeat_url.txt
+certs/ca/
+certs/leaf/
+certs/public/*.pem
+tools/
