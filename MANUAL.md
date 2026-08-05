@@ -128,6 +128,14 @@ cut corrupting the SQLite database mid-write, and a UPS gives the PC
 enough time to either ride out a brief outage or shut down cleanly. No
 GPU or other special hardware is needed.
 
+If the server is a **laptop** rather than a desktop, its own battery
+already covers this - a brief power cut just runs it on battery instead
+of risking a sudden shutdown mid-write, so a separate UPS isn't needed.
+See the lid-close note under
+[Setting up on a Windows PC](#setting-up-on-a-windows-pc-step-by-step)
+though - that's the one laptop-specific setting that still needs
+changing.
+
 ### Getting the code onto the server: GitHub (recommended) or USB/zip
 
 The app's source code is kept in a **private** GitHub repository at
@@ -385,6 +393,14 @@ The server only works while the PC is awake. Go to **Settings → System →
 Power & battery → Screen and sleep**, and set "When plugged in, put my
 device to sleep" to **Never**. (The screen itself can still turn off -
 that doesn't affect the server - only "sleep"/"hibernate" does.)
+
+> **If the server is a laptop, not a desktop PC:** the above isn't
+> enough by itself - closing the lid puts a laptop to sleep (or shuts it
+> down) by default, regardless of the sleep-timeout setting, which would
+> take the server offline. Search the Start menu for **"Choose what
+> closing the lid does"** and set **"When I close the lid" (on battery
+> and plugged in)** to **"Do nothing"**. Combined with Step 11 above, the
+> server then keeps running lid-closed and plugged in.
 
 **Step 12 - (Recommended) Make the server start automatically.**
 Without this step, someone has to manually repeat Steps 3, 5, and 7 every
