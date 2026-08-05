@@ -239,27 +239,6 @@ startup anyway, just restarting the PC has the same effect as End + Run.
 the server PC itself - if the device setup screen loads, it's up. There's
 no window to glance at for this, since the task runs headless.
 
-### Confirming devices picked up an update (version numbers)
-
-Every screen - Field, Pack House, Admin - shows a small **v{number}** in
-its top-right corner (e.g. `v1`). This is the one reliable way to confirm
-a device is actually running the latest code after a `git pull` and
-restart, since the Field/Pack House/Admin apps are installable PWAs with
-an offline cache ([chapter 3](#3-device-setup)) - a device can stay on an
-older cached version even after the server itself has been updated, until
-its cache is refreshed.
-
-**After deploying an update:** check the version number on a few devices.
-If one is behind, do a normal open-close-reopen of the app icon (see
-[chapter 12](#12-troubleshooting--faq) - same fix as a stuck "Camera
-unavailable" screen); a full close and reopen is what lets the app notice
-and install the new cached version in the background, then show it on the
-next open.
-
-The version number only changes when the code that ships it changes
-- it's incremented deliberately each time a real update goes out, not
-tied to the date or any automatic counter.
-
 ### Quick setup: the automated installer (recommended)
 
 The project folder includes `install.bat`, which automates everything in
@@ -576,40 +555,10 @@ run first, since it reuses that Python setup). It:
 > re-run `setup_local_https.bat` to issue a fresh certificate for the new
 > address; the old one will stop matching.
 
-**Step 2 - Install the certificate on each Field/Pack House phone, once.**
-Get the certificate onto the phone first - either open
-`http://<server's LAN IP>:8000/certs/rootCA.pem` in the phone's browser
-while on the farm Wi-Fi (this step itself doesn't need HTTPS), or copy the
-file directly from `certs\public\rootCA.pem` on the server (e.g. via USB
-or email).
-
-- **Android:** Settings → **Security** (may be under "Security & privacy"
-  depending on the phone) → **More security settings** → **Encryption &
-  credentials** → **Install a certificate** → **CA certificate** → confirm
-  the warning → select the downloaded `rootCA.pem`.
-- **iPhone/iPad:** opening the downloaded file prompts to install a
-  configuration profile - accept it, then go to **Settings → General →
-  VPN & Device Management**, tap the profile, and install it. That alone
-  isn't enough on iOS: also go to **Settings → General → About →
-  Certificate Trust Settings** and toggle **full trust** on for this
-  certificate - iOS installs it but doesn't trust it for web browsing
-  until this second step.
-
-> **Expect a security notice after this.** Android shows a persistent
-> "Network may be monitored by an unknown third party" notification (and
-> sometimes a similar note on the lock screen) once any CA certificate is
-> user-installed - this is standard OS behavior for any installed
-> certificate, not a sign of a problem, and it's expected here since
-> that's exactly what a locally-issued certificate is. It's safe to
-> dismiss.
-
-**Step 3 - Point the device at the new address.**
-Same as switching to any new address (see
-[Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale)
-below, steps 6-7): open `https://<server's LAN IP>:8443/` on the device,
-re-enter its device ID on the Device Setup screen that appears, then
-reinstall the home-screen app icon from that address and remove the old
-one.
+Once this is done, each Field/Pack House phone needs the certificate
+installed and pointed at the new address - see
+[Connecting via local HTTPS](#connecting-via-local-https-no-vpn-needed) in
+[chapter 3](#3-device-setup).
 
 ### Enabling the QR camera scanner (HTTPS via Tailscale)
 
@@ -621,8 +570,9 @@ above instead, which doesn't depend on an always-on VPN connection.
 Fixing this means putting Tailscale's HTTPS in front of the app, which
 requires no changes to the app itself:
 
-1. Install Tailscale on the server first (see Step 1 above) if not already
-   done.
+1. Install Tailscale on the server first (see
+   [Connecting external users with Tailscale](#connecting-external-users-with-tailscale-only-if-needed))
+   if not already done.
 2. Turn on certificates for the tailnet: go to
    `login.tailscale.com/admin/dns` and enable **"HTTPS Certificates"**
    (requires MagicDNS, which is on by default).
@@ -635,52 +585,11 @@ requires no changes to the app itself:
    plain-HTTP app - `uvicorn`/`main.py` don't need to change.
 4. Find the exact address to use with `tailscale status` - it looks like
    `https://<server-name>.<tailnet-name>.ts.net/`.
-5. **The device needs the Tailscale app installed and connected** (see the
-   next section for keeping it connected reliably on Android) - being on
-   the farm's own Wi-Fi isn't enough on its own for this address, since
-   the device has to reach the server through its Tailscale connection to
-   get the HTTPS connection.
-6. On each device, open the new `https://...ts.net/` address instead of
-   the old LAN IP. This is a different origin, so it'll show the Device
-   Setup screen again ([chapter 3](#3-device-setup)) - re-enter that
-   device's ID once.
-7. Reinstall the home-screen app icon from the new HTTPS address (see
-   [Installing as an app icon](#installing-as-an-app-icon-optional-recommended)),
-   then delete the old icon that points at the `http://` address.
 
-### Keeping Tailscale always-on on Android field devices
-
-If a device only needs Tailscale because it stays on the farm's own
-Wi-Fi and was set up before
-[local HTTPS](#local-https-for-fieldpack-house-devices-recommended---no-vpn-needed)
-existed, switching it over removes this problem entirely instead of
-fighting it - that section covers moving a device across. The steps below
-are for devices that genuinely need Tailscale (off-farm access).
-
-Once a device depends on Tailscale to reach the server (see above),
-Android's aggressive battery management can silently kill the
-Tailscale connection in the background, which then breaks the app until
-someone notices and reopens Tailscale manually. To stop that happening:
-
-1. **Turn on Always-on VPN.** Settings → **Network & Internet → VPN** → tap
-   the gear icon next to Tailscale → enable **"Always-on VPN"**. This
-   makes Android keep it running and reconnect it automatically after a
-   restart.
-2. **Exempt Tailscale from battery optimization.** Settings → **Apps →
-   Tailscale → Battery** → set to **"Unrestricted"** (some phones label
-   this "Unmonitored app" or "Don't optimize"). Without this, Android
-   periodically freezes the app in the background and the connection drops
-   until someone opens it again.
-3. **Check for a manufacturer-specific app killer.** Samsung, Xiaomi,
-   Huawei, and OnePlus phones ship an extra battery manager on top of
-   stock Android that can re-kill apps even after Step 2 - look for a
-   separate "Sleeping apps," "Protected apps," or "Autostart manager" list
-   under that phone's battery/device-care settings and make sure Tailscale
-   is excluded/allowed there. [dontkillmyapp.com](https://dontkillmyapp.com)
-   has exact steps per phone model.
-4. **Stay signed in.** If Tailscale ever gets signed out, it stops
-   connecting entirely until someone signs back in - it won't silently
-   reconnect on its own.
+Once this is done, the device needs the Tailscale app installed and
+connected, and pointed at the new address - see
+[Connecting via Tailscale HTTPS](#connecting-via-tailscale-https) in
+[chapter 3](#3-device-setup).
 
 ### Remote desktop access via AnyDesk
 
@@ -825,6 +734,127 @@ generic icon, not the role-specific one.
 Each installs independently with its own icon and name - installing the
 Field app on a phone doesn't affect what a Pack House tablet or the
 office admin computer shows.
+
+### Connecting via local HTTPS (no VPN needed)
+
+Assumes the server-side setup is already done - see
+[Local HTTPS for field/pack house devices](#local-https-for-fieldpack-house-devices-recommended---no-vpn-needed)
+in [chapter 2](#2-initial-server-setup).
+
+**Step 1 - Install the certificate on this phone, once.**
+Get the certificate onto the phone first - either open
+`http://<server's LAN IP>:8000/certs/rootCA.pem` in the phone's browser
+while on the farm Wi-Fi (this step itself doesn't need HTTPS), or copy the
+file directly from `certs\public\rootCA.pem` on the server (e.g. via USB
+or email).
+
+- **Android:** Settings → **Security** (may be under "Security & privacy"
+  depending on the phone) → **More security settings** → **Encryption &
+  credentials** → **Install a certificate** → **CA certificate** → confirm
+  the warning → select the downloaded `rootCA.pem`.
+- **iPhone/iPad:** opening the downloaded file prompts to install a
+  configuration profile - accept it, then go to **Settings → General →
+  VPN & Device Management**, tap the profile, and install it. That alone
+  isn't enough on iOS: also go to **Settings → General → About →
+  Certificate Trust Settings** and toggle **full trust** on for this
+  certificate - iOS installs it but doesn't trust it for web browsing
+  until this second step.
+
+> **Expect a security notice after this.** Android shows a persistent
+> "Network may be monitored by an unknown third party" notification (and
+> sometimes a similar note on the lock screen) once any CA certificate is
+> user-installed - this is standard OS behavior for any installed
+> certificate, not a sign of a problem, and it's expected here since
+> that's exactly what a locally-issued certificate is. It's safe to
+> dismiss.
+
+**Step 2 - Point the device at the new address.**
+Open `https://<server's LAN IP>:8443/` on the device - this is a
+different origin than the old `http://` address, so it'll show the
+Device Setup screen again (above); re-enter that device's ID once. Then
+reinstall the home-screen app icon from that address (see
+[Installing as an app icon](#installing-as-an-app-icon-optional-recommended)
+above), and remove the old one.
+
+### Connecting via Tailscale HTTPS
+
+Assumes the server-side setup is already done - see
+[Enabling the QR camera scanner](#enabling-the-qr-camera-scanner-https-via-tailscale)
+in [chapter 2](#2-initial-server-setup). Only needed for a device that
+must reach the server from outside the farm's own Wi-Fi - for
+Field/Pack House devices that stay on-site, use
+[Connecting via local HTTPS](#connecting-via-local-https-no-vpn-needed)
+above instead.
+
+**Step 1 - Install and connect Tailscale on this device**, signed into
+the same tailnet as the server (see the next section for keeping it
+connected reliably on Android).
+
+**Step 2 - Point the device at the new address.**
+Open the `https://...ts.net/` address instead of the old LAN IP. This is
+a different origin, so it'll show the Device Setup screen again (above)
+- re-enter that device's ID once. Then reinstall the home-screen app icon
+from the new HTTPS address (see
+[Installing as an app icon](#installing-as-an-app-icon-optional-recommended)
+above), and delete the old icon that points at the `http://` address.
+
+### Keeping Tailscale always-on on Android field devices
+
+If a device only needs Tailscale because it stays on the farm's own
+Wi-Fi and was set up before
+[local HTTPS](#local-https-for-fieldpack-house-devices-recommended---no-vpn-needed)
+existed, switching it over removes this problem entirely instead of
+fighting it - see
+[Connecting via local HTTPS](#connecting-via-local-https-no-vpn-needed)
+above. The steps below are for devices that genuinely need Tailscale
+(off-farm access).
+
+Once a device depends on Tailscale to reach the server (see above),
+Android's aggressive battery management can silently kill the
+Tailscale connection in the background, which then breaks the app until
+someone notices and reopens Tailscale manually. To stop that happening:
+
+1. **Turn on Always-on VPN.** Settings → **Network & Internet → VPN** → tap
+   the gear icon next to Tailscale → enable **"Always-on VPN"**. This
+   makes Android keep it running and reconnect it automatically after a
+   restart.
+2. **Exempt Tailscale from battery optimization.** Settings → **Apps →
+   Tailscale → Battery** → set to **"Unrestricted"** (some phones label
+   this "Unmonitored app" or "Don't optimize"). Without this, Android
+   periodically freezes the app in the background and the connection drops
+   until someone opens it again.
+3. **Check for a manufacturer-specific app killer.** Samsung, Xiaomi,
+   Huawei, and OnePlus phones ship an extra battery manager on top of
+   stock Android that can re-kill apps even after Step 2 - look for a
+   separate "Sleeping apps," "Protected apps," or "Autostart manager" list
+   under that phone's battery/device-care settings and make sure Tailscale
+   is excluded/allowed there. [dontkillmyapp.com](https://dontkillmyapp.com)
+   has exact steps per phone model.
+4. **Stay signed in.** If Tailscale ever gets signed out, it stops
+   connecting entirely until someone signs back in - it won't silently
+   reconnect on its own.
+
+### Confirming devices picked up an update (version numbers)
+
+Every screen - Field, Pack House, Admin - shows a small **v{number}** in
+its top-right corner (e.g. `v1`). This is the one reliable way to confirm
+a device is actually running the latest code after a `git pull` and
+restart, since the Field/Pack House/Admin apps are installable PWAs with
+an offline cache (see
+[Installing as an app icon](#installing-as-an-app-icon-optional-recommended)
+above) - a device can stay on an older cached version even after the
+server itself has been updated, until its cache is refreshed.
+
+**After deploying an update:** check the version number on a few devices.
+If one is behind, do a normal open-close-reopen of the app icon (see
+[chapter 12](#12-troubleshooting--faq) - same fix as a stuck "Camera
+unavailable" screen); a full close and reopen is what lets the app notice
+and install the new cached version in the background, then show it on the
+next open.
+
+The version number only changes when the code that ships it changes
+- it's incremented deliberately each time a real update goes out, not
+tied to the date or any automatic counter.
 
 ### "Unknown device id"
 
