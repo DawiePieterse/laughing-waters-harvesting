@@ -51,9 +51,8 @@ recognized. Don't guess — tell your supervisor so the office can check or
 reprint it. There's no way to type a worker in manually; it has to be a
 scan.
 
-If it says **"Camera unavailable,"** the device isn't able to use its
-camera on this connection. Tell your supervisor — this needs fixing on
-the office side, not something you can solve from the field.
+If it says **"Camera unavailable,"** see "If something looks wrong" at
+the end of this guide — it's usually a quick fix you can do yourself.
 
 **2. Check the block.**
 Make sure the block dropdown shows the block you're actually picking in.
@@ -132,6 +131,19 @@ The status at the top just tells you what's happening:
 
 ## If something looks wrong
 
+- **"Camera unavailable" when scanning, or the status won't move past
+  "Offline" even though the phone has signal?** Check that **Tailscale**
+  is running:
+  1. Open the **Tailscale** app on the phone (it's separate from this
+     app, usually its own icon on the home screen).
+  2. It should say **"Connected."** If it says "Not connected" or
+     similar, tap to reconnect, or sign in again if it asks you to.
+  3. Go back to this app and try again.
+
+  This device needs Tailscale connected to reach the office system at
+  all — without it, the camera scanner won't work and nothing will sync,
+  even with full signal. If Tailscale shows Connected and it's still not
+  working, that's one for your supervisor.
 - **Logged the wrong weight or wrong worker on a crate that's already
   saved?** You can't fix this from the field device — tell your
   supervisor so the office can correct it.
