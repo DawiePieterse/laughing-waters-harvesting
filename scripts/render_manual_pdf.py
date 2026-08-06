@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Render MANUAL.md to MANUAL.pdf, matching its existing style (navy
-headings, styled code/tables, callout blockquotes).
+"""Render a Markdown file to PDF, matching MANUAL.md's existing style
+(navy headings, styled code/tables, callout blockquotes).
 
 Requires: weasyprint (e.g. `brew install weasyprint` on Mac) and the
 `markdown` Python package installed into whatever interpreter runs this -
 weasyprint's own bundled interpreter works well for this:
     /opt/homebrew/Cellar/weasyprint/*/libexec/bin/python3 -m pip install markdown
-    /opt/homebrew/Cellar/weasyprint/*/libexec/bin/python3 scripts/render_manual_pdf.py .
+    /opt/homebrew/Cellar/weasyprint/*/libexec/bin/python3 scripts/render_manual_pdf.py . MANUAL
+    /opt/homebrew/Cellar/weasyprint/*/libexec/bin/python3 scripts/render_manual_pdf.py . TRAINING_FIELD
 
-Re-run this (and commit the result) any time MANUAL.md changes - the PDF
-doesn't regenerate on its own.
+Re-run this (and commit the result) any time the source .md file
+changes - the PDF doesn't regenerate on its own.
 
-Usage: python3 render_manual_pdf.py <repo_dir>
+Usage: python3 render_manual_pdf.py <repo_dir> [stem]
+  <repo_dir> - path containing <stem>.md, output written next to it
+  [stem]     - filename without extension, defaults to "MANUAL"
 """
 import re
 import sys
@@ -53,7 +56,7 @@ CSS = """
 @page { size: A4; margin: 2.2cm 2cm; }
 body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; font-size: 10.5pt; line-height: 1.5; }
 h1 { color: #0A2F6B; font-size: 22pt; font-weight: 600; border-bottom: 1.5pt solid #0A2F6B; padding-bottom: 10pt; margin-top: 0; }
-h2 { color: #0A2F6B; font-size: 16pt; font-weight: 600; margin-top: 28pt; border-bottom: 0.75pt solid #cbd5e1; padding-bottom: 4pt; page-break-before: always; }
+h2 { color: #0A2F6B; font-size: 16pt; font-weight: 600; margin-top: 28pt; border-bottom: 0.75pt solid #cbd5e1; padding-bottom: 4pt; __H2_PAGE_BREAK__ }
 h1 + h2, h2:first-of-type { page-break-before: avoid; }
 h3 { color: #0A2F6B; font-size: 12.5pt; font-weight: 600; margin-top: 18pt; }
 h4 { color: #0A2F6B; font-size: 11pt; font-weight: 600; margin-top: 14pt; }
@@ -75,9 +78,14 @@ strong { font-weight: 600; }
 
 def main():
     repo_dir = sys.argv[1] if len(sys.argv) > 1 else "."
-    md_path = f"{repo_dir}/MANUAL.md"
-    pdf_path = f"{repo_dir}/MANUAL.pdf"
-    html_path = "/tmp/MANUAL_render.html"
+    stem = sys.argv[2] if len(sys.argv) > 2 else "MANUAL"
+    # MANUAL.md is long with numbered chapters, so each ## chapter gets its
+    # own page. Shorter docs (training guides) shouldn't force a page per
+    # section - pass "compact" as a 3rd arg to let content flow naturally.
+    compact = len(sys.argv) > 3 and sys.argv[3] == "compact"
+    md_path = f"{repo_dir}/{stem}.md"
+    pdf_path = f"{repo_dir}/{stem}.pdf"
+    html_path = f"/tmp/{stem}_render.html"
 
     with open(md_path, "r", encoding="utf-8") as f:
         text = f.read()
@@ -89,8 +97,9 @@ def main():
         extension_configs={"toc": {"slugify": github_slugify, "permalink": False}},
     )
 
+    css = CSS.replace("__H2_PAGE_BREAK__", "page-break-before: avoid;" if compact else "page-break-before: always;")
     html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>{CSS}</style></head>
+<html><head><meta charset="utf-8"><style>{css}</style></head>
 <body>{body}</body></html>"""
 
     with open(html_path, "w", encoding="utf-8") as f:
