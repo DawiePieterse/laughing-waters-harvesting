@@ -1,7 +1,7 @@
 # Owner View — Guide
 
-A read-only way to check on harvest progress — no login, no
-username/password, nothing to install.
+A read-only way to check on harvest progress — no username/password,
+nothing to remember.
 
 ---
 
@@ -13,12 +13,22 @@ You'll have been sent a link that looks like:
 https://.../owner/?key=...
 ```
 
-Just open it in any browser, on any phone, tablet, or computer. That's
-the whole login process — the long code at the end of the link *is*
-your access, so there's nothing else to enter.
+Open it in any browser, on any phone, tablet, or computer. That's the
+whole login process — the long code at the end of the link *is* your
+access, so there's no separate username/password to enter.
 
 **Worth bookmarking it** (or adding it to your home screen) so you don't
 need to dig up the link again next time.
+
+### If you're checking this from off the farm
+
+If you'll normally open this away from the farm itself (from home, an
+office, etc.), you'll also need **Tailscale** installed and connected on
+whatever device you use — ask the farm office to set this up for you
+once, it's a one-time thing. The link's code proves you're allowed to
+see the dashboard, but reaching the farm's server from outside its own
+network needs Tailscale regardless — the two aren't the same thing. If
+you're always on the farm's own Wi-Fi when you check, you can skip this.
 
 If the link ever stops working, ask the farm office for a new one — see
 "If something looks wrong" below.
@@ -68,5 +78,8 @@ directly.
   the current link.
 - **Numbers look outdated** — tap **Refresh**, or double-check the date
   range at the top actually covers the period you're expecting.
-- **Nothing loads at all** — check your own internet connection first;
-  if it's fine and the page still won't load, let the farm office know.
+- **Nothing loads at all, and you're off the farm** — check that
+  **Tailscale** is open and shows **"Connected"** first (see "If you're
+  checking this from off the farm" above) - this is the most common
+  cause. If Tailscale is connected and it still won't load, check your
+  own internet connection, then let the farm office know if it persists.

@@ -1204,6 +1204,23 @@ For someone who needs the *full* Admin screen remotely (not just the
 Dashboard), Tailscale plus the normal admin login is still the way to
 go - this link is deliberately just the read-only Dashboard.
 
+> **If the owner will check this from off the farm** (the usual case),
+> two things need to be true, not just one:
+> 1. **They need Tailscale installed and connected** on whatever device
+>    they'll open the link from (see
+>    [Connecting external users with Tailscale](#connecting-external-users-with-tailscale-only-if-needed)
+>    to give them access) - the token alone only proves they're allowed
+>    to view it, it doesn't make the server reachable from outside the
+>    farm's own network.
+> 2. **The link itself has to use the Tailscale address, not the LAN
+>    one.** The Copy button builds the link from whatever address *you*
+>    (the admin) happen to be viewing this Settings page from at that
+>    moment - if you're on the farm's own Wi-Fi when you copy it, the
+>    link will have the LAN address baked in, which an off-site owner
+>    can never reach, no matter how correct their token is. Open Admin
+>    via the Tailscale address first (`https://<server-name>.<tailnet-name>.ts.net/admin/`),
+>    *then* copy the Owner View link from there.
+
 ### Header weather
 
 The admin screen's header shows a live current-weather readout (temperature,
