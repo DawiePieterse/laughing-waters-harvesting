@@ -1,0 +1,152 @@
+# Admin — Training Guide
+
+For farm office staff managing workers, wages, reports, and settings.
+
+---
+
+## Signing in
+
+Open the Admin app, enter your username and password, and tap **Sign
+in**. If you're on a brand-new setup, the default login is username
+`admin`, password `ChangeMe123!` — change that immediately under
+**Settings → Change admin password** once you're in.
+
+Once signed in, the top bar shows the farm name, today's date/time, and
+current weather. Five tabs run across the top: **Dashboard**, **Master
+Data**, **Payments**, **Reports**, **Settings**.
+
+---
+
+## Dashboard — your daily overview
+
+This is where you check how the harvest is moving.
+
+1. Set the **Farm/Supplier** filter (or leave it on "All") and a
+   **Period start/end** date range — or just tap **Today**, **This
+   Week**, or **Season** for a quick preset.
+2. The KPI cards along the top summarize the period: teams/workers/
+   blocks active, total kg and crates, averages, and a breakdown of
+   Harvesting / In Transit / Received.
+3. Below that, five expandable lists give the detail behind those
+   numbers:
+   - **Harvesting** — loads still being picked in the field.
+   - **In Transit** — dispatched, not yet received at the pack house.
+   - **Received** — already checked in.
+   - **Workers** — per-worker totals for the period.
+   - **Blocks** — per-block totals for the period.
+
+Tap any list's header to expand or collapse it.
+
+**Harvesting and In Transit use the same green/yellow/red color coding
+as the Pack House screen** — red means a load has been waiting too long
+and needs attention.
+
+---
+
+## Master Data — the farm's reference information
+
+Five subtabs: **Workers**, **Teams**, **Blocks**, **Devices**,
+**Suppliers**.
+
+### Adding a worker
+
+1. Master Data → Workers → **+ Add Worker**.
+2. Fill in Employee Number, First Name, Last Name, SA ID Number, Bank,
+   Account Number, WhatsApp Number, and which Farm/Supplier they belong
+   to (leave as "(none)" for your own farm's workers).
+3. Optionally take or upload a **Photo** right there.
+4. Make sure **Active** is ticked, then **Save**.
+
+### Printing worker badges
+
+Workers scan a QR badge to identify themselves in the Field app — there's
+no other way to select a worker, so every active picker needs one.
+
+1. Master Data → Workers.
+2. Use **Print Badges (filtered)** to print everyone currently shown in
+   the table, **Print Badges (selected)** for just the ones you've
+   ticked, or **Print Badges (all)** for the whole list.
+
+Reprint a badge any time a worker's is lost, damaged, or a new worker
+joins.
+
+### Teams, Blocks, Devices, Suppliers
+
+- **Teams** — ID (e.g. "A"), name, induna. Add/edit with the same
+  pattern as Workers.
+- **Blocks** — each block's variety, tree count, hectares, and
+  active/inactive. Use **Export .xlsx** / **Import** to bulk-edit many
+  blocks at once from a spreadsheet rather than one at a time. Tick
+  **"Replace all"** before importing only when the file is meant to
+  completely replace the block list (e.g. after re-dividing a block) —
+  it retires any block not in the file instead of leaving it behind.
+- **Devices** — every phone/tablet/PC that can access the app must be
+  added here first, with its role (Field, Pack House, or Admin), station
+  name, and team. A device shows "Unknown device id" until you've added
+  it here.
+- **Suppliers** — other farms that use your pack house, with their
+  contact details and packing rate. Their loads stay separate from your
+  own harvest everywhere in the Dashboard and Reports.
+
+---
+
+## Payments — calculating wages
+
+1. Payments tab.
+2. Set the Farm/Supplier filter and date range (or Today/This Week/
+   Season).
+3. Tap **Calculate Wages** to see each worker's kg and amount due for
+   that period, based on the current rate.
+4. Tap **Export Wage Sheet** to download it for payroll.
+
+---
+
+## Reports — downloadable spreadsheets
+
+1. Reports tab.
+2. Set the date range and, if needed, a Farm/Supplier filter — **both
+   dates must be filled in** or the report won't generate.
+3. Tap the report you want. Each one downloads as an `.xlsx` file:
+
+| Report | What it contains |
+|---|---|
+| Daily Harvest Summary | Crates/kg by block and team for one day |
+| Lot & Receiving Report | Every load dispatched in the range, with receiving detail |
+| Harvesting List | Loads still being picked |
+| In Transit List | Dispatched but not yet received |
+| Received List | Already received loads |
+| Worker Harvest Report | Per-worker crates/kg/amount due |
+| Block Harvest Report | Per-block crates/kg/averages |
+
+---
+
+## Settings
+
+- **Data Backup** — **Backup Now** creates an immediate downloadable
+  backup; one also happens automatically every night at 02:00 (only if
+  the server is running at the time). Download backups regularly and
+  keep a copy somewhere off the server — the last 14 are kept
+  automatically, which protects against mistakes but not a hardware
+  failure.
+- **Farm settings** — farm name, location, current harvest season year,
+  the green→yellow and yellow→red timing thresholds used for the
+  color-coded queues, and GPS coordinates (enables the weather widget).
+- **Harvest rate** — the current rate per kg used for wage calculations.
+- **Change admin password** — do this immediately after first login if
+  you haven't already.
+
+---
+
+## If something looks wrong
+
+- **"Could not generate report" / a toast about picking dates first** —
+  make sure both the start and end date are filled in before tapping a
+  report.
+- **A device shows "Unknown device id"** — it hasn't been added in
+  Master Data → Devices yet; add it there first.
+- **A screen shows an older version number than you expect** (top
+  corner, e.g. "v3") — fully close and reopen the app (not just switch
+  away from it) to pick up the latest update.
+- **Anything else unexpected** — a full page refresh often clears minor
+  glitches; if it persists, note exactly what you were doing and check
+  with whoever manages the server.

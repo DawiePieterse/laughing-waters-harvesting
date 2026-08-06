@@ -1,0 +1,142 @@
+# Field Capture — Training Guide
+
+For picking teams logging crates at a field station.
+
+---
+
+## The 5-step loop
+
+This is everything you'll do, over and over, all day:
+
+1. **Tap "Scan Worker QR"** and point the camera at the worker's badge.
+2. **Choose the block** from the dropdown, if it isn't already selected.
+3. **Type the weight** on the keypad.
+4. **Tap "Save Crate."** You'll hear a chime and the crate count at the
+   top of the screen goes up.
+5. Repeat for the next crate.
+
+When a truck is ready to take a load away, you send a **Picking Slip**
+(see below) — that's the only other thing you'll do.
+
+---
+
+## Your screen, top to bottom
+
+- **Top bar** — shows which station this device is, and whether it's
+  connected (**Offline**, **Syncing...**, or **Online - synced**). Don't
+  worry if it says Offline — see "Working without signal" below.
+- **Crates / kg card** — how many crates and total kg logged for the
+  load currently being built at this station, plus how long it's been
+  running.
+- **Scan Worker QR button** — tap this before every crate.
+- **Block** — which block this crate came from.
+- **Weight keypad** — type the number, then tap the crate icon (delete
+  button clears a mistyped digit).
+- **Save Crate** — logs the crate. Do this every single time, even if
+  you're in a rush — a crate that isn't saved doesn't count.
+- **Send Picking Slip** — only tap this when a truck is actually leaving
+  with the load.
+
+---
+
+## Logging a crate, step by step
+
+**1. Scan the worker's badge.**
+Tap **Scan Worker QR**. Point the camera steadily at the worker's printed
+badge until it beeps. The worker's name appears on screen once it's
+matched — check it's the right person before continuing.
+
+If it says **"QR code doesn't match a known worker,"** that badge isn't
+recognized. Don't guess — tell your supervisor so the office can check or
+reprint it. There's no way to type a worker in manually; it has to be a
+scan.
+
+If it says **"Camera unavailable,"** the device isn't able to use its
+camera on this connection. Tell your supervisor — this needs fixing on
+the office side, not something you can solve from the field.
+
+**2. Check the block.**
+Make sure the block dropdown shows the block you're actually picking in.
+It usually stays the same all day at one station, but double-check it
+after a break or when moving to a new area.
+
+**3. Weigh and enter the crate's weight.**
+Use the on-screen keypad. The "." button is for decimals (e.g. `18.5`),
+and the delete button (⌫) removes the last digit if you make a mistake.
+
+**4. Save the crate.**
+Tap **Save Crate**. You'll hear a short chime and the crate count updates
+immediately. That's your confirmation it was logged — if you don't hear
+the chime or see the count change, try again.
+
+**5. Repeat.**
+Scan the next worker for the next crate. You don't need to reselect the
+block unless it's changed.
+
+---
+
+## Sending a Picking Slip (when the truck arrives)
+
+When a truck is ready to take crates to the pack house:
+
+1. Tap **Send Picking Slip**.
+2. Enter how many crates are going **right now** — if the truck can't
+   take everything you've logged, you can send fewer and keep the rest
+   for the next truck (see "Splitting a load" below).
+3. Enter the **driver's name**.
+4. Tap **Send**.
+
+A green **"Picking Slip Sent"** banner confirms it went through, and
+you'll see it added to "Dispatched today from this station" further down
+the screen.
+
+### Splitting a load
+
+If you have more crates logged than the truck can carry, you can send
+just some of them — enter that smaller number of "crates going now"
+instead of the full count. This needs the device to actually be
+connected (not offline) at that moment, since the office's system has to
+work out exactly which crates are going. If you see a message about
+reconnecting to split the load, either wait a moment for the connection
+to come back, or send everything on this truck instead.
+
+---
+
+## Working without signal
+
+Out in the field, this device is often out of Wi-Fi/data range — that's
+completely normal and nothing breaks. Every crate you save is stored on
+the device itself first. As soon as the device gets a connection again
+(even briefly), everything you logged sends itself to the office
+automatically — you don't need to do anything.
+
+The status at the top just tells you what's happening:
+
+| Status | What it means |
+|---|---|
+| **Offline** | No connection right now — crates are still saving locally, nothing is lost. |
+| **Syncing...** | Connection found, sending your logged crates now. |
+| **Online - synced** | Everything is up to date with the office. |
+| **Online - sync failed, retrying** | Connected, but couldn't reach the office system yet — it'll keep trying on its own every few seconds. |
+
+---
+
+## Checking your own work
+
+- **Recent crates** (lower on the screen) shows the last few crates you
+  logged, so you can double-check nothing was missed.
+- **Dispatched today from this station** shows every picking slip
+  already sent today, with totals.
+
+---
+
+## If something looks wrong
+
+- **Logged the wrong weight or wrong worker on a crate that's already
+  saved?** You can't fix this from the field device — tell your
+  supervisor so the office can correct it.
+- **Screen looks different / missing a button?** The app may need
+  updating — tell your supervisor, don't try to fix it yourself.
+- **Nothing happens when you tap Save Crate?** Make sure a weight is
+  entered and a worker is selected first — both are needed before it'll
+  save.
