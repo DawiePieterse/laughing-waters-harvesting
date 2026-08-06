@@ -933,6 +933,35 @@ function bindSettings() {
   document.getElementById("closeMapBtn").addEventListener("click", closeMapModal);
   document.getElementById("confirmMapBtn").addEventListener("click", confirmMapLocation);
   document.getElementById("runBackupBtn").addEventListener("click", runBackupNow);
+  document.getElementById("copyOwnerViewLinkBtn").addEventListener("click", copyOwnerViewLink);
+  document.getElementById("regenerateOwnerViewLinkBtn").addEventListener("click", regenerateOwnerViewLink);
+}
+
+function _ownerViewUrl(token) {
+  return `${location.origin}/owner/?key=${token}`;
+}
+
+async function loadOwnerViewLink() {
+  const { token } = await LW.api("/api/owner-view/link", { auth: true });
+  document.getElementById("ownerViewLink").value = _ownerViewUrl(token);
+}
+
+async function copyOwnerViewLink() {
+  const input = document.getElementById("ownerViewLink");
+  try {
+    await navigator.clipboard.writeText(input.value);
+    LW.toast("Link copied");
+  } catch (e) {
+    input.select();
+    LW.toast("Select and copy the link manually");
+  }
+}
+
+async function regenerateOwnerViewLink() {
+  if (!confirm("This makes the old Owner View link stop working immediately. Anyone still using it will need the new one. Continue?")) return;
+  const { token } = await LW.api("/api/owner-view/regenerate", { method: "POST", auth: true });
+  document.getElementById("ownerViewLink").value = _ownerViewUrl(token);
+  LW.toast("New link generated - the old one no longer works");
 }
 
 async function loadBackupsList() {
@@ -980,6 +1009,7 @@ async function loadSettingsForm() {
     document.getElementById("setRatePerKg").value = rate.default_rate_per_kg;
   }
   await loadBackupsList();
+  await loadOwnerViewLink();
 }
 
 async function saveSystemSettings() {

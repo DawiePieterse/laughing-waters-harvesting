@@ -98,7 +98,9 @@ class AdminUser(SQLModel, table=True):
 
 
 class SystemSetting(SQLModel, table=True):
-    """Single-row table of farm-wide settings."""
+    """Single-row table of farm-wide settings. Served to every device
+    (including unauthenticated Field/Pack House ones) via a public
+    GET /api/system-settings - never put anything secret on this model."""
     id: Optional[int] = Field(default=None, primary_key=True)
     farm_name: str = "Laughing Waters (Bekfontein)"
     farm_location: str = ""
@@ -107,6 +109,14 @@ class SystemSetting(SQLModel, table=True):
     current_harvest_year: int = datetime.now().year
     gps_lat: Optional[float] = None
     gps_lon: Optional[float] = None
+
+
+class OwnerViewToken(SQLModel, table=True):
+    """Single-row secret token gating the read-only Owner View dashboard
+    (see routers/owner_view.py) - deliberately kept off SystemSetting,
+    which is public."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str
 
 
 # ---------------------------------------------------------------------------

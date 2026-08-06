@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owner View - Laughing Waters</title>
+<link rel="icon" href="../admin/icons/icon-192.png">
+<meta name="theme-color" content="#0A2F6B">
+<script src="../shared/tailwind.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="../shared/styles.css">
+<script src="../shared/api.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen pb-6">
+
+<!-- Shown if the link has no key, or the key is wrong -->
+<div id="deniedScreen" class="hidden min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow p-6 w-full max-w-sm text-center">
+    <i class="fa-solid fa-lock text-3xl text-slate-300 mb-3"></i>
+    <div class="text-lg font-bold" style="color: var(--lw-blue)">Owner View</div>
+    <div class="text-sm text-slate-500 mt-2">
+      This link isn't valid. Ask the farm office for the current Owner View
+      link (Settings → Owner View, in Admin).
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="lw-header p-4">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div id="headerFarmName" class="font-bold text-2xl md:text-3xl leading-tight">Laughing Waters</div>
+        <div id="headerDateTime" class="text-lg md:text-xl font-semibold text-white/90 mt-1">&nbsp;</div>
+        <div class="text-xs text-white/60 mt-1">Read-only Owner View</div>
+      </div>
+      <div class="text-right">
+        <div id="headerWeather" class="text-sm md:text-base font-semibold text-white/90"></div>
+        <div id="appVersion" class="text-xs text-white/60 mt-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-4 max-w-3xl mx-auto space-y-4">
+    <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-3 items-end">
+      <div><label class="text-xs text-slate-500 block">Farm / Supplier</label><select id="dashSupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select></div>
+      <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="dashStart" class="border border-slate-300 rounded-lg p-2"></div>
+      <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="dashEnd" class="border border-slate-300 rounded-lg p-2"></div>
+      <button id="dashTodayBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Today</button>
+      <button id="dashWeekBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">This Week</button>
+      <button id="dashSeasonBtn" class="px-3 py-2 bg-slate-200 rounded-lg text-sm">Season</button>
+      <button id="dashRefreshBtn" class="px-4 py-2 lw-btn-primary rounded-lg">Refresh</button>
+    </div>
+
+    <div id="dashKpiGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+    <div class="bg-white rounded-xl shadow">
+      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-harvesting-body">
+        <span id="dash-harvesting-title" class="font-semibold">Harvesting</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+      <div id="dash-harvesting-body" class="collapsible-body hidden border-t divide-y"></div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow">
+      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-intransit-body">
+        <span id="dash-intransit-title" class="font-semibold">In Transit</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+      <div id="dash-intransit-body" class="collapsible-body hidden border-t divide-y"></div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow">
+      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-received-body">
+        <span id="dash-received-title" class="font-semibold">Received</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+      <div id="dash-received-body" class="collapsible-body hidden border-t divide-y"></div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow">
+      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-blocks-body">
+        <span id="dash-blocks-title" class="font-semibold">Blocks</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+      <div id="dash-blocks-body" class="collapsible-body hidden border-t overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left border-b"><th class="p-2">Block</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th><th class="p-2">Avg Kg/Tree</th></tr></thead>
+          <tbody id="dash-blocks-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="owner.js"></script>
+</body>
+</html>
