@@ -150,7 +150,7 @@ joins.
 - **A device shows "Unknown device id"** — it hasn't been added in
   Master Data → Devices yet; add it there first.
 - **A screen shows an older version number than you expect** (top
-  corner, e.g. "v3") — fully close and reopen the app (not just switch
+  corner, e.g. "v1.0") — fully close and reopen the app (not just switch
   away from it) to pick up the latest update.
 - **Anything else unexpected** — a full page refresh often clears minor
   glitches; if it persists, note exactly what you were doing and check

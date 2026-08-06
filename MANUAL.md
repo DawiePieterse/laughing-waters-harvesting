@@ -766,7 +766,7 @@ someone notices and reopens Tailscale manually. To stop that happening:
 ### Confirming devices picked up an update (version numbers)
 
 Every screen - Field, Pack House, Admin - shows a small **v{number}** in
-its top-right corner (e.g. `v1`). This is the one reliable way to confirm
+its top-right corner (e.g. `v1.0`). This is the one reliable way to confirm
 a device is actually running the latest code after a `git pull` and
 restart, since the Field/Pack House/Admin apps are installable PWAs with
 an offline cache (see
