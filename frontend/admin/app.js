@@ -22,7 +22,8 @@ async function updateBannerWeather() {
   try {
     const w = await LW.api("/api/weather/current");
     if (w && w.temp !== undefined && w.temp !== null) {
-      el.textContent = `${Math.round(w.temp)}°C · ${w.condition}${w.humidity != null ? ` · ${w.humidity}% humidity` : ""}`;
+      const icon = LW.weatherIcon(w.condition);
+      el.innerHTML = `<i class="fa-solid ${icon}"></i> ${Math.round(w.temp)}°C · ${w.condition}${w.humidity != null ? ` · ${w.humidity}% humidity` : ""}`;
     }
   } catch (e) {
     // weather is a nice-to-have - never blocks or errors the rest of the header

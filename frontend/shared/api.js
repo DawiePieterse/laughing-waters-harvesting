@@ -7,7 +7,7 @@ const LW = {
   // header so it's obvious at a glance whether a device's cached copy is
   // actually up to date - especially useful given the service workers'
   // cache-first strategy (see field/packhouse/admin service-worker.js).
-  VERSION: "4",
+  VERSION: "5",
 
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },
@@ -73,6 +73,27 @@ const LW = {
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) return res.json();
     return res.blob();
+  },
+
+  // Maps backend/weather.py's fixed condition strings to a Font Awesome
+  // icon class - update both places together if a new condition is added.
+  weatherIcon(condition) {
+    const icons = {
+      "Clear": "fa-sun",
+      "Partly Cloudy": "fa-cloud-sun",
+      "Overcast": "fa-cloud",
+      "Cloudy": "fa-cloud",
+      "Foggy": "fa-smog",
+      "Drizzle": "fa-cloud-rain",
+      "Rain": "fa-cloud-rain",
+      "Heavy Rain": "fa-cloud-showers-heavy",
+      "Showers": "fa-cloud-rain",
+      "Heavy Showers": "fa-cloud-showers-heavy",
+      "Snow": "fa-snowflake",
+      "Heavy Snow": "fa-snowflake",
+      "Storm": "fa-bolt",
+    };
+    return icons[condition] || "fa-cloud";
   },
 
   toast(message) {
