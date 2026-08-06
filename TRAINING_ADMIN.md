@@ -134,6 +134,11 @@ joins.
 - **Harvest rate** — the current rate per kg used for wage calculations.
 - **Change admin password** — do this immediately after first login if
   you haven't already.
+- **Owner View** — a read-only dashboard link for an owner or other
+  interested party who just wants to check progress, no login needed and
+  no worker wage data shown. Tap **Copy** to grab the link and send it
+  directly to them, or **Regenerate Link** if it was ever shared more
+  widely than intended — that immediately breaks the old link.
 
 ---
 

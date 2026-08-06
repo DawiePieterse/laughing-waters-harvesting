@@ -463,11 +463,17 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 Skip this section entirely if every device (field, pack house, admin) stays
 on the farm's own Wi-Fi/LAN - it's only needed if someone **outside** that
 network has to reach the server, e.g. a remote bookkeeper checking Reports,
-an off-site owner checking the Dashboard, or a partner farm's own admin
-accessing their supplier data from elsewhere. Tailscale is a free, private
-network that lets specific outside devices reach the server securely over
-the internet, without opening any ports on the farm's router or exposing
-the app to the public internet.
+or a partner farm's own admin accessing their supplier data from elsewhere.
+Tailscale is a free, private network that lets specific outside devices
+reach the server securely over the internet, without opening any ports on
+the farm's router or exposing the app to the public internet.
+
+> **An off-site owner who only wants to check progress** doesn't need
+> Tailscale or a login at all - see
+> [Owner View](#owner-view-read-only-dashboard-link) in
+> [chapter 11](#11-admin---settings) for a link-only read-only Dashboard.
+> Come back to this section if they need the *full* Admin screen remotely
+> instead.
 
 **Step 1 - Install Tailscale on the server.**
 
@@ -1168,6 +1174,35 @@ The per-kg wage rate used by [Payments](#9-admin---payments).
 
 Change the admin login password - **do this immediately after first setup**
 ([chapter 2](#2-initial-server-setup)).
+
+### Owner View (read-only dashboard link)
+
+A link-only alternative to full Admin access, for an owner or other
+interested party who just wants to check on progress without a
+username/password and without being able to change anything.
+
+The link (`.../owner/?key=...`) opens a stripped-down version of the
+Dashboard tab - the same KPI cards, Harvesting/In Transit/Received
+lists, and Blocks breakdown, filtered the same way - but with **no
+Workers wage breakdown** (amount due per worker isn't shown on this
+link) and none of Admin's other tabs.
+
+- **Copy** the link from Settings and send it directly to whoever it's
+  for - opening it needs no login at all, just the link itself.
+- Anyone with the link can view it for as long as it's valid, so only
+  share it with the people it's meant for - don't post it anywhere
+  public.
+- **Regenerate Link** immediately invalidates the old link and issues a
+  new one - use this if a link was shared more widely than intended, or
+  someone who had it no longer should.
+
+This link only works the same way any other screen does - reachable on
+the farm's own Wi-Fi, or over Tailscale if the recipient needs it from
+outside the farm (see
+[Connecting external users with Tailscale](#connecting-external-users-with-tailscale-only-if-needed)).
+For someone who needs the *full* Admin screen remotely (not just the
+Dashboard), Tailscale plus the normal admin login is still the way to
+go - this link is deliberately just the read-only Dashboard.
 
 ### Header weather
 
