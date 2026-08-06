@@ -4,6 +4,26 @@ For picking teams logging crates at a field station.
 
 ---
 
+## Getting started with your phone
+
+Field devices are **Ulefone RugKing 4 Pro** phones — rugged, high
+battery capacity, built to last a full day in the field. When you're
+given your phone, or at the start of each day:
+
+1. **Check the battery.** Make sure there's enough charge for a full
+   day. Charge it fully overnight if it's low.
+2. **Unlock the phone.** Swipe up on the screen, then enter the code
+   **1470**.
+3. **Check Tailscale is connected.** Open the **Tailscale** app and look
+   for a **green dot** next to your device's name — that means it's
+   connected to the farm's account (**bekfontein01**). Without this,
+   nothing in the Harvest app will work (see "If something looks wrong"
+   further down).
+4. **Open the app.** Tap the **Harvest Capture** icon on the home
+   screen.
+
+---
+
 ## The 5-step loop
 
 This is everything you'll do, over and over, all day:
