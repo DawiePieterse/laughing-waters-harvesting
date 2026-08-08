@@ -21,6 +21,22 @@ class DeviceIn(SQLModel):
     active: bool = True
 
 
+# Must stay above /{device_id} - declared after it, that route would match
+# "setup-options" as a device id and this would never be reached.
+@router.get("/setup-options")
+def list_setup_options(session: Session = Depends(get_session)):
+    """The devices offered on the one-time device setup screen, so a device
+    added in Master Data is immediately pickable. No auth: this screen runs
+    before any sign-in, and /api/devices/{id} is already public. Returns only
+    what the screen needs to show and route a choice - never the whole record,
+    which carries induna and data-capturer names."""
+    devices = session.exec(select(Device).where(Device.active == True)).all()  # noqa: E712
+    return [
+        {"id": d.id, "station": d.station, "role": d.role}
+        for d in sorted(devices, key=lambda d: d.id)
+    ]
+
+
 @router.get("/{device_id}")
 def get_device(device_id: str, session: Session = Depends(get_session)):
     """Called by a device on load to determine its own role/team/induna and
