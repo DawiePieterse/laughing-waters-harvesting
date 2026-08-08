@@ -2,7 +2,8 @@
 // unavailable, but correctly styled) when the phone has no connection to
 // the farm server. Data always goes over the network when available.
 const CACHE_PREFIX = "lw-owner-";
-const CACHE = "lw-owner-v1";
+const CACHE = "lw-owner-v2";
+const REVALIDATE_TIMEOUT_MS = 10000;
 const SHELL = [
   "./",
   "./index.html",
@@ -48,18 +49,35 @@ self.addEventListener("fetch", (event) => {
   const isPageLoad = event.request.mode === "navigate";
   const cacheKey = isPageLoad ? url.origin + url.pathname : event.request;
 
-  event.respondWith(
-    caches.match(cacheKey).then((cached) => {
-      const network = fetch(event.request)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(cacheKey, copy));
-          }
-          return res;
-        })
-        .catch(() => cached); // offline: fall back to whatever we have
-      return cached || network;
+  // Two things the revalidation needs to behave. It is registered with
+  // waitUntil, so the browser keeps this worker alive until the new copy is
+  // actually written - otherwise the worker can be shut down the moment the
+  // cached response is handed back, the write never lands, and devices stay
+  // pinned to old code, the exact failure this strategy exists to prevent.
+  // And it carries a deadline, because on an unreachable network these
+  // background fetches never settle, and a browser allows only a handful of
+  // connections per host - uncapped they pile up and starve the app's own
+  // API requests of sockets.
+  const revalidateAbort = new AbortController();
+  const revalidateTimer = setTimeout(() => revalidateAbort.abort(), REVALIDATE_TIMEOUT_MS);
+  const update = fetch(event.request, { signal: revalidateAbort.signal })
+    .then(async (res) => {
+      if (res.ok) {
+        const cache = await caches.open(CACHE);
+        await cache.put(cacheKey, res.clone());
+      }
+      return res;
     })
+    .catch(() => null) // offline: the cached copy below is the answer
+    .finally(() => clearTimeout(revalidateTimer));
+  event.waitUntil(update);
+
+  // Matched against THIS screen's cache, not the global caches.match(), which
+  // searches every cache on the origin and would happily answer with another
+  // screen's stale copy of a shared file (all four cache shared/api.js).
+  event.respondWith(
+    caches.open(CACHE)
+      .then((cache) => cache.match(cacheKey))
+      .then((cached) => cached || update.then((res) => res || Response.error()))
   );
 });

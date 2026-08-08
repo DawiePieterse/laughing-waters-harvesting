@@ -3,17 +3,21 @@ let selectedLot = null;
 let _lastRefreshed = null;
 let _suppliersCache = [];
 
+// Built from local data first, then enriched from the server - a device that
+// cannot reach the server gets no error from fetch(), only a long wait, so
+// nothing the receiver needs may sit behind a request. See the same note in
+// field/app.js.
 async function init() {
   document.getElementById("appVersion").textContent = `v${LW.VERSION}`;
   const deviceId = LW.getDeviceId();
   if (!deviceId) { location.href = "../"; return; }
-  try {
-    deviceConfig = await LW.fetchDeviceConfigOfflineTolerant(deviceId);
-  } catch (e) {
-    location.href = "../";
-    return;
+
+  const cachedConfig = LW.getCachedDeviceConfig(deviceId);
+  if (cachedConfig) {
+    deviceConfig = cachedConfig;
+    document.getElementById("stationLabel").textContent = deviceConfig.station;
   }
-  document.getElementById("stationLabel").textContent = deviceConfig.station;
+  _suppliersCache = LW.getCachedJSON("lw_cached_suppliers") || [];
 
   document.getElementById("refreshBtn").addEventListener("click", refresh);
   document.getElementById("cancelReceiveBtn").addEventListener("click", closeModal);
@@ -32,15 +36,40 @@ async function init() {
     await refresh();
   });
 
-  await loadSuppliers();
-  await refresh();
+  // Show the queue this device already has before touching the network.
+  renderCachedQueue();
   setInterval(refresh, 30000);
   setInterval(updateLastUpdatedLabel, 10000);
+
+  // Background from here; the screen is already usable.
+  const config = await resolveDeviceConfig(deviceId, cachedConfig);
+  if (!config) return;
+  await loadSuppliers();
+  await refresh();
+}
+
+async function resolveDeviceConfig(deviceId, cachedConfig) {
+  try {
+    deviceConfig = await LW.fetchDeviceConfig(deviceId);
+    document.getElementById("stationLabel").textContent = deviceConfig.station;
+    return deviceConfig;
+  } catch (e) {
+    if (LW.isNetworkError(e)) {
+      LW.setOffline(true);
+      if (cachedConfig) return cachedConfig;
+      LW.toast("No connection - cannot set up this device yet");
+      return null;
+    }
+    if (cachedConfig) return cachedConfig;
+    location.href = "../";
+    return null;
+  }
 }
 
 async function loadSuppliers() {
   try {
     _suppliersCache = await LW.api("/api/suppliers");
+    localStorage.setItem("lw_cached_suppliers", JSON.stringify(_suppliersCache));
   } catch (e) { /* keep last known list if offline */ }
 }
 
@@ -53,18 +82,12 @@ async function refresh() {
     localStorage.setItem(QUEUE_CACHE_KEY, JSON.stringify({ at: Date.now(), lots }));
     LW.setOffline(false);
   } catch (e) {
-    if (!(e instanceof TypeError)) { LW.toast("Could not reach server"); return; }
+    if (!LW.isNetworkError(e)) { LW.toast("Could not reach server"); return; }
     LW.setOffline(true); // server unreachable
     // Fall back to the last queue we saw, so the receiver still knows which
     // loads are on their way in. Only useful on a cold load - if lots are
     // already on screen, leave them alone.
-    if (_lastRefreshed) return;
-    const cached = localStorage.getItem(QUEUE_CACHE_KEY);
-    if (!cached) { renderEmptyQueueOffline(); return; }
-    const parsed = JSON.parse(cached);
-    lots = parsed.lots;
-    _lastRefreshed = parsed.at;
-    renderQueue(lots);
+    if (!_lastRefreshed) renderCachedQueue();
     return;
   }
   renderQueue(lots);
@@ -72,11 +95,19 @@ async function refresh() {
   updateLastUpdatedLabel();
 }
 
-function renderEmptyQueueOffline() {
-  document.getElementById("emptyState").classList.add("hidden");
-  document.getElementById("lotsList").innerHTML =
-    `<div class="text-center text-slate-400 py-10">No queue saved on this device yet - reconnect to load it.</div>`;
-  updateLastUpdatedLabel();
+// Draws the last in-transit queue this device saw. Used at startup and
+// whenever a cold refresh can't reach the server.
+function renderCachedQueue() {
+  const cached = LW.getCachedJSON(QUEUE_CACHE_KEY);
+  if (!cached || !cached.lots) {
+    document.getElementById("emptyState").classList.add("hidden");
+    document.getElementById("lotsList").innerHTML =
+      `<div class="text-center text-slate-400 py-10">No queue saved on this device yet - reconnect to load it.</div>`;
+    updateLastUpdatedLabel();
+    return;
+  }
+  _lastRefreshed = cached.at;
+  renderQueue(cached.lots);
 }
 
 function renderQueue(lots) {

@@ -111,7 +111,7 @@ async function refreshDashboard() {
     // A network failure is NOT an invalid key - show the offline banner and
     // keep whatever data is already on screen. Only a real HTTP rejection
     // (bad/expired key) gets the denied screen.
-    if (e instanceof TypeError) {
+    if (LW.isNetworkError(e)) {
       LW.setOffline(true);
       return;
     }
@@ -195,16 +195,16 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
   `).join("") || `<tr><td class="p-2 text-slate-400" colspan="5">No harvest activity in this period</td></tr>`;
 }
 
+// The page is shown before any request is made. Waiting on the server first
+// would leave an owner on an unreachable connection staring at a blank screen
+// for as long as the OS takes to give up on the request.
 async function init() {
   if (!OWNER_KEY) { showDenied(); return; }
 
   document.getElementById("appVersion").textContent = `v${LW.VERSION}`;
-  try {
-    _systemSettings = await LW.api("/api/system-settings");
-  } catch (e) { /* keep defaults if offline on first load */ }
+  _systemSettings = LW.getCachedJSON("lw_cached_settings");
   updateBannerFarmName();
   updateBannerClock();
-  updateBannerWeather();
   setInterval(updateBannerClock, 1000);
 
   bindDashboard();
@@ -217,10 +217,19 @@ async function init() {
     await refreshDashboard();
   });
 
+  document.getElementById("app").classList.remove("hidden");
+
+  // Background from here.
+  try {
+    _systemSettings = await LW.api("/api/system-settings");
+    localStorage.setItem("lw_cached_settings", JSON.stringify(_systemSettings));
+    updateBannerFarmName();
+  } catch (e) {
+    if (LW.isNetworkError(e)) LW.setOffline(true);
+  }
+  updateBannerWeather();
   await loadSuppliers();
   await refreshDashboard();
-
-  document.getElementById("app").classList.remove("hidden");
 }
 
 if ("serviceWorker" in navigator) {

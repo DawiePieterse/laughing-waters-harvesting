@@ -28,13 +28,25 @@ const LWPTR = (() => {
     el.classList.toggle("ready", px >= THRESHOLD);
   }
 
+  // Backstop only - a refresh should finish well inside this, since the
+  // requests behind it carry their own (shorter) timeouts.
+  const MAX_SPIN_MS = 12000;
+
   async function trigger() {
     const el = ensureIndicator();
     refreshing = true;
     el.classList.add("spinning");
     setPull(THRESHOLD);
     try {
-      if (onRefresh) await onRefresh();
+      // The spinner is a promise the UI makes to the user, so it is capped:
+      // a refresh that stalls (unreachable server, wedged request) must still
+      // hand the screen back instead of spinning forever.
+      if (onRefresh) {
+        await Promise.race([
+          onRefresh(),
+          new Promise((resolve) => setTimeout(resolve, MAX_SPIN_MS)),
+        ]);
+      }
     } catch (e) { /* refresh errors surface via each screen's own UI */ }
     el.classList.remove("spinning", "ready");
     setPull(0);

@@ -31,71 +31,128 @@ function setPendingLots(lots) {
   localStorage.setItem(PENDING_LOTS_KEY, JSON.stringify(lots));
 }
 
+// Everything this screen needs to work is already on the device (IndexedDB
+// crates, cached worker/block lists, cached device config), so the whole UI is
+// built and painted from local data BEFORE any request is made. The network is
+// contacted afterwards purely to enrich and sync. Nothing above the first
+// await may depend on the server: a device in a dead spot gets no error from
+// fetch(), just a long wait, and a worker must never be left staring at a
+// half-drawn screen holding a full crate.
 async function init() {
   document.getElementById("appVersion").textContent = `v${LW.VERSION}`;
   const deviceId = LW.getDeviceId();
   if (!deviceId) { location.href = "../"; return; }
-  try {
-    deviceConfig = await LW.fetchDeviceConfigOfflineTolerant(deviceId);
-  } catch (e) {
-    location.href = "../";
-    return;
+
+  const cachedConfig = LW.getCachedDeviceConfig(deviceId);
+  if (cachedConfig) {
+    deviceConfig = cachedConfig;
+    renderStationLabel();
   }
-  document.getElementById("stationLabel").textContent =
-    `${deviceConfig.station} - Team ${deviceConfig.team_id || "?"} - Induna ${deviceConfig.induna || "?"}`;
 
   // Offline banner + instant pill flip on connectivity changes. Set up before
-  // the first data loads so their failures can flip it. The banner helper owns
-  // the online/offline listeners; failed requests flip it too.
+  // anything touches the network so failures have somewhere to show.
   LW.offlineBanner("Offline - crates save to this device and sync when back in range");
   LW.onOfflineChange = (off) => { if (off) showOfflineStatus(); else syncLoop(); };
 
-  try {
-    systemSettings = await LW.api("/api/system-settings");
-  } catch (e) {
-    if (e instanceof TypeError) LW.setOffline(true); // keep defaults if offline
-  }
-
-  await loadWorkers();
-  await loadBlocks();
-  await renderLot();
-  setInterval(renderLot, 15000);
-  setInterval(syncLoop, 10000);
-  setInterval(async () => { await loadWorkers(); await loadBlocks(); }, 30000);
-
-  syncLoop();
-
-  LWPTR.attach(async () => {
-    try { systemSettings = await LW.api("/api/system-settings"); } catch (e) { /* offline */ }
-    await loadWorkers();
-    await loadBlocks();
-    await renderLot();
-    renderDispatchedLots();
-    await syncLoop();
-  });
+  systemSettings = LW.getCachedJSON("lw_cached_settings") || systemSettings;
+  renderCachedWorkers();
+  renderCachedBlocks();
 
   bindKeypad();
   updateWorkerDisplay();
-  renderDispatchedLots();
   document.getElementById("saveCrateBtn").addEventListener("click", saveCrate);
   document.getElementById("sendSlipBtn").addEventListener("click", openDriverModal);
   document.getElementById("cancelSlipBtn").addEventListener("click", closeDriverModal);
   document.getElementById("confirmSlipBtn").addEventListener("click", sendPickingSlip);
   document.getElementById("scanBtn").addEventListener("click", openScanner);
   document.getElementById("closeScanBtn").addEventListener("click", closeScanner);
+  LWPTR.attach(refreshFromServer);
+
+  renderDispatchedLots();
+  if (deviceConfig) await renderLot();
+  // Screen is now live - the worker can capture crates from this point on.
+
+  setInterval(renderLot, 15000);
+  setInterval(syncLoop, 10000);
+  setInterval(refreshLists, 30000);
+
+  // Background from here; none of the above waited on it.
+  const hadConfig = !!deviceConfig;
+  const config = await resolveDeviceConfig(deviceId, cachedConfig);
+  if (!config) return; // brand new device, server says unknown - redirecting
+  if (!hadConfig) await renderLot();
+
+  refreshFromServer();
+}
+
+// A device this browser has already set up keeps working from its cached
+// config forever. Only a never-seen device needs the server, and only that
+// case may bounce the user to setup - an unreachable server must never be
+// mistaken for an unknown device.
+async function resolveDeviceConfig(deviceId, cachedConfig) {
+  try {
+    deviceConfig = await LW.fetchDeviceConfig(deviceId);
+    renderStationLabel();
+    return deviceConfig;
+  } catch (e) {
+    if (LW.isNetworkError(e)) {
+      LW.setOffline(true);
+      if (cachedConfig) return cachedConfig;
+      LW.toast("No connection - cannot set up this device yet");
+      return null;
+    }
+    if (cachedConfig) return cachedConfig; // server says unknown, but we've run before
+    location.href = "../";
+    return null;
+  }
+}
+
+function renderStationLabel() {
+  document.getElementById("stationLabel").textContent =
+    `${deviceConfig.station} - Team ${deviceConfig.team_id || "?"} - Induna ${deviceConfig.induna || "?"}`;
+}
+
+async function refreshLists() {
+  await Promise.allSettled([loadWorkers(), loadBlocks()]);
+}
+
+async function loadSettings() {
+  try {
+    systemSettings = await LW.api("/api/system-settings");
+    localStorage.setItem("lw_cached_settings", JSON.stringify(systemSettings));
+  } catch (e) {
+    if (LW.isNetworkError(e)) LW.setOffline(true);
+  }
+}
+
+// The one place that goes to the server for fresh data: the periodic refresh,
+// pull-to-refresh, and the tail of init all funnel through here. The requests
+// are independent and run concurrently - in a dead spot each one costs a full
+// timeout, and in series that would leave the refresh spinner up for the sum
+// of them rather than the longest.
+async function refreshFromServer() {
+  await Promise.allSettled([loadSettings(), loadWorkers(), loadBlocks(), syncLoop()]);
+  await renderLot();
+  renderDispatchedLots();
+}
+
+// Paints the worker list saved on this device. Called during startup so the
+// dropdown is populated before - and regardless of - any network activity.
+function renderCachedWorkers() {
+  const cached = LW.getCachedJSON("lw_cached_workers");
+  if (cached) renderWorkerOptions(cached);
+  else document.getElementById("workerSelect").innerHTML =
+    `<option value="">(no worker list on this device yet)</option>`;
 }
 
 async function loadWorkers() {
-  const select = document.getElementById("workerSelect");
   try {
     const workers = await LW.api("/api/workers");
     localStorage.setItem("lw_cached_workers", JSON.stringify(workers));
     renderWorkerOptions(workers);
   } catch (e) {
-    if (e instanceof TypeError) LW.setOffline(true);
-    const cached = localStorage.getItem("lw_cached_workers");
-    if (cached) renderWorkerOptions(JSON.parse(cached));
-    else select.innerHTML = `<option value="">(offline - worker list unavailable)</option>`;
+    if (LW.isNetworkError(e)) LW.setOffline(true);
+    renderCachedWorkers();
   }
 }
 
@@ -130,17 +187,21 @@ function updateWorkerDisplay() {
   }
 }
 
+function renderCachedBlocks() {
+  const cached = LW.getCachedJSON("lw_cached_blocks");
+  if (cached) renderBlockOptions(cached);
+  else document.getElementById("blockSelect").innerHTML =
+    `<option value="">(no block list on this device yet)</option>`;
+}
+
 async function loadBlocks() {
-  const select = document.getElementById("blockSelect");
   try {
     const blocks = await LW.api("/api/blocks");
     localStorage.setItem("lw_cached_blocks", JSON.stringify(blocks));
     renderBlockOptions(blocks);
   } catch (e) {
-    if (e instanceof TypeError) LW.setOffline(true);
-    const cached = localStorage.getItem("lw_cached_blocks");
-    if (cached) renderBlockOptions(JSON.parse(cached));
-    else select.innerHTML = `<option value="">(offline - block list unavailable)</option>`;
+    if (LW.isNetworkError(e)) LW.setOffline(true);
+    renderCachedBlocks();
   }
 }
 
@@ -189,7 +250,14 @@ async function saveCrate() {
     notes: "",
     synced: false,
   };
-  await IDB.add(record);
+  try {
+    await IDB.add(record);
+  } catch (e) {
+    // Never clear the keypad on a failed save - the weight stays on screen so
+    // the crate can be re-entered rather than silently lost.
+    LW.toast("Could not save the crate on this device - try again");
+    return;
+  }
   weightBuffer = "";
   document.getElementById("weightDisplay").textContent = "0";
   document.getElementById("workerSelect").value = "";
@@ -202,7 +270,13 @@ async function saveCrate() {
 
 async function renderLot() {
   const slip = getCurrentSlip();
-  const crates = await IDB.getBySlip(slip);
+  let crates;
+  try {
+    crates = await IDB.getBySlip(slip);
+  } catch (e) {
+    LW.toast("Could not read saved crates on this device");
+    return;
+  }
   const crateCount = crates.length;
   const totalKg = crates.reduce((s, c) => s + c.weight_kg - (c.deduction_kg || 0), 0);
   document.getElementById("crateCount").textContent = `${crateCount} crates`;
@@ -371,7 +445,7 @@ async function syncLoop() {
       try {
         await LW.api("/api/lots", { method: "POST", body: lot });
       } catch (e) {
-        if (e instanceof TypeError) networkFailure = true;
+        if (LW.isNetworkError(e)) networkFailure = true;
         stillPending.push(lot);
       }
     }
@@ -401,7 +475,7 @@ async function syncLoop() {
     if (stillPending.length > 0 || unsynced.length > 0) setSyncStatus("pending", "Syncing...");
     else setSyncStatus("synced", "Online - synced");
   } catch (e) {
-    if (e instanceof TypeError) {
+    if (LW.isNetworkError(e)) {
       await showOfflineStatus();
     } else {
       setSyncStatus("pending", "Online - sync failed, retrying");

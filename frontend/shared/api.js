@@ -21,41 +21,78 @@ const LW = {
   getLastReceivedBy() { return localStorage.getItem("lw_last_received_by") || ""; },
   setLastReceivedBy(name) { localStorage.setItem("lw_last_received_by", name); },
 
+  // A device whose WiFi is up but that cannot actually reach the farm server
+  // gets no error from fetch() - the request just hangs until the OS gives up,
+  // which can be minutes. Every request is therefore given a deadline, and a
+  // blown deadline is reported as a normal network failure so callers fall
+  // back to cached data instead of waiting.
+  NETWORK_TIMEOUT_MS: 8000,
+  // File transfers are legitimately slow; they opt into a longer deadline.
+  UPLOAD_TIMEOUT_MS: 120000,
+
+  async _fetchWithTimeout(url, options = {}, timeoutMs) {
+    const limit = timeoutMs || LW.NETWORK_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), limit);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  // True when a request failed because the server could not be reached
+  // (offline, unreachable, or timed out) rather than because it answered
+  // with an error. Screens use this to tell "no connection" apart from
+  // "rejected" - e.g. Owner View must not treat a dead network as a bad key.
+  isNetworkError(e) {
+    return e instanceof TypeError || (!!e && (e.name === "AbortError" || e.name === "TimeoutError"));
+  },
+
+  // True when the server actively rejected the caller's credentials. api()
+  // puts the status code at the front of the error message.
+  isAuthError(e) {
+    const status = parseInt(String(e && e.message).slice(0, 3), 10);
+    return status === 401 || status === 403;
+  },
+
   async fetchDeviceConfig(deviceId) {
-    const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(deviceId)}`);
+    const res = await LW._fetchWithTimeout(`${API_BASE}/api/devices/${encodeURIComponent(deviceId)}`);
     if (!res.ok) throw new Error("Unknown device id");
     const config = await res.json();
     localStorage.setItem("lw_device_config", JSON.stringify(config));
     return config;
   },
 
-  // Used by the field/packhouse apps so a device that was already set up
-  // keeps working (offline) even when it can't reach the server to
-  // re-confirm its config on reload - only a brand new/unknown device id
-  // needs connectivity to complete setup.
-  async fetchDeviceConfigOfflineTolerant(deviceId) {
+  // Reads a cached JSON blob, tolerating a missing or corrupted entry.
+  getCachedJSON(key) {
     try {
-      return await LW.fetchDeviceConfig(deviceId);
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
     } catch (e) {
-      const cached = localStorage.getItem("lw_device_config");
-      if (cached) {
-        const config = JSON.parse(cached);
-        if (config.id === deviceId) return config;
-      }
-      throw e;
+      localStorage.removeItem(key);
+      return null;
     }
+  },
+
+  // The config saved the last time this device successfully reached the
+  // server. Screens paint from this immediately so a device that has been set
+  // up before never has to wait on the network to become usable.
+  getCachedDeviceConfig(deviceId) {
+    const config = LW.getCachedJSON("lw_device_config");
+    return config && config.id === deviceId ? config : null;
   },
 
   async login(username, password) {
     const body = new URLSearchParams({ username, password });
-    const res = await fetch(`${API_BASE}/api/auth/login`, { method: "POST", body });
+    const res = await LW._fetchWithTimeout(`${API_BASE}/api/auth/login`, { method: "POST", body });
     if (!res.ok) throw new Error("Invalid username or password");
     const data = await res.json();
     LW.setToken(data.access_token);
     return data;
   },
 
-  async api(path, { method = "GET", body, auth = false, isForm = false } = {}) {
+  async api(path, { method = "GET", body, auth = false, isForm = false, timeoutMs } = {}) {
     const headers = {};
     if (auth) {
       const token = LW.getToken();
@@ -66,7 +103,8 @@ const LW = {
       headers["Content-Type"] = "application/json";
       payload = JSON.stringify(body);
     }
-    const res = await fetch(`${API_BASE}${path}`, { method, headers, body: payload });
+    const res = await LW._fetchWithTimeout(
+      `${API_BASE}${path}`, { method, headers, body: payload }, timeoutMs);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`${res.status} ${text}`);

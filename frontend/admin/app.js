@@ -38,26 +38,24 @@ function initBanner() {
   setInterval(updateBannerClock, 1000);
 }
 
+// A stored token opens the app immediately and is validated afterwards, so an
+// unreachable server shows the cached app instead of a blank screen for as
+// long as the request takes to give up.
 async function init() {
   document.getElementById("loginBtn").addEventListener("click", login);
   document.getElementById("logoutBtn").addEventListener("click", logout);
 
-  if (LW.getToken()) {
-    try {
-      await LW.api("/api/devices", { auth: true });
-      showApp();
-      return;
-    } catch (e) {
-      if (e instanceof TypeError) {
-        // Server unreachable - don't log the admin out over a network blip;
-        // open the app in offline mode with whatever the shell has cached.
-        showApp();
-        return;
-      }
-      LW.clearToken();
-    }
+  if (!LW.getToken()) { showLogin(); return; }
+  showApp();
+
+  try {
+    await LW.api("/api/devices", { auth: true });
+  } catch (e) {
+    // Don't sign the admin out over a network blip - only a real rejection
+    // from the server means the stored token is genuinely no good.
+    if (LW.isNetworkError(e)) { LW.setOffline(true); return; }
+    sessionExpired();
   }
-  showLogin();
 }
 
 function showLogin() {
@@ -110,6 +108,15 @@ async function login() {
 function logout() {
   LW.clearToken();
   showLogin();
+}
+
+// The stored token is no longer accepted (expired, or the server was
+// restarted). Drop it and ask for a sign-in rather than leaving the admin
+// looking at a dashboard that silently fails to load.
+function sessionExpired() {
+  LW.clearToken();
+  showLogin();
+  LW.toast("Session expired - sign in again");
 }
 
 // ---------------------------------------------------------------------
@@ -191,8 +198,10 @@ async function refreshDashboard() {
       LW.api(`/api/dashboard/summary?${qs}`, { auth: true }),
     ]);
   } catch (e) {
-    if (e instanceof TypeError) { LW.setOffline(true); return; } // keep last data on screen
-    throw e;
+    if (LW.isNetworkError(e)) { LW.setOffline(true); return; } // keep last data on screen
+    if (LW.isAuthError(e)) { sessionExpired(); return; }
+    LW.toast("Could not load the dashboard");
+    return;
   }
   LW.setOffline(false);
 
@@ -425,7 +434,7 @@ async function importFile(event, url, reload) {
   const form = new FormData();
   form.append("file", file);
   try {
-    const result = await LW.api(url, { method: "POST", body: form, auth: true, isForm: true });
+    const result = await LW.api(url, { method: "POST", body: form, auth: true, isForm: true, timeoutMs: LW.UPLOAD_TIMEOUT_MS });
     const extra = result.deactivated ? `, deactivated ${result.deactivated}` : "";
     LW.toast(`Imported ${result.imported} rows${extra}`);
     await reload();
@@ -449,7 +458,7 @@ async function handleAction(action) {
 }
 
 async function exportFile(path, filename) {
-  const blob = await LW.api(path, { auth: true });
+  const blob = await LW.api(path, { auth: true, timeoutMs: LW.UPLOAD_TIMEOUT_MS });
   LW.downloadBlob(blob, filename);
 }
 
@@ -931,7 +940,7 @@ async function downloadReport(key) {
   const supplierId = document.getElementById("reportsSupplierFilter").value;
   if (!d1 || !d2) { LW.toast("Pick both dates first"); return; }
   try {
-    const blob = await LW.api(`/api/reports/${key}?${report.params(d1, d2, supplierId)}`, { auth: true });
+    const blob = await LW.api(`/api/reports/${key}?${report.params(d1, d2, supplierId)}`, { auth: true, timeoutMs: LW.UPLOAD_TIMEOUT_MS });
     LW.downloadBlob(blob, `${report.label.replace(/[^a-zA-Z0-9]+/g, "_")}.xlsx`);
   } catch (e) {
     console.error("Report generation failed:", e);
@@ -1001,7 +1010,7 @@ async function loadBackupsList() {
   document.querySelectorAll("#backupsTable [data-download]").forEach((a) => {
     a.addEventListener("click", async (e) => {
       e.preventDefault();
-      const blob = await LW.api(`/api/backups/${a.dataset.download}/download`, { auth: true });
+      const blob = await LW.api(`/api/backups/${a.dataset.download}/download`, { auth: true, timeoutMs: LW.UPLOAD_TIMEOUT_MS });
       LW.downloadBlob(blob, a.dataset.download);
     });
   });
@@ -1009,7 +1018,7 @@ async function loadBackupsList() {
 
 async function runBackupNow() {
   try {
-    await LW.api("/api/backups", { method: "POST", auth: true });
+    await LW.api("/api/backups", { method: "POST", auth: true, timeoutMs: LW.UPLOAD_TIMEOUT_MS });
     LW.toast("Backup created");
     await loadBackupsList();
   } catch (e) {

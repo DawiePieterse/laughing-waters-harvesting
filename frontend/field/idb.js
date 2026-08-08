@@ -3,6 +3,11 @@
 // device, each with a "synced" flag. This is the source of truth for the
 // current load's running totals - the UI never needs the server to be
 // reachable to keep working.
+//
+// Every request settles: an IndexedDB request that fails without an onerror
+// handler would leave its promise pending forever, and because the capture
+// screen awaits these on startup that would freeze the whole UI rather than
+// just losing one read.
 const IDB = (() => {
   const DB_NAME = "lw_field_db";
   const STORE = "harvest_records";
@@ -22,7 +27,12 @@ const IDB = (() => {
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
+      // Another tab holding an old version open would otherwise stall here
+      // indefinitely with no error of any kind.
+      req.onblocked = () => reject(new Error("IndexedDB upgrade blocked by another tab"));
     });
+    // A failed open must not be cached, or every later call inherits it.
+    dbPromise.catch(() => { dbPromise = null; });
     return dbPromise;
   }
 
@@ -31,61 +41,59 @@ const IDB = (() => {
     return db.transaction(STORE, mode).objectStore(STORE);
   }
 
+  // Resolves when the whole transaction commits, not merely when the request
+  // reports success - a write is only durable once the transaction completes.
+  function done(store) {
+    return new Promise((resolve, reject) => {
+      store.transaction.oncomplete = () => resolve();
+      store.transaction.onerror = () => reject(store.transaction.error);
+      store.transaction.onabort = () => reject(store.transaction.error);
+    });
+  }
+
+  function request(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
   return {
     async add(record) {
       const store = await tx("readwrite");
       store.put(record);
+      await done(store);
     },
     async getBySlip(slipNumber) {
       const store = await tx("readonly");
-      return new Promise((resolve) => {
-        const idx = store.index("slip_number");
-        const req = idx.getAll(slipNumber);
-        req.onsuccess = () => resolve(req.result);
-      });
+      return request(store.index("slip_number").getAll(slipNumber));
     },
     async getUnsynced() {
       const store = await tx("readonly");
-      return new Promise((resolve) => {
-        const req = store.getAll();
-        req.onsuccess = () => resolve(req.result.filter((r) => !r.synced));
-      });
+      const all = await request(store.getAll());
+      return all.filter((r) => !r.synced);
     },
     async markSynced(uuids) {
-      const store = await tx("readwrite");
-      for (const uuid of uuids) {
-        const getReq = store.get(uuid);
-        getReq.onsuccess = () => {
-          const rec = getReq.result;
-          if (rec) {
-            rec.synced = true;
-            store.put(rec);
-          }
-        };
-      }
+      await IDB._patch(uuids, (rec) => { rec.synced = true; });
     },
     async reassignSlip(uuids, newSlip) {
+      await IDB._patch(uuids, (rec) => { rec.slip_number = newSlip; });
+    },
+    async _patch(uuids, mutate) {
       const store = await tx("readwrite");
       for (const uuid of uuids) {
         const getReq = store.get(uuid);
         getReq.onsuccess = () => {
           const rec = getReq.result;
-          if (rec) {
-            rec.slip_number = newSlip;
-            store.put(rec);
-          }
+          if (rec) { mutate(rec); store.put(rec); }
         };
       }
+      await done(store);
     },
     async recent(limit = 5) {
       const store = await tx("readonly");
-      return new Promise((resolve) => {
-        const req = store.getAll();
-        req.onsuccess = () => {
-          const all = req.result.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-          resolve(all.slice(0, limit));
-        };
-      });
+      const all = await request(store.getAll());
+      return all.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, limit);
     },
   };
 })();
