@@ -674,10 +674,11 @@ The very first time any device (phone, tablet, or computer) opens the
 app's URL, it shows a one-time **Device Setup** screen instead of jumping
 straight into a role's screen.
 
-1. Enter the **Device ID** you were given by the admin (a dropdown of the
-   preseeded IDs - `device-01` through `device-07`, `admin-pc` - is
-   offered, but the admin may have added more via
-   [Master Data → Devices](#8-admin---master-data)).
+1. Pick this device's **Device ID** from the dropdown. The list comes from
+   the server and shows every active device with its station - e.g.
+   `device-08 - Field Station 6` - so a device added in
+   [Master Data → Devices](#8-admin---master-data) is available here
+   straight away, with no change to the app needed.
 2. Tap **Continue**.
 3. The device looks up that ID's role and **automatically routes itself**
    to the right screen - Field, Pack House, or Admin - based on what's
@@ -685,6 +686,11 @@ straight into a role's screen.
 4. The device **remembers its ID** after this (stored in the browser, not
    on the server) - it won't ask again on future visits, and will jump
    straight to its role's screen.
+
+> If the setup screen can't reach the server it can't show the list, and
+> falls back to a box for typing the ID by hand. Setup itself still needs
+> the server, since the ID has to be checked against Master Data before
+> the device can be used.
 
 ### Installing as an app icon (optional, recommended)
 
@@ -766,7 +772,7 @@ someone notices and reopens Tailscale manually. To stop that happening:
 ### Confirming devices picked up an update (version numbers)
 
 Every screen - Field, Pack House, Admin - shows a small **v{number}** in
-its top-right corner (e.g. `v1.0`). This is the one reliable way to confirm
+its top-right corner (e.g. `v1.1`). This is the one reliable way to confirm
 a device is actually running the latest code after a `git pull` and
 restart, since the Field/Pack House/Admin apps are installable PWAs with
 an offline cache (see
@@ -781,16 +787,18 @@ unavailable" screen); a full close and reopen is what lets the app notice
 and install the new cached version in the background, then show it on the
 next open.
 
-The version number only changes when the code that ships it changes
-- it's incremented deliberately each time a real update goes out, not
-tied to the date or any automatic counter.
+The version number only changes when the code that ships it changes - it's
+incremented deliberately each time a real update goes out, not tied to the
+date or any automatic counter.
 
 ### "Unknown device id"
 
-If the entered ID isn't recognized, the device shows an error and refuses
-to continue. **Devices are never auto-registered** - an admin must create
-the device first, in [Master Data → Devices](#8-admin---master-data),
-before it can be used. This is intentional: it stops a stray or
+If the ID isn't recognized, the device shows an error and refuses to
+continue. This is mainly reachable by typing an ID by hand (the dropdown
+only ever offers IDs that exist), or if the device was deleted from Master
+Data after being set up. **Devices are never auto-registered** - an admin
+must create the device first, in
+[Master Data → Devices](#8-admin---master-data), before it can be used. This is intentional: it stops a stray or
 mistyped device ID from silently attaching itself to the wrong team or
 role.
 
@@ -816,8 +824,38 @@ load of crates) to the pack house when a truck is ready to take it.
 ### Station header
 
 The top of the screen shows which station/team/induna this device is
-registered as, and a sync status indicator: **Offline**, **Online -
-synced**, **Syncing...**, or **Online - sync failed, retrying**.
+registered as, and a sync status pill. The pill is **colour-coded** so it
+can be read at arm's length without stopping to look properly:
+
+| Pill | Colour | Meaning |
+|---|---|---|
+| **Online - synced** | Green | Everything captured on this device has reached the server. |
+| **Syncing 3...** | Amber | Crates are being uploaded right now. |
+| **Offline** | Red | The server can't be reached. Capture carries on regardless. |
+| **Offline - 3 pending** | Red | Same, and 3 captured crates are waiting to be sent. |
+| **Online - sync failed, retrying** | Amber | The server answered but rejected the last attempt. Nothing is lost; it keeps retrying. |
+
+"Offline" covers both having no signal at all and having signal but no
+route to the farm server - from the device's point of view they're the
+same thing, and it's the second one that's more common in the orchard.
+
+### The offline banner
+
+Whenever a screen can't reach the server it also shows an amber bar under
+the header - on the field app, *"Offline - crates save to this device and
+sync when back in range"*. It clears itself the moment the connection
+comes back. Every screen has one (see
+[chapter 6](#6-pack-house-receiving) and
+[chapter 7](#7-admin---dashboard)); the wording differs to suit what that
+screen does while offline.
+
+### Pull down to refresh
+
+On any screen, dragging down from the top of the page reloads that
+screen's data - the same as the Refresh button where there is one. It's
+there because an installed app has no browser reload button. Dragging
+inside a dialog or a list that scrolls on its own just scrolls it as
+normal.
 
 ### Identifying the worker: QR scan only
 
@@ -937,6 +975,20 @@ load shows the related slip(s) with their own status (still in transit,
 already received, or still being picked) - so receiving staff know to
 expect (or ask about) the rest of that picking session.
 
+### If the server can't be reached
+
+The queue is kept on the device, so the screen still shows **the last
+queue it loaded** rather than going blank - staff can see what was on its
+way. The amber offline bar appears, and the timestamp at the top right
+reads *"offline - last update 4 min ago"* so it's clear the list is a
+snapshot and not live. It refreshes by itself once the connection is
+back.
+
+Receiving a load **does** need the connection: confirming a receipt while
+offline shows *"Could not confirm - check connection and retry"* and
+nothing is recorded. Unlike field capture, receipts are not queued for
+later - check the load in again once the connection returns.
+
 ### Logging an external delivery
 
 For fruit arriving from another farmer (not via this farm's own field
@@ -985,6 +1037,18 @@ what's happening right now, all scoped to a shared filter bar at the top.
   **This Week**, **Season** (season = 1 Jan - 31 Dec of the harvest year
   set in [Settings](#11-admin---settings)) - or set custom dates directly
 - **Refresh** - re-fetches everything below using the current filter values
+  (dragging down from the top of the page does the same thing)
+
+### If the server can't be reached
+
+The amber offline bar appears and whatever was last loaded stays on
+screen, rather than the figures resetting to zero and reading as a real
+day of no harvest. Numbers refresh by themselves once the connection is
+back.
+
+A dropped connection does **not** sign the admin out - only the server
+actually rejecting the session does that, in which case the sign-in
+screen returns with *"Session expired - sign in again"*.
 
 ### KPI cards
 
@@ -1196,6 +1260,15 @@ link) and none of Admin's other tabs.
   new one - use this if a link was shared more widely than intended, or
   someone who had it no longer should.
 
+> **"This link isn't valid" means the link, not the connection.** The
+> Owner View only shows that message when the server actively rejects the
+> key - i.e. the link really was regenerated, mistyped, or truncated when
+> it was shared. If the owner simply can't reach the server (Tailscale
+> off, no signal), they get the amber offline bar instead, with the last
+> figures still on screen. So if they report the invalid-link message,
+> re-send them the current link from Settings; it isn't a connection
+> problem.
+
 This link only works the same way any other screen does - reachable on
 the farm's own Wi-Fi, or over Tailscale if the recipient needs it from
 outside the farm (see
@@ -1249,6 +1322,21 @@ Its offline app cache hasn't refreshed yet - see
 Fully close the app (not just background it) and reopen it; if that
 doesn't clear it, clear the site's data in the browser and reopen.
 
+> Each screen keeps its **own** copy of the app, so updating the field
+> device does nothing for the pack house device and vice versa. After a
+> deploy, every device needs one open while it can still reach the
+> server. Check the version badge on each rather than assuming one
+> device's update covers the rest.
+
+**A device newly added in Master Data doesn't appear on the setup screen**
+The setup screen reads the list from the server each time it loads, so a
+device added in [Master Data → Devices](#8-admin---master-data) should
+appear as soon as the page is reloaded. If it doesn't: check the device
+is marked **active** (inactive devices are deliberately not offered), and
+that the setup screen can actually reach the server - if it can't, it
+falls back to a type-in box and shows no list at all. Typing the ID by
+hand always works as long as the ID exists in Master Data.
+
 **"QR code doesn't match a known worker" when scanning a badge**
 Either the worker doesn't exist in [Master Data → Workers](#8-admin---master-data)
 yet, or their badge is stale/misprinted. Reprint the badge from Workers
@@ -1256,9 +1344,19 @@ after confirming the worker record exists (see
 [chapter 5](#5-worker-id-badges)).
 
 **Field app shows "Online - sync failed, retrying"**
-The device has a connection but the server rejected or couldn't be reached
-for the last sync attempt. Nothing is lost - captured crates stay queued
-on the device and the app keeps retrying automatically every few seconds.
+The device reached the server but the server rejected the last sync
+attempt. Nothing is lost - captured crates stay queued on the device and
+the app keeps retrying automatically every few seconds. (If the server
+can't be reached at all, the pill reads **Offline** instead, in red.)
+
+**A screen says "Offline" but the device clearly has Wi-Fi**
+"Offline" means *this app can't reach the farm server*, which is not the
+same as having no signal - the far more common case in the orchard is a
+device still associated with an access point that has no route back to
+the server PC. Check the server PC is on and awake, and (for anyone
+off-site) that **Tailscale** shows Connected. Field capture is unaffected
+either way: crates keep saving to the device and go up automatically when
+the connection returns.
 
 **"Reconnect to send a partial load, or dispatch everything now" when
 sending a picking slip**

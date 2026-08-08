@@ -42,9 +42,12 @@ When a truck is ready to take a load away, you send a **Picking Slip**
 
 ## Your screen, top to bottom
 
-- **Top bar** — shows which station this device is, and whether it's
-  connected (**Offline**, **Syncing...**, or **Online - synced**). Don't
-  worry if it says Offline — see "Working without signal" below.
+- **Top bar** — shows which station this device is, and a coloured pill
+  telling you whether it's connected: **green** = everything is sent,
+  **amber** = sending right now, **red** = no connection. Don't worry if
+  it's red — see "Working without signal" below.
+- **Amber bar under the top** — only appears when there's no connection,
+  and says so plainly. It disappears on its own when the signal is back.
 - **Crates / kg card** — how many crates and total kg logged for the
   load currently being built at this station, plus how long it's been
   running.
@@ -131,12 +134,16 @@ automatically — you don't need to do anything.
 
 The status at the top just tells you what's happening:
 
-| Status | What it means |
-|---|---|
-| **Offline** | No connection right now — crates are still saving locally, nothing is lost. |
-| **Syncing...** | Connection found, sending your logged crates now. |
-| **Online - synced** | Everything is up to date with the office. |
-| **Online - sync failed, retrying** | Connected, but couldn't reach the office system yet — it'll keep trying on its own every few seconds. |
+| Status | Colour | What it means |
+|---|---|---|
+| **Online - synced** | Green | Everything is up to date with the office. |
+| **Syncing 3...** | Amber | Sending your logged crates now. |
+| **Offline** | Red | No connection right now — crates are still saving on the device, nothing is lost. |
+| **Offline - 3 pending** | Red | Same, and 3 crates are waiting to be sent. The number goes down by itself once you're back in range. |
+| **Online - sync failed, retrying** | Amber | Reached the office system but it wouldn't accept the last send — it keeps trying on its own. |
+
+You don't have to do anything about a red pill. Keep picking and keep
+saving crates: the number just tells you how many are still waiting.
 
 ---
 
@@ -146,6 +153,10 @@ The status at the top just tells you what's happening:
   logged, so you can double-check nothing was missed.
 - **Dispatched today from this station** shows every picking slip
   already sent today, with totals.
+- **To refresh the screen**, drag down from the top and let go. A small
+  spinner appears while it reloads. There's no need to do this normally
+  — the screen keeps itself up to date — but it's there if you want to
+  force it.
 
 ---
 

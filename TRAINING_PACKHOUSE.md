@@ -76,11 +76,17 @@ it's actually offloaded.
 
 ## Working without signal
 
-If the connection drops briefly, the list just shows whatever it last
-loaded — tap the refresh icon (top right) once you're back online to
-pull the latest queue. Confirming a receipt needs a connection to reach
-the office system, so if it doesn't seem to go through, check the
-connection and try again.
+If the connection drops, an **amber bar** appears at the top and the list
+keeps showing the last queue it loaded, so you can still see what was on
+its way. The time at the top right changes to something like *"offline -
+last update 4 min ago"* — that's your reminder the list is a snapshot,
+not live. It refreshes itself once the connection is back.
+
+**Confirming a receipt does need the connection.** If it can't get
+through you'll see *"Could not confirm - check connection and retry"* and
+nothing is saved — the load stays in the list. Check the load in again
+once you're back online. (Unlike the field devices, receipts are not
+stored up to send later, so don't assume it went through.)
 
 ---
 
@@ -93,4 +99,5 @@ connection and try again.
 - **Wrong crate count already confirmed?** You can't edit a receipt from
   this screen once it's submitted — tell the office so they can correct
   it.
-- **Screen looks out of date** — tap the refresh icon, top right.
+- **Screen looks out of date** — tap the refresh icon, top right, or drag
+  down from the top of the list and let go.

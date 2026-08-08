@@ -148,10 +148,17 @@ joins.
   make sure both the start and end date are filled in before tapping a
   report.
 - **A device shows "Unknown device id"** — it hasn't been added in
-  Master Data → Devices yet; add it there first.
+  Master Data → Devices yet; add it there first. Once added (and marked
+  active) it appears in the dropdown on that device's setup screen as
+  soon as the page is reloaded.
 - **A screen shows an older version number than you expect** (top
-  corner, e.g. "v1.0") — fully close and reopen the app (not just switch
-  away from it) to pick up the latest update.
+  corner, e.g. "v1.1") — fully close and reopen the app (not just switch
+  away from it) to pick up the latest update. Each screen updates
+  separately, so do this on every device, not just one.
+- **An amber "Offline" bar appears** — the screen can't reach the server.
+  Whatever is on screen stays put rather than blanking out, and refreshes
+  itself once the connection is back. A brief drop does not sign you out;
+  only a genuinely expired session does, and that says so.
 - **Anything else unexpected** — a full page refresh often clears minor
   glitches; if it persists, note exactly what you were doing and check
   with whoever manages the server.

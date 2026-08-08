@@ -72,12 +72,17 @@ directly.
 
 ## If something looks wrong
 
-- **The link shows "This link isn't valid"** — the link may have been
-  regenerated (this happens if it needed to be revoked and reissued) or
-  mistyped/cut off when it was shared with you. Ask the farm office for
-  the current link.
-- **Numbers look outdated** — tap **Refresh**, or double-check the date
-  range at the top actually covers the period you're expecting.
+- **The link shows "This link isn't valid"** — this is about the link
+  itself, not your connection. It may have been regenerated (this happens
+  if it needed to be revoked and reissued) or mistyped/cut off when it
+  was shared with you. Ask the farm office for the current link.
+- **An amber bar says you're offline** — this one *is* the connection.
+  Whatever is on screen is the last thing that loaded, so read it as a
+  snapshot rather than live figures. Check **Tailscale** is connected
+  (below); the page updates itself once it can reach the farm again.
+- **Numbers look outdated** — tap **Refresh**, or drag down from the top
+  of the page and let go, or double-check the date range at the top
+  actually covers the period you're expecting.
 - **Nothing loads at all, and you're off the farm** — check that
   **Tailscale** is open and shows **"Connected"** first (see "If you're
   checking this from off the farm" above) - this is the most common
