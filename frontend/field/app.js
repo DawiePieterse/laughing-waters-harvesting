@@ -428,6 +428,10 @@ async function showOfflineStatus() {
 
 let _syncBusy = false;
 let _lastProbe = 0;
+// How stale a reachability check may be before an idle device asks again.
+// Bounds how long the pill can keep claiming "Online" after the signal drops
+// with nothing queued to send; any capture tests the connection right away.
+const PROBE_INTERVAL_MS = 15000;
 async function syncLoop() {
   if (_syncBusy) return; // interval + online event + PTR can overlap; never double-post
   _syncBusy = true;
@@ -457,22 +461,40 @@ async function syncLoop() {
       return;
     }
 
+    // Only a request that actually came back proves the server is reachable.
+    // A pass that sends nothing proves nothing, and must leave the status
+    // alone rather than announce a connection it never tested.
+    let reachedServer = false;
+
     const unsynced = await IDB.getUnsynced();
     if (unsynced.length > 0) {
+      // "Syncing" is shown while an upload is genuinely in flight - not after
+      // it lands, and never on a device already known to be offline, where
+      // every attempt is doomed and would just flash a misleading label for
+      // the length of the timeout. There, refresh the pending count instead.
+      if (LW.isOffline()) await showOfflineStatus();
+      else setSyncStatus("pending", `Syncing ${unsynced.length}...`);
       const records = unsynced.map(({ synced, ...rest }) => rest);
       await LW.api("/api/sync/harvest", { method: "POST", body: { records } });
       await IDB.markSynced(unsynced.map((r) => r.uuid));
-    } else if (stillPending.length === 0 && Date.now() - _lastProbe >= 25000) {
+      reachedServer = true;
+    } else if (stillPending.length === 0 && Date.now() - _lastProbe >= PROBE_INTERVAL_MS) {
       // Nothing to push - but "nothing to push" must not be mistaken for
       // "server reachable". Probe cheaply so an idle device still shows the
       // truth (and keeps its urgency thresholds current). Throttled because
       // the loop ticks every 10s and an idle device needn't ask that often -
-      // saving or dispatching a crate flips the status immediately anyway.
+      // saving or dispatching a crate tests the connection immediately anyway.
       systemSettings = await LW.api("/api/system-settings");
       _lastProbe = Date.now();
+      reachedServer = true;
     }
+
+    if (!reachedServer) return; // nothing verified this pass - leave the pill as it was
+
     LW.setOffline(false);
-    if (stillPending.length > 0 || unsynced.length > 0) setSyncStatus("pending", "Syncing...");
+    // Everything just uploaded is now synced; only lots the server itself
+    // refused are still queued.
+    if (stillPending.length > 0) setSyncStatus("pending", "Syncing...");
     else setSyncStatus("synced", "Online - synced");
   } catch (e) {
     if (LW.isNetworkError(e)) {
