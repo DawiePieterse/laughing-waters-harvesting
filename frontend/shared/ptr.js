@@ -53,8 +53,29 @@ const LWPTR = (() => {
     refreshing = false;
   }
 
+  // A pull-to-refresh listener sits on the whole document and cancels the
+  // touches it claims, so it has to be careful about which drags are actually
+  // its own. A drag that starts on a form control is text selection or a
+  // control gesture; one that starts inside a dialog or any self-scrolling
+  // pane belongs to that element. Swallowing those makes a dialog impossible
+  // to scroll - which reads to the user as the screen having frozen.
+  function belongsToSomethingElse(target) {
+    if (!target || !target.closest) return false;
+    if (target.closest("input, textarea, select, button, a, [contenteditable]")) return true;
+    for (let el = target; el && el !== document.body; el = el.parentElement) {
+      const style = getComputedStyle(el);
+      if (style.position === "fixed") return true; // dialog / overlay on top
+      const scrolls = style.overflowY === "auto" || style.overflowY === "scroll";
+      if (scrolls && el.scrollHeight > el.clientHeight) return true;
+    }
+    return false;
+  }
+
   function onTouchStart(e) {
-    if (refreshing || window.scrollY > 0) { startY = null; return; }
+    if (refreshing || window.scrollY > 0 || belongsToSomethingElse(e.target)) {
+      startY = null;
+      return;
+    }
     startY = e.touches[0].clientY;
     pullDistance = 0;
   }
