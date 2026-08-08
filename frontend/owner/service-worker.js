@@ -1,22 +1,18 @@
-// App-shell cache so the admin PWA installs cleanly and its own UI still
-// loads if the connection briefly drops. Data (dashboard, reports, etc.)
-// always goes over the network when available.
-const CACHE_PREFIX = "lw-admin-";
-const CACHE = "lw-admin-v8";
+// App-shell cache so the Owner View still renders (with its last data
+// unavailable, but correctly styled) when the phone has no connection to
+// the farm server. Data always goes over the network when available.
+const CACHE_PREFIX = "lw-owner-";
+const CACHE = "lw-owner-v1";
 const SHELL = [
   "./",
   "./index.html",
-  "./app.js",
-  "./manifest.json",
+  "./owner.js",
   "../shared/styles.css",
   "../shared/api.js",
   "../shared/ptr.js",
   "../shared/tailwind.js",
-  "../shared/qrcode.min.js",
   "../shared/vendor/fontawesome/css/all.min.css",
   "../shared/vendor/fontawesome/webfonts/fa-solid-900.woff2",
-  "../shared/vendor/leaflet/leaflet.css",
-  "../shared/vendor/leaflet/leaflet.js",
 ];
 
 self.addEventListener("install", (event) => {

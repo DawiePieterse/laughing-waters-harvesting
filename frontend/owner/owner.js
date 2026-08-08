@@ -108,9 +108,17 @@ async function refreshDashboard() {
       LW.api(`/api/owner-view/summary?token=${encodeURIComponent(OWNER_KEY)}&${qs}`),
     ]);
   } catch (e) {
+    // A network failure is NOT an invalid key - show the offline banner and
+    // keep whatever data is already on screen. Only a real HTTP rejection
+    // (bad/expired key) gets the denied screen.
+    if (e instanceof TypeError) {
+      LW.setOffline(true);
+      return;
+    }
     showDenied();
     return;
   }
+  LW.setOffline(false);
 
   renderDashboardKpis(harvesting, inTransit, received, summary);
   renderDashboardLists(harvesting, inTransit, received, summary);
@@ -201,10 +209,22 @@ async function init() {
 
   bindDashboard();
   bindCollapsibles();
+
+  LW.offlineBanner("Offline - data may be out of date");
+  LW.onOfflineChange = (off) => { if (!off) refreshDashboard(); };
+  LWPTR.attach(async () => {
+    await loadSuppliers();
+    await refreshDashboard();
+  });
+
   await loadSuppliers();
   await refreshDashboard();
 
   document.getElementById("app").classList.remove("hidden");
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js").catch(() => {});
 }
 
 document.addEventListener("DOMContentLoaded", init);

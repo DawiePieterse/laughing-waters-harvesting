@@ -11,12 +11,13 @@
 <meta name="apple-mobile-web-app-title" content="LW Admin">
 <meta name="theme-color" content="#0A2F6B">
 <script src="../shared/tailwind.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="../shared/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="../shared/vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="../shared/styles.css">
 <script src="../shared/api.js"></script>
+<script src="../shared/ptr.js"></script>
 <script src="../shared/qrcode.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../shared/vendor/leaflet/leaflet.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen pb-6">
 
@@ -77,7 +78,7 @@
 
       <div class="bg-white rounded-xl shadow">
         <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-harvesting-body">
-          <span id="dash-harvesting-title" class="font-semibold">Harvesting - 0 crates / 0 kg</span>
+          <span id="dash-harvesting-title" class="font-semibold">Harvesting</span>
           <i class="fa-solid fa-chevron-down text-slate-400"></i>
         </button>
         <div id="dash-harvesting-body" class="collapsible-body hidden border-t divide-y"></div>
@@ -85,7 +86,7 @@
 
       <div class="bg-white rounded-xl shadow">
         <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-intransit-body">
-          <span id="dash-intransit-title" class="font-semibold">In transit - 0 crates / 0 kg</span>
+          <span id="dash-intransit-title" class="font-semibold">In transit</span>
           <i class="fa-solid fa-chevron-down text-slate-400"></i>
         </button>
         <div id="dash-intransit-body" class="collapsible-body hidden border-t divide-y"></div>
@@ -93,7 +94,7 @@
 
       <div class="bg-white rounded-xl shadow">
         <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-received-body">
-          <span id="dash-received-title" class="font-semibold">Received - 0 crates / 0 kg</span>
+          <span id="dash-received-title" class="font-semibold">Received</span>
           <i class="fa-solid fa-chevron-down text-slate-400"></i>
         </button>
         <div id="dash-received-body" class="collapsible-body hidden border-t divide-y"></div>
@@ -101,7 +102,7 @@
 
       <div class="bg-white rounded-xl shadow">
         <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-workers-body">
-          <span id="dash-workers-title" class="font-semibold">Workers - 0 workers</span>
+          <span id="dash-workers-title" class="font-semibold">Workers</span>
           <i class="fa-solid fa-chevron-down text-slate-400"></i>
         </button>
         <div id="dash-workers-body" class="collapsible-body hidden border-t overflow-x-auto">
@@ -114,7 +115,7 @@
 
       <div class="bg-white rounded-xl shadow">
         <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-blocks-body">
-          <span id="dash-blocks-title" class="font-semibold">Blocks - 0 blocks</span>
+          <span id="dash-blocks-title" class="font-semibold">Blocks</span>
           <i class="fa-solid fa-chevron-down text-slate-400"></i>
         </button>
         <div id="dash-blocks-body" class="collapsible-body hidden border-t overflow-x-auto">

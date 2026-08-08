@@ -22,6 +22,16 @@ async function init() {
   document.getElementById("cancelExternalLotBtn").addEventListener("click", closeExternalLotModal);
   document.getElementById("confirmExternalLotBtn").addEventListener("click", confirmExternalLot);
 
+  LW.offlineBanner("Offline - showing the last loaded queue; it will refresh when back in range");
+  LW.onOfflineChange = (off) => {
+    updateLastUpdatedLabel();
+    if (!off) refresh(); // reconnected - get the real queue right away
+  };
+  LWPTR.attach(async () => {
+    await loadSuppliers();
+    await refresh();
+  });
+
   await loadSuppliers();
   await refresh();
   setInterval(refresh, 30000);
@@ -34,14 +44,42 @@ async function loadSuppliers() {
   } catch (e) { /* keep last known list if offline */ }
 }
 
+const QUEUE_CACHE_KEY = "lw_cached_intransit";
+
 async function refresh() {
   let lots = [];
   try {
     lots = await LW.api("/api/lots/in-transit");
+    localStorage.setItem(QUEUE_CACHE_KEY, JSON.stringify({ at: Date.now(), lots }));
+    LW.setOffline(false);
   } catch (e) {
-    LW.toast("Could not reach server");
+    if (!(e instanceof TypeError)) { LW.toast("Could not reach server"); return; }
+    LW.setOffline(true); // server unreachable
+    // Fall back to the last queue we saw, so the receiver still knows which
+    // loads are on their way in. Only useful on a cold load - if lots are
+    // already on screen, leave them alone.
+    if (_lastRefreshed) return;
+    const cached = localStorage.getItem(QUEUE_CACHE_KEY);
+    if (!cached) { renderEmptyQueueOffline(); return; }
+    const parsed = JSON.parse(cached);
+    lots = parsed.lots;
+    _lastRefreshed = parsed.at;
+    renderQueue(lots);
     return;
   }
+  renderQueue(lots);
+  _lastRefreshed = Date.now();
+  updateLastUpdatedLabel();
+}
+
+function renderEmptyQueueOffline() {
+  document.getElementById("emptyState").classList.add("hidden");
+  document.getElementById("lotsList").innerHTML =
+    `<div class="text-center text-slate-400 py-10">No queue saved on this device yet - reconnect to load it.</div>`;
+  updateLastUpdatedLabel();
+}
+
+function renderQueue(lots) {
   const list = document.getElementById("lotsList");
   const empty = document.getElementById("emptyState");
   empty.classList.toggle("hidden", lots.length > 0);
@@ -71,16 +109,21 @@ async function refresh() {
   list.querySelectorAll(".lot-item").forEach((el) => {
     el.addEventListener("click", () => openReceiveModal(lots.find((l) => l.id == el.dataset.id)));
   });
-
-  _lastRefreshed = Date.now();
   updateLastUpdatedLabel();
 }
 
 function updateLastUpdatedLabel() {
   const el = document.getElementById("lastUpdatedLabel");
-  if (!el || !_lastRefreshed) return;
-  const secs = Math.round((Date.now() - _lastRefreshed) / 1000);
-  el.textContent = secs < 5 ? "just now" : `${secs}s ago`;
+  if (!el) return;
+  if (!_lastRefreshed) {
+    el.textContent = LW.isOffline() ? "offline" : "updating...";
+  } else {
+    const secs = Math.round((Date.now() - _lastRefreshed) / 1000);
+    const age = secs < 60 ? (secs < 5 ? "just now" : `${secs}s ago`) : `${Math.round(secs / 60)} min ago`;
+    el.textContent = LW.isOffline() ? `offline - last update ${age}` : age;
+  }
+  el.classList.toggle("text-amber-300", LW.isOffline());
+  el.classList.toggle("font-semibold", LW.isOffline());
 }
 
 function renderRelatedLots(lot) {

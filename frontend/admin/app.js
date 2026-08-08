@@ -48,6 +48,12 @@ async function init() {
       showApp();
       return;
     } catch (e) {
+      if (e instanceof TypeError) {
+        // Server unreachable - don't log the admin out over a network blip;
+        // open the app in offline mode with whatever the shell has cached.
+        showApp();
+        return;
+      }
       LW.clearToken();
     }
   }
@@ -70,9 +76,20 @@ async function showApp() {
   bindReports();
   bindSettings();
   bindSuppliers();
-  await loadSettingsForm();
+
+  LW.offlineBanner("Offline - data may be out of date");
+  LW.onOfflineChange = (off) => { if (!off) refreshDashboard(); };
+  LWPTR.attach(async () => {
+    updateBannerWeather();
+    const active = document.querySelector(".tab-btn.active");
+    const tab = active ? active.dataset.tab : "dashboard";
+    if (tab === "dashboard") await refreshDashboard();
+    else if (tab === "masterdata") await loadAllMasterData();
+  });
+
+  try { await loadSettingsForm(); } catch (e) { /* offline - keep defaults */ }
   initBanner();
-  await loadAllMasterData();
+  try { await loadAllMasterData(); } catch (e) { /* offline - tables fill on reconnect */ }
   refreshDashboard();
 }
 
@@ -165,12 +182,19 @@ async function refreshDashboard() {
   const supplierParam = supplierId ? `&supplier_id=${supplierId}` : "";
   const qs = `period_start=${start}&period_end=${end}${supplierParam}`;
 
-  const [harvesting, inTransit, received, summary] = await Promise.all([
-    LW.api(`/api/lots/pending?${qs}`),
-    LW.api(`/api/lots/in-transit?${qs}`),
-    LW.api(`/api/lots/received?${qs}`),
-    LW.api(`/api/dashboard/summary?${qs}`, { auth: true }),
-  ]);
+  let harvesting, inTransit, received, summary;
+  try {
+    [harvesting, inTransit, received, summary] = await Promise.all([
+      LW.api(`/api/lots/pending?${qs}`),
+      LW.api(`/api/lots/in-transit?${qs}`),
+      LW.api(`/api/lots/received?${qs}`),
+      LW.api(`/api/dashboard/summary?${qs}`, { auth: true }),
+    ]);
+  } catch (e) {
+    if (e instanceof TypeError) { LW.setOffline(true); return; } // keep last data on screen
+    throw e;
+  }
+  LW.setOffline(false);
 
   renderDashboardKpis(harvesting, inTransit, received, summary);
   renderDashboardLists(harvesting, inTransit, received, summary);

@@ -8,7 +8,7 @@ const LW = {
   // actually up to date - especially useful given the service workers'
   // cache-first strategy (see field/packhouse/admin service-worker.js).
   // Reset to 1.0 on 2026-08-06 to mark the first stable release.
-  VERSION: "1.0",
+  VERSION: "1.1",
 
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },
@@ -96,6 +96,43 @@ const LW = {
     };
     return icons[condition] || "fa-cloud";
   },
+
+  // Slim amber banner pinned under the header telling the user the screen is
+  // offline. Wired to the browser's online/offline events, but screens should
+  // ALSO call LW.setOffline(true/false) from their own request results:
+  // navigator.onLine only reflects the radio, not whether the farm server is
+  // actually reachable (WiFi up + server unreachable is the common case).
+  offlineBanner(message) {
+    let el = document.getElementById("lw-offline-banner");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "lw-offline-banner";
+      el.className = "offline-banner hidden";
+      const header = document.querySelector(".lw-header");
+      if (header && header.parentNode) header.parentNode.insertBefore(el, header.nextSibling);
+      else document.body.prepend(el);
+    }
+    el.innerHTML = `<i class="fa-solid fa-wifi"></i> ${message}`;
+    window.addEventListener("offline", () => LW.setOffline(true));
+    window.addEventListener("online", () => LW.setOffline(false));
+    if (!navigator.onLine) LW._offline = true;
+    // Reflect state already set by requests that ran before this call.
+    el.classList.toggle("hidden", !LW._offline);
+  },
+
+  setOffline(isOffline) {
+    const val = !!isOffline;
+    if (LW._offline === val) return; // only react to actual flips
+    LW._offline = val;
+    const el = document.getElementById("lw-offline-banner");
+    if (el) el.classList.toggle("hidden", !val);
+    if (typeof LW.onOfflineChange === "function") LW.onOfflineChange(val);
+  },
+
+  isOffline() { return !!LW._offline; },
+
+  // Screens can set this to react to offline flips (e.g. recolor a status pill).
+  onOfflineChange: null,
 
   toast(message) {
     let el = document.getElementById("lw-toast");

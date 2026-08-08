@@ -44,9 +44,17 @@ async function init() {
   document.getElementById("stationLabel").textContent =
     `${deviceConfig.station} - Team ${deviceConfig.team_id || "?"} - Induna ${deviceConfig.induna || "?"}`;
 
+  // Offline banner + instant pill flip on connectivity changes. Set up before
+  // the first data loads so their failures can flip it. The banner helper owns
+  // the online/offline listeners; failed requests flip it too.
+  LW.offlineBanner("Offline - crates save to this device and sync when back in range");
+  LW.onOfflineChange = (off) => { if (off) showOfflineStatus(); else syncLoop(); };
+
   try {
     systemSettings = await LW.api("/api/system-settings");
-  } catch (e) { /* keep defaults if offline on first load */ }
+  } catch (e) {
+    if (e instanceof TypeError) LW.setOffline(true); // keep defaults if offline
+  }
 
   await loadWorkers();
   await loadBlocks();
@@ -54,8 +62,17 @@ async function init() {
   setInterval(renderLot, 15000);
   setInterval(syncLoop, 10000);
   setInterval(async () => { await loadWorkers(); await loadBlocks(); }, 30000);
-  window.addEventListener("online", syncLoop);
+
   syncLoop();
+
+  LWPTR.attach(async () => {
+    try { systemSettings = await LW.api("/api/system-settings"); } catch (e) { /* offline */ }
+    await loadWorkers();
+    await loadBlocks();
+    await renderLot();
+    renderDispatchedLots();
+    await syncLoop();
+  });
 
   bindKeypad();
   updateWorkerDisplay();
@@ -75,6 +92,7 @@ async function loadWorkers() {
     localStorage.setItem("lw_cached_workers", JSON.stringify(workers));
     renderWorkerOptions(workers);
   } catch (e) {
+    if (e instanceof TypeError) LW.setOffline(true);
     const cached = localStorage.getItem("lw_cached_workers");
     if (cached) renderWorkerOptions(JSON.parse(cached));
     else select.innerHTML = `<option value="">(offline - worker list unavailable)</option>`;
@@ -119,6 +137,7 @@ async function loadBlocks() {
     localStorage.setItem("lw_cached_blocks", JSON.stringify(blocks));
     renderBlockOptions(blocks);
   } catch (e) {
+    if (e instanceof TypeError) LW.setOffline(true);
     const cached = localStorage.getItem("lw_cached_blocks");
     if (cached) renderBlockOptions(JSON.parse(cached));
     else select.innerHTML = `<option value="">(offline - block list unavailable)</option>`;
@@ -211,7 +230,8 @@ async function renderLot() {
 }
 
 function updateOfflineSplitHint() {
-  document.getElementById("offlineSplitHint").classList.toggle("hidden", navigator.onLine);
+  const online = navigator.onLine && !LW.isOffline();
+  document.getElementById("offlineSplitHint").classList.toggle("hidden", online);
 }
 
 async function openDriverModal() {
@@ -258,7 +278,7 @@ async function sendPickingSlip() {
   let didSplit = false;
 
   if (cratesGoing < totalPending) {
-    if (!navigator.onLine) {
+    if (!navigator.onLine || LW.isOffline()) {
       updateOfflineSplitHint();
       LW.toast("Reconnect to send a partial load, or dispatch everything now.");
       return;
@@ -308,35 +328,86 @@ async function sendPickingSlip() {
   syncLoop();
 }
 
-async function syncLoop() {
-  const statusEl = document.getElementById("syncStatus");
-  if (!navigator.onLine) {
-    statusEl.textContent = "Offline";
-    return;
-  }
+// Header pill: text + color so the state is readable at arm's length in the
+// orchard. green = all synced, amber = pushing/pending, red = offline.
+function setSyncStatus(state, text) {
+  const el = document.getElementById("syncStatus");
+  el.textContent = text;
+  el.classList.remove("bg-white/20", "bg-green-600", "bg-amber-400", "text-slate-900", "bg-red-600");
+  if (state === "synced") el.classList.add("bg-green-600");
+  else if (state === "pending") el.classList.add("bg-amber-400", "text-slate-900");
+  else if (state === "offline") el.classList.add("bg-red-600");
+  else el.classList.add("bg-white/20");
+}
+
+async function showOfflineStatus() {
+  let text = "Offline";
   try {
+    const unsynced = await IDB.getUnsynced();
+    const pendingLots = getPendingLots();
+    const count = unsynced.length + pendingLots.length;
+    if (count > 0) text = `Offline - ${count} pending`;
+  } catch (e) { /* count is nice-to-have */ }
+  setSyncStatus("offline", text);
+  LW.setOffline(true);
+}
+
+let _syncBusy = false;
+let _lastProbe = 0;
+async function syncLoop() {
+  if (_syncBusy) return; // interval + online event + PTR can overlap; never double-post
+  _syncBusy = true;
+  try {
+    if (!navigator.onLine) {
+      await showOfflineStatus();
+      return;
+    }
     // Flush pending lot dispatches first (order matters less since the
     // server resolves lots lazily by slip_number either way).
     const pendingLots = getPendingLots();
     const stillPending = [];
+    let networkFailure = false;
     for (const lot of pendingLots) {
       try {
         await LW.api("/api/lots", { method: "POST", body: lot });
       } catch (e) {
+        if (e instanceof TypeError) networkFailure = true;
         stillPending.push(lot);
       }
     }
     setPendingLots(stillPending);
+    if (networkFailure) {
+      // WiFi says online but the farm server is unreachable - that IS offline
+      // as far as the worker cares.
+      await showOfflineStatus();
+      return;
+    }
 
     const unsynced = await IDB.getUnsynced();
     if (unsynced.length > 0) {
       const records = unsynced.map(({ synced, ...rest }) => rest);
       await LW.api("/api/sync/harvest", { method: "POST", body: { records } });
       await IDB.markSynced(unsynced.map((r) => r.uuid));
+    } else if (stillPending.length === 0 && Date.now() - _lastProbe >= 25000) {
+      // Nothing to push - but "nothing to push" must not be mistaken for
+      // "server reachable". Probe cheaply so an idle device still shows the
+      // truth (and keeps its urgency thresholds current). Throttled because
+      // the loop ticks every 10s and an idle device needn't ask that often -
+      // saving or dispatching a crate flips the status immediately anyway.
+      systemSettings = await LW.api("/api/system-settings");
+      _lastProbe = Date.now();
     }
-    statusEl.textContent = stillPending.length > 0 || unsynced.length > 0 ? "Syncing..." : "Online - synced";
+    LW.setOffline(false);
+    if (stillPending.length > 0 || unsynced.length > 0) setSyncStatus("pending", "Syncing...");
+    else setSyncStatus("synced", "Online - synced");
   } catch (e) {
-    statusEl.textContent = "Online - sync failed, retrying";
+    if (e instanceof TypeError) {
+      await showOfflineStatus();
+    } else {
+      setSyncStatus("pending", "Online - sync failed, retrying");
+    }
+  } finally {
+    _syncBusy = false;
   }
 }
 
