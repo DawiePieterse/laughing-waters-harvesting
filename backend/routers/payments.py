@@ -66,7 +66,9 @@ def _worker_totals(session: Session, period_start: date, period_end: date, suppl
     if worker_ids is not None:
         query = query.where(HarvestRecord.worker_id.in_(worker_ids))
     records = session.exec(query).all()
-    setting = session.exec(select(RateSetting).order_by(RateSetting.effective_date.desc())).first()
+    setting = session.exec(
+        select(RateSetting).order_by(RateSetting.effective_date.desc(), RateSetting.id.desc())
+    ).first()
     tiers = json.loads(setting.tier_rates_json) if setting else {}
 
     totals: dict[str, dict] = {}

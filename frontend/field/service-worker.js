@@ -2,7 +2,7 @@
 // Data (worker/block lists, sync) always goes over the network when
 // available - this only guarantees the UI itself is installable/offline.
 const CACHE_PREFIX = "lw-field-";
-const CACHE = "lw-field-v14";
+const CACHE = "lw-field-v16";
 const REVALIDATE_TIMEOUT_MS = 10000;
 const SHELL = [
   "./",

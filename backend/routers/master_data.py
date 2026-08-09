@@ -241,7 +241,17 @@ async def import_workers(file: UploadFile, session: Session = Depends(get_sessio
 
 @router.get("/rate-settings/current")
 def current_rate_setting(session: Session = Depends(get_session)):
-    setting = session.exec(select(RateSetting).order_by(RateSetting.effective_date.desc())).first()
+    # Rates are an append-only history, so "current" is the newest row.
+    # Ordering by effective_date alone is not enough: setting a rate twice in
+    # one day (or correcting one the same day) leaves two rows sharing a date,
+    # and the tie resolved to whichever the database happened to return first -
+    # in practice the OLD one. The admin saw "Rate saved" while wages carried
+    # on being worked out at the previous rate. Break the tie on id so the most
+    # recently saved row wins. Kept in step with the same lookup in
+    # routers/payments.py.
+    setting = session.exec(
+        select(RateSetting).order_by(RateSetting.effective_date.desc(), RateSetting.id.desc())
+    ).first()
     return setting
 
 

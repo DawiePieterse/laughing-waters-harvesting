@@ -279,7 +279,8 @@ async function renderLot() {
   }
   const crateCount = crates.length;
   const totalKg = crates.reduce((s, c) => s + c.weight_kg - (c.deduction_kg || 0), 0);
-  document.getElementById("crateCount").textContent = `${crateCount} crates`;
+  document.getElementById("crateCount").textContent =
+    `${crateCount} ${crateCount === 1 ? "crate" : "crates"}`;
   document.getElementById("totalKg").textContent = `${totalKg.toFixed(1)} kg`;
 
   const card = document.getElementById("lotCard");

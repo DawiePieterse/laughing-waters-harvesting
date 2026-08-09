@@ -1,13 +1,26 @@
-"""Preview-sandbox launcher for the LITE app: serves the /tmp mirror with an
-in-memory DB and auto-seeds demo data once the API is up.
+"""Preview-sandbox launcher for the LITE app: serves the /tmp mirror off a
+throwaway sqlite file and auto-seeds demo data once the API is up.
 Master copy lives at .claude/preview_launcher.py in the Lite repo -
 copy to /tmp/lw_lite_launcher.py after a /tmp purge (see .claude/rebuild_preview.sh)."""
 import sys, os
 sys.path = [p for p in sys.path if p]
 port = int(os.environ.get('PORT', '8823'))
 
-# Auto-seed demo data once the API is up. The preview DB is in-memory, so
-# every server start is a blank slate - seed it so screens aren't empty.
+# Start from a blank database on every launch. The preview used to get this
+# for free from an in-memory DB, but that needed a StaticPool (one shared
+# connection for the whole process), which made concurrent requests fail with
+# spurious 500s - see the note in .claude/preview_patches.py. Deleting the file
+# up front keeps the fresh-every-restart behaviour while letting the app use
+# the same file DB and connection pool it uses in production.
+PREVIEW_DB = "/tmp/lw_lite_preview.db"
+for _suffix in ("", "-wal", "-shm"):
+    try:
+        os.remove(PREVIEW_DB + _suffix)
+    except FileNotFoundError:
+        pass
+
+# Auto-seed demo data once the API is up - the blank DB above means every
+# server start would otherwise leave the screens empty.
 import threading, subprocess, urllib.request, time
 
 def seed_when_ready():

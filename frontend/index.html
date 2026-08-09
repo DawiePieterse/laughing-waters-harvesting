@@ -27,15 +27,18 @@
 </div>
 
 <script>
-async function routeDevice(deviceId) {
-  const config = await LW.fetchDeviceConfig(deviceId);
-  LW.setDeviceId(deviceId);
-  const dest = {
+function destinationFor(config) {
+  return {
     field: "field/",
     packhouse: "packhouse/",
     admin: "admin/",
   }[config.role] || "admin/";
-  location.href = dest;
+}
+
+async function routeDevice(deviceId) {
+  const config = await LW.fetchDeviceConfig(deviceId);
+  LW.setDeviceId(deviceId);
+  location.href = destinationFor(config);
 }
 
 // The list comes from the server so a device added in Master Data can be
@@ -78,6 +81,15 @@ function chosenDeviceId() {
       // Only a server that answered "unknown" invalidates the saved id - an
       // unreachable one must not wipe a device's setup and strand it.
       if (!LW.isNetworkError(e)) LW.clearDeviceId();
+      else {
+        // Server unreachable. A device that has been set up before already
+        // knows its role, so send it straight to its screen - that screen is
+        // cached and works offline. Dropping through to the setup form here
+        // would strand a picker at a "type your device ID" prompt in the
+        // middle of the orchard, with no way to reach the capture screen.
+        const cached = LW.getCachedDeviceConfig(existing);
+        if (cached) { location.href = destinationFor(cached); return; }
+      }
     }
   }
   await loadDeviceOptions();
@@ -96,6 +108,10 @@ function chosenDeviceId() {
     }
   });
 })();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+}
 </script>
 </body>
 </html>

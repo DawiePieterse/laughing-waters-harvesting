@@ -161,10 +161,16 @@ function bindDashboard() {
   document.getElementById("dashRefreshBtn").addEventListener("click", refreshDashboard);
   document.querySelector('.tab-btn[data-tab="dashboard"]').addEventListener("click", refreshDashboard);
 
+  // Picking a period or a supplier must redraw the dashboard straight away.
+  // Setting the inputs alone leaves the old period's figures on screen under
+  // the new dates - which reads as "the season looks exactly like today"
+  // rather than "you still have to press Refresh". The Owner View has always
+  // refreshed on change; this keeps the two screens behaving the same.
   document.getElementById("dashTodayBtn").addEventListener("click", () => {
     const t = LW.localDateStr();
     document.getElementById("dashStart").value = t;
     document.getElementById("dashEnd").value = t;
+    refreshDashboard();
   });
   document.getElementById("dashWeekBtn").addEventListener("click", () => {
     const end = new Date();
@@ -172,6 +178,7 @@ function bindDashboard() {
     start.setDate(end.getDate() - 6);
     document.getElementById("dashStart").value = LW.localDateStr(start);
     document.getElementById("dashEnd").value = LW.localDateStr(end);
+    refreshDashboard();
   });
   document.getElementById("dashSeasonBtn").addEventListener("click", () => {
     if (_systemSettings) {
@@ -179,7 +186,11 @@ function bindDashboard() {
       document.getElementById("dashStart").value = `${year}-01-01`;
       document.getElementById("dashEnd").value = `${year}-12-31`;
     }
+    refreshDashboard();
   });
+  document.getElementById("dashStart").addEventListener("change", refreshDashboard);
+  document.getElementById("dashEnd").addEventListener("change", refreshDashboard);
+  document.getElementById("dashSupplierFilter").addEventListener("change", refreshDashboard);
 }
 
 async function refreshDashboard() {
