@@ -166,7 +166,7 @@ function renderRelatedLots(lot) {
     return;
   }
   const statusText = (r) => {
-    if (r.status === "received") return `received ${new Date(r.received_at).toLocaleTimeString()}`;
+    if (r.status === "received") return `received ${LW.fmtTime(r.received_at)}`;
     if (r.status === "in_transit") return "still in transit";
     return "still being picked in the field";
   };

@@ -12,7 +12,7 @@ Admin Dashboard shows - that's payroll information the farm office
 needs, not something to hand out on a shareable link.
 """
 import secrets
-from datetime import date, datetime, time
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,6 +22,7 @@ from db import get_session
 from models import Block, HarvestRecord, OwnerViewToken
 from routers.payments import _worker_ids_for_supplier
 from security import get_current_admin
+from timeutil import day_bounds
 
 router = APIRouter(prefix="/api/owner-view", tags=["owner-view"])
 
@@ -67,8 +68,7 @@ def owner_view_summary(token: str, period_start: date, period_end: date, supplie
     /api/dashboard/summary, minus the per-worker wage breakdown."""
     require_owner_token(token, session)
 
-    start_dt = datetime.combine(period_start, time.min)
-    end_dt = datetime.combine(period_end, time.max)
+    start_dt, end_dt = day_bounds(period_start, period_end)
     worker_ids = _worker_ids_for_supplier(session, supplier_id)
     query = select(HarvestRecord).where(HarvestRecord.timestamp >= start_dt, HarvestRecord.timestamp <= end_dt)
     if worker_ids is not None:

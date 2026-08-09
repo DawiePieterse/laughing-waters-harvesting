@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from db import get_session
 from models import Lot, Supplier
 from security import get_current_admin
+from timeutil import day_bounds
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
@@ -40,8 +41,7 @@ def compute_supplier_billing(session: Session, supplier_id: int, period_start: d
     per-kg rate if set, else per-crate. Only received lots count (fruit
     still in transit hasn't used the pack house yet)."""
     supplier = session.get(Supplier, supplier_id)
-    start_dt = datetime.combine(period_start, time.min)
-    end_dt = datetime.combine(period_end, time.max)
+    start_dt, end_dt = day_bounds(period_start, period_end)
     # The received_at range alone defines "received" (NULL never matches a
     # range); filtering on status == received would silently drop lots whose
     # status advanced to processing_complete after grading - under-billing.

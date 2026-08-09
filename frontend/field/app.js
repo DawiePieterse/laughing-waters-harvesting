@@ -541,8 +541,8 @@ const DISPATCHED_KEY = "lw_dispatched_lots";
 
 function addDispatchedLot(slip, crates, kg) {
   const all = JSON.parse(localStorage.getItem(DISPATCHED_KEY) || "[]");
-  const today = new Date().toISOString().slice(0, 10);
-  const cutoff = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const today = LW.localDateStr();
+  const cutoff = LW.localDateStr(new Date(Date.now() - 30 * 86400000));
   const recent = all.filter((d) => d.date >= cutoff);
   recent.push({ date: today, slip, crates, kg, time: new Date().toLocaleTimeString() });
   localStorage.setItem(DISPATCHED_KEY, JSON.stringify(recent));
@@ -550,7 +550,7 @@ function addDispatchedLot(slip, crates, kg) {
 
 function renderDispatchedLots() {
   const all = JSON.parse(localStorage.getItem(DISPATCHED_KEY) || "[]");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = LW.localDateStr();
   const dispatched = all.filter((d) => d.date === today);
   const listEl = document.getElementById("dispatchedList");
   const summaryEl = document.getElementById("dispatchedSummary");

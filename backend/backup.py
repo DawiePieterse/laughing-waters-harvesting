@@ -7,7 +7,7 @@ import os
 import threading
 import time
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from db import DATA_DIR, DB_PATH, PHOTOS_DIR
 
@@ -52,7 +52,9 @@ def list_backups() -> list[dict]:
         result.append({
             "filename": name,
             "size_bytes": stat.st_size,
-            "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            # Tagged UTC so the browser can convert it to farm time; a naive
+            # string would be read as local by JS and silently shifted.
+            "created_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
         })
     return result
 

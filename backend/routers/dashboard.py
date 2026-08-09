@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -8,6 +8,7 @@ from db import get_own_supplier_id, get_session
 from models import Block, HarvestRecord, Supplier, Worker
 from routers.payments import _supplier_display_name, _worker_ids_for_supplier, _worker_totals
 from security import get_current_admin
+from timeutil import day_bounds
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -19,8 +20,7 @@ def dashboard_summary(period_start: date, period_end: date, supplier_id: Optiona
     admin Dashboard tab. "Active" means had harvest activity within the
     filtered period/supplier, not a static master-data active flag - so
     these numbers move with the filters like everything else on the screen."""
-    start_dt = datetime.combine(period_start, time.min)
-    end_dt = datetime.combine(period_end, time.max)
+    start_dt, end_dt = day_bounds(period_start, period_end)
     worker_ids = _worker_ids_for_supplier(session, supplier_id)
     query = select(HarvestRecord).where(HarvestRecord.timestamp >= start_dt, HarvestRecord.timestamp <= end_dt)
     if worker_ids is not None:

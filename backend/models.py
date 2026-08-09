@@ -164,6 +164,12 @@ class HarvestRecord(SQLModel, table=True):
     lot_id: Optional[int] = Field(default=None, foreign_key="lot.id")
     notes: str = ""
     synced_at: Optional[datetime] = None  # set by server on first insert
+    # Conditions at the farm when the crate checked in, stamped once on first
+    # insert alongside synced_at (see routers/sync.py). Null when the farm has
+    # no GPS set in Settings, or when the weather service couldn't be reached.
+    weather_temp: Optional[float] = None
+    weather_humidity: Optional[float] = None
+    weather_condition: str = ""
 
 
 class ReceivingRecord(SQLModel, table=True):

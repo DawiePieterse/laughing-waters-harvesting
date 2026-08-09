@@ -3,6 +3,7 @@ import secrets
 from datetime import date
 
 from passlib.context import CryptContext
+from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from models import (AdminUser, Block, Device, DeviceRole, OwnerViewToken, RateSetting, RateType, Supplier,
@@ -50,8 +51,46 @@ DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "ChangeMe123!"  # must be changed on first login
 
 
+def _column_ddl(column, dialect) -> str:
+    """ADD COLUMN clause for a model column missing from a live table."""
+    ddl = f'"{column.name}" {column.type.compile(dialect)}'
+    if column.nullable:
+        return ddl
+    default = getattr(column.default, "arg", None) if column.default is not None else None
+    if default is None or callable(default):
+        # Nothing to backfill existing rows with, and SQLite won't accept a
+        # NOT NULL column without a default. Adding it nullable keeps the farm
+        # running; a fresh install still gets the strict schema from create_all.
+        return ddl
+    literal = "'{}'".format(str(default).replace("'", "''")) if isinstance(default, str) else str(default)
+    return f"{ddl} NOT NULL DEFAULT {literal}"
+
+
+def _add_missing_columns() -> None:
+    """Bring an existing database up to the current models.
+
+    create_all() only ever creates whole tables, so a server upgraded in place
+    would keep its old columns and every query touching a new field would fail
+    with "no such column". This adds them. Strictly additive - it never drops
+    or alters an existing column, so downgrading is just running the old code.
+    """
+    inspector = inspect(engine)
+    live_tables = set(inspector.get_table_names())
+    for table in SQLModel.metadata.sorted_tables:
+        if table.name not in live_tables:
+            continue  # create_all() just built it, columns and all
+        present = {c["name"] for c in inspector.get_columns(table.name)}
+        missing = [c for c in table.columns if c.name not in present]
+        for column in missing:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    f'ALTER TABLE "{table.name}" ADD COLUMN {_column_ddl(column, engine.dialect)}'))
+            print(f"[migration] {table.name}: added column {column.name}")
+
+
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
+    _add_missing_columns()
 
 
 def get_session():

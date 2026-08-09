@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime, time
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -10,6 +10,7 @@ from db import get_own_supplier_id, get_session
 from excel_io import rows_to_xlsx_bytes
 from models import HarvestRecord, Payment, RateSetting, RateType, Supplier, Worker
 from security import get_current_admin
+from timeutil import day_bounds
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -59,8 +60,7 @@ def _tier_rate_for_weight(weight_kg: float, tiers: dict[str, float]) -> float:
 
 
 def _worker_totals(session: Session, period_start: date, period_end: date, supplier_id: Optional[int] = None):
-    start_dt = datetime.combine(period_start, time.min)
-    end_dt = datetime.combine(period_end, time.max)
+    start_dt, end_dt = day_bounds(period_start, period_end)
     query = select(HarvestRecord).where(HarvestRecord.timestamp >= start_dt, HarvestRecord.timestamp <= end_dt)
     worker_ids = _worker_ids_for_supplier(session, supplier_id)
     if worker_ids is not None:

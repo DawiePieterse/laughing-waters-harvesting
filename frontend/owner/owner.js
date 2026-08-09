@@ -46,13 +46,13 @@ function bindCollapsibles() {
 }
 
 function bindDashboard() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = LW.localDateStr();
   document.getElementById("dashStart").value = today;
   document.getElementById("dashEnd").value = today;
 
   document.getElementById("dashRefreshBtn").addEventListener("click", refreshDashboard);
   document.getElementById("dashTodayBtn").addEventListener("click", () => {
-    const t = new Date().toISOString().slice(0, 10);
+    const t = LW.localDateStr();
     document.getElementById("dashStart").value = t;
     document.getElementById("dashEnd").value = t;
     refreshDashboard();
@@ -61,8 +61,8 @@ function bindDashboard() {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 6);
-    document.getElementById("dashStart").value = start.toISOString().slice(0, 10);
-    document.getElementById("dashEnd").value = end.toISOString().slice(0, 10);
+    document.getElementById("dashStart").value = LW.localDateStr(start);
+    document.getElementById("dashEnd").value = LW.localDateStr(end);
     refreshDashboard();
   });
   document.getElementById("dashSeasonBtn").addEventListener("click", () => {
@@ -179,7 +179,7 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
   document.getElementById("dash-received-body").innerHTML = received.map((l) => `
     <div class="p-3">
       <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
-      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${new Date(l.received_at).toLocaleString()}</div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${LW.fmtDateTime(l.received_at)}</div>
     </div>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing received in this period</div>`;
 

@@ -1,6 +1,6 @@
 import uuid
 from collections import defaultdict
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +8,7 @@ from sqlmodel import Session, SQLModel, select
 
 from db import get_own_supplier_id, get_session
 from models import HarvestRecord, Lot, LotStatus, Supplier, SystemSetting
+from timeutil import day_bounds
 from weather import fetch_weather as _fetch_weather
 
 router = APIRouter(prefix="/api/lots", tags=["lots"])
@@ -130,8 +131,8 @@ def list_pending(supplier_id: Optional[int] = None, period_start: Optional[date]
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
     if period_start is not None and period_end is not None:
-        query = query.where(Lot.timestamp >= datetime.combine(period_start, time.min),
-                             Lot.timestamp <= datetime.combine(period_end, time.max))
+        start_dt, end_dt = day_bounds(period_start, period_end)
+        query = query.where(Lot.timestamp >= start_dt, Lot.timestamp <= end_dt)
     lots = session.exec(query.order_by(Lot.timestamp.asc())).all()
     result = []
     for l in lots:
@@ -164,8 +165,8 @@ def list_in_transit(supplier_id: Optional[int] = None, period_start: Optional[da
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
     if period_start is not None and period_end is not None:
-        query = query.where(Lot.timestamp >= datetime.combine(period_start, time.min),
-                             Lot.timestamp <= datetime.combine(period_end, time.max))
+        start_dt, end_dt = day_bounds(period_start, period_end)
+        query = query.where(Lot.timestamp >= start_dt, Lot.timestamp <= end_dt)
     lots = session.exec(query.order_by(Lot.timestamp.asc())).all()
     parents_by_slip, children_by_parent_slip = _build_split_index(session)
     enriched = []
@@ -190,8 +191,8 @@ def list_received(period_start: Optional[date] = None, period_end: Optional[date
     # "received" - graded lots (status=processing_complete) stay in the list.
     query = select(Lot).where(Lot.received_at != None)  # noqa: E711
     if period_start is not None and period_end is not None:
-        query = query.where(Lot.received_at >= datetime.combine(period_start, time.min),
-                             Lot.received_at <= datetime.combine(period_end, time.max))
+        start_dt, end_dt = day_bounds(period_start, period_end)
+        query = query.where(Lot.received_at >= start_dt, Lot.received_at <= end_dt)
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
     lots = session.exec(query.order_by(Lot.received_at.desc())).all()

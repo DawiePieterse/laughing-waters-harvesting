@@ -155,14 +155,14 @@ function bindCollapsibles() {
 }
 
 function bindDashboard() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = LW.localDateStr();
   document.getElementById("dashStart").value = today;
   document.getElementById("dashEnd").value = today;
   document.getElementById("dashRefreshBtn").addEventListener("click", refreshDashboard);
   document.querySelector('.tab-btn[data-tab="dashboard"]').addEventListener("click", refreshDashboard);
 
   document.getElementById("dashTodayBtn").addEventListener("click", () => {
-    const t = new Date().toISOString().slice(0, 10);
+    const t = LW.localDateStr();
     document.getElementById("dashStart").value = t;
     document.getElementById("dashEnd").value = t;
   });
@@ -170,8 +170,8 @@ function bindDashboard() {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 6);
-    document.getElementById("dashStart").value = start.toISOString().slice(0, 10);
-    document.getElementById("dashEnd").value = end.toISOString().slice(0, 10);
+    document.getElementById("dashStart").value = LW.localDateStr(start);
+    document.getElementById("dashEnd").value = LW.localDateStr(end);
   });
   document.getElementById("dashSeasonBtn").addEventListener("click", () => {
     if (_systemSettings) {
@@ -271,7 +271,7 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
   document.getElementById("dash-received-body").innerHTML = received.map((l) => `
     <div class="p-3">
       <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
-      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${new Date(l.received_at).toLocaleString()}</div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${LW.fmtDateTime(l.received_at)}</div>
     </div>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing received in this period</div>`;
 
@@ -651,7 +651,7 @@ async function loadDevices() {
   document.getElementById("devicesTable").innerHTML = devices.map((d) => `
     <tr class="border-b">
       <td class="p-2">${d.id}</td><td class="p-2">${d.role}</td><td class="p-2">${d.station}</td><td class="p-2">${d.team_id || ""}</td>
-      <td class="p-2">${d.last_seen ? new Date(d.last_seen).toLocaleString() : "never"}</td>
+      <td class="p-2">${LW.fmtDateTime(d.last_seen, "never")}</td>
       <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit="${d.id}">Edit</button></td>
     </tr>
   `).join("");
@@ -744,7 +744,7 @@ function populateBillingSupplierSelect(suppliers) {
 }
 
 function bindSuppliers() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = LW.localDateStr();
   document.getElementById("billingStart").value = today;
   document.getElementById("billingEnd").value = today;
   document.getElementById("calcBillingBtn").addEventListener("click", calculateBilling);
@@ -763,7 +763,7 @@ async function calculateBilling() {
     document.getElementById("billingTable").innerHTML = data.lots.map((l) => `
       <tr class="border-b">
         <td class="p-2 font-mono">${l.slip_number}</td>
-        <td class="p-2">${l.received_at ? new Date(l.received_at).toLocaleString() : ""}</td>
+        <td class="p-2">${LW.fmtDateTime(l.received_at)}</td>
         <td class="p-2">${l.crates}</td>
         <td class="p-2">${l.kg}</td>
       </tr>
@@ -777,14 +777,14 @@ async function calculateBilling() {
 // Payments
 // ---------------------------------------------------------------------
 function bindPayments() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = LW.localDateStr();
   document.getElementById("payStart").value = today;
   document.getElementById("payEnd").value = today;
   document.getElementById("calcPayBtn").addEventListener("click", calculatePayments);
   document.getElementById("exportPayBtn").addEventListener("click", exportPayments);
 
   document.getElementById("payTodayBtn").addEventListener("click", () => {
-    const t = new Date().toISOString().slice(0, 10);
+    const t = LW.localDateStr();
     document.getElementById("payStart").value = t;
     document.getElementById("payEnd").value = t;
   });
@@ -792,8 +792,8 @@ function bindPayments() {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 6);
-    document.getElementById("payStart").value = start.toISOString().slice(0, 10);
-    document.getElementById("payEnd").value = end.toISOString().slice(0, 10);
+    document.getElementById("payStart").value = LW.localDateStr(start);
+    document.getElementById("payEnd").value = LW.localDateStr(end);
   });
   document.getElementById("paySeasonBtn").addEventListener("click", () => {
     if (_systemSettings) {
@@ -895,12 +895,12 @@ const REPORTS = [
 ];
 
 function bindReports() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = LW.localDateStr();
   document.getElementById("reportDate1").value = today;
   document.getElementById("reportDate2").value = today;
 
   document.getElementById("reportsTodayBtn").addEventListener("click", () => {
-    const t = new Date().toISOString().slice(0, 10);
+    const t = LW.localDateStr();
     document.getElementById("reportDate1").value = t;
     document.getElementById("reportDate2").value = t;
   });
@@ -908,8 +908,8 @@ function bindReports() {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 6);
-    document.getElementById("reportDate1").value = start.toISOString().slice(0, 10);
-    document.getElementById("reportDate2").value = end.toISOString().slice(0, 10);
+    document.getElementById("reportDate1").value = LW.localDateStr(start);
+    document.getElementById("reportDate2").value = LW.localDateStr(end);
   });
   document.getElementById("setSeasonDatesBtn").addEventListener("click", () => {
     if (_systemSettings) {
@@ -1002,7 +1002,7 @@ async function loadBackupsList() {
   const backups = await LW.api("/api/backups", { auth: true });
   document.getElementById("backupsTable").innerHTML = backups.map((b) => `
     <tr class="border-b">
-      <td class="p-2">${new Date(b.created_at).toLocaleString()}</td>
+      <td class="p-2">${LW.fmtDateTime(b.created_at)}</td>
       <td class="p-2">${(b.size_bytes / 1024 / 1024).toFixed(2)} MB</td>
       <td class="p-2 text-right"><a href="#" class="text-blue-700 text-xs" data-download="${b.filename}">Download</a></td>
     </tr>
@@ -1068,7 +1068,7 @@ async function saveRateSettings() {
   await LW.api("/api/rate-settings", {
     method: "POST", auth: true,
     body: {
-      effective_date: new Date().toISOString().slice(0, 10),
+      effective_date: LW.localDateStr(),
       rate_type: "per_kg",
       default_rate_per_kg: parseFloat(document.getElementById("setRatePerKg").value) || 0,
       tier_rates_json: "{}",

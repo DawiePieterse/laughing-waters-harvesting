@@ -1,5 +1,6 @@
 import os
-from datetime import date, datetime, time
+from collections import Counter
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -13,6 +14,7 @@ from routers.dashboard import dashboard_summary
 from routers.lots import list_in_transit, list_pending, list_received
 from routers.payments import _worker_ids_for_supplier
 from security import get_current_admin
+from timeutil import day_bounds, local_str
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -32,14 +34,18 @@ def _xlsx_response(headers, rows, sheet_title, filename):
                      headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
-def _day_bounds(day: date):
-    return datetime.combine(day, time.min), datetime.combine(day, time.max)
+def _mean(values: list, places: int):
+    """Blank rather than 0 when nothing was measured - an empty cell reads as
+    "not recorded", where 0 would read as a freezing morning."""
+    if not values:
+        return ""
+    return round(sum(values) / len(values), places) if places else round(sum(values) / len(values))
 
 
 @router.get("/daily-harvest")
 def daily_harvest_report(day: date = Query(default_factory=date.today), supplier_id: Optional[int] = None,
                           session: Session = Depends(get_session), admin=Depends(get_current_admin)):
-    start, end = _day_bounds(day)
+    start, end = day_bounds(day)
     query = select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
     worker_ids = _worker_ids_for_supplier(session, supplier_id)
     if worker_ids is not None:
@@ -51,11 +57,22 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), supplier
     totals: dict = {}
     for r in records:
         key = (r.block_id, r.team_id)
-        entry = totals.setdefault(key, {"crates": 0, "kg": 0.0})
+        entry = totals.setdefault(key, {"crates": 0, "kg": 0.0, "temps": [], "humidity": [],
+                                         "conditions": Counter()})
         entry["crates"] += 1
         entry["kg"] += r.weight_kg - r.deduction_kg
+        # Weather is stamped per crate at check-in and is absent on crates
+        # captured before that existed, or when the lookup failed - so each
+        # measure is averaged over whichever crates actually carry it.
+        if r.weather_temp is not None:
+            entry["temps"].append(r.weather_temp)
+        if r.weather_humidity is not None:
+            entry["humidity"].append(r.weather_humidity)
+        if r.weather_condition:
+            entry["conditions"][r.weather_condition] += 1
 
-    headers = ["Block", "Variety", "Team", "Induna", "Crates", "Kg"]
+    headers = ["Block", "Variety", "Team", "Induna", "Crates", "Kg",
+               "Avg Temp (°C)", "Avg Humidity (%)", "Conditions"]
     rows = []
     for (block_id, team_id), data in sorted(totals.items(), key=lambda x: (x[0][0] or "", x[0][1] or "")):
         block = blocks.get(block_id)
@@ -63,6 +80,10 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), supplier
         rows.append([
             block_id or "", block.variety if block else "", team.name if team else team_id or "",
             team.induna if team else "", data["crates"], round(data["kg"], 1),
+            _mean(data["temps"], 1), _mean(data["humidity"], 0),
+            # Whatever it was doing for most of the picking, so a block picked
+            # through a passing shower doesn't read as a clear morning.
+            data["conditions"].most_common(1)[0][0] if data["conditions"] else "",
         ])
     return _xlsx_response(headers, rows, "Daily Harvest", f"Daily_Harvest_{day}.xlsx")
 
@@ -70,7 +91,7 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), supplier
 @router.get("/lot-receiving")
 def lot_receiving_report(date_from: date, date_to: date, supplier_id: Optional[int] = None,
                           session: Session = Depends(get_session), admin=Depends(get_current_admin)):
-    start, end = _day_bounds(date_from)[0], _day_bounds(date_to)[1]
+    start, end = day_bounds(date_from, date_to)
     query = select(Lot).where(Lot.timestamp >= start, Lot.timestamp <= end)
     if supplier_id is not None:
         query = query.where(Lot.supplier_id == supplier_id)
@@ -89,9 +110,9 @@ def lot_receiving_report(date_from: date, date_to: date, supplier_id: Optional[i
         supplier = suppliers.get(lot.supplier_id)
         rows.append([
             lot.slip_number, supplier.name if supplier else "",
-            lot.timestamp.isoformat(sep=" ", timespec="minutes"), lot.team_id, lot.driver,
+            local_str(lot.timestamp), lot.team_id, lot.driver,
             lot.total_crates, round(lot.total_kg, 1), lot.status.value,
-            lot.received_at.isoformat(sep=" ", timespec="minutes") if lot.received_at else "",
+            local_str(lot.received_at),
             rec.actual_crates if rec else "", rec.discrepancy if rec else "",
             rec.condition if rec else "", rec.waste_kg if rec else "",
             lot.weather_temp if lot.weather_temp is not None else "",
@@ -136,7 +157,7 @@ def received_list_report(period_start: date, period_end: date, supplier_id: Opti
     headers = ["Slip Number", "Farm/Supplier", "Team", "Driver", "Crates", "Kg", "Received At"]
     rows = [[
         l["slip_number"], l["supplier_name"], l["team_id"] or "", l["driver"], l["total_crates"], l["total_kg"],
-        l["received_at"].isoformat(sep=" ", timespec="minutes") if l["received_at"] else "",
+        local_str(l["received_at"]),
     ] for l in lots_data]
     return _xlsx_response(headers, rows, "Received", f"Received_{period_start}_{period_end}.xlsx")
 

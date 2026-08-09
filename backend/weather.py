@@ -1,4 +1,6 @@
 import json as _json
+import threading
+import time as _time
 import urllib.error
 import urllib.request
 
@@ -32,3 +34,31 @@ def fetch_weather(lat: float, lon: float) -> dict:
         }
     except Exception:
         return {}
+
+
+# A field device syncs a whole batch of crates at once and every crate gets
+# stamped with the conditions (routers/sync.py), so an uncached lookup would
+# mean one HTTP round trip per crate - hundreds on a busy morning, each one
+# holding up the sync. The upstream service only refreshes every ~15 minutes,
+# so a short cache costs nothing in accuracy. Failures are cached briefly too,
+# so a dropped link doesn't stall every following crate on a 5s timeout.
+_CACHE_TTL_SECONDS = 600
+_CACHE_TTL_ON_FAILURE_SECONDS = 60
+_cache: dict = {}
+_cache_lock = threading.Lock()
+
+
+def fetch_weather_cached(lat: float, lon: float) -> dict:
+    key = (round(lat, 4), round(lon, 4))
+    now = _time.monotonic()
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit and now < hit[0]:
+            return hit[1]
+
+    weather = fetch_weather(lat, lon)
+
+    ttl = _CACHE_TTL_SECONDS if weather else _CACHE_TTL_ON_FAILURE_SECONDS
+    with _cache_lock:
+        _cache[key] = (now + ttl, weather)
+    return weather

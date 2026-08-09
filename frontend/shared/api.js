@@ -8,7 +8,7 @@ const LW = {
   // actually up to date - especially useful given the service workers'
   // cache-first strategy (see field/packhouse/admin service-worker.js).
   // Reset to 1.0 on 2026-08-06 to mark the first stable release.
-  VERSION: "1.1",
+  VERSION: "1.2",
 
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },
@@ -112,6 +112,50 @@ const LW = {
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("application/json")) return res.json();
     return res.blob();
+  },
+
+  // The server records every timestamp in UTC, but SQLite hands them back
+  // without a timezone marker, so they reach the browser looking like
+  // "2026-08-08T13:46:21". JavaScript reads a bare date-time string as LOCAL
+  // time, which meant every screen printed UTC digits as if they were farm
+  // time (two hours slow in SAST). parseServerDate pins a naive string to UTC
+  // first; the fmt* helpers then render it in the device's own timezone.
+  // Always format server timestamps through these - never new Date(x) directly.
+  parseServerDate(value) {
+    if (value === null || value === undefined || value === "") return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    let s = String(value).trim();
+    // A bare "YYYY-MM-DD" is a calendar date, not an instant, so it is left
+    // as-is; only strings carrying a time-of-day need the UTC marker.
+    if (/\d{1,2}:\d{2}/.test(s)) {
+      s = s.replace(" ", "T");
+      if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s)) s += "Z";
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  },
+
+  fmtDateTime(value, fallback = "") {
+    const d = LW.parseServerDate(value);
+    return d ? d.toLocaleString() : fallback;
+  },
+
+  fmtTime(value, fallback = "") {
+    const d = LW.parseServerDate(value);
+    return d ? d.toLocaleTimeString() : fallback;
+  },
+
+  fmtDate(value, fallback = "") {
+    const d = LW.parseServerDate(value);
+    return d ? d.toLocaleDateString() : fallback;
+  },
+
+  // "Today" as the farm sees it, formatted for a date input. toISOString()
+  // would give the UTC date, which is still yesterday between midnight and
+  // 02:00 local - early enough to matter once picking starts before dawn.
+  localDateStr(d = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   },
 
   // Maps backend/weather.py's fixed condition strings to a Font Awesome
