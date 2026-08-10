@@ -191,6 +191,8 @@ function bindDashboard() {
   document.getElementById("dashStart").addEventListener("change", refreshDashboard);
   document.getElementById("dashEnd").addEventListener("change", refreshDashboard);
   document.getElementById("dashSupplierFilter").addEventListener("change", refreshDashboard);
+
+  document.getElementById("closeLotCratesBtn").addEventListener("click", closeLotCratesModal);
 }
 
 async function refreshDashboard() {
@@ -280,11 +282,17 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
 
   document.getElementById("dash-received-title").textContent = `Received - ${r.crates} crates / ${r.kg.toFixed(1)} kg`;
   document.getElementById("dash-received-body").innerHTML = received.map((l) => `
-    <div class="p-3">
+    <button type="button" data-lot-id="${l.id}" class="received-lot-row w-full text-left p-3 hover:bg-slate-50">
       <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
-      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${LW.fmtDateTime(l.received_at)}</div>
-    </div>
+      <div class="text-sm text-slate-600">${l.total_crates} crates / ${l.total_kg} kg - received ${LW.fmtDateTime(l.received_at)} <span class="text-blue-700">· view / edit crates</span></div>
+    </button>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing received in this period</div>`;
+  // Rebuilt from scratch on every refresh, so bind after render - the
+  // received/dispatched/harvesting/workers/blocks pattern throughout this
+  // file (loadWorkers, loadBlocks, ...) does the same for the same reason.
+  document.querySelectorAll("#dash-received-body .received-lot-row").forEach((btn) => {
+    btn.addEventListener("click", () => openLotCrates(parseInt(btn.dataset.lotId, 10)));
+  });
 
   document.getElementById("dash-workers-title").textContent = `Workers - ${summary.workers.length} workers`;
   document.getElementById("dash-workers-rows").innerHTML = summary.workers.map((w) => `
@@ -308,6 +316,150 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
       <td class="p-2">${b.avg_kg_tree ?? "-"}</td>
     </tr>
   `).join("") || `<tr><td class="p-2 text-slate-400" colspan="5">No harvest activity in this period</td></tr>`;
+}
+
+// ---------------------------------------------------------------------
+// Lot crates (Received list drill-down + correcting a field-captured crate)
+// ---------------------------------------------------------------------
+let _lotCratesContext = null; // { lot, crates } for whichever lot is open
+
+function _apiErrorDetail(e) {
+  // LW.api() throws `new Error("${status} ${bodyText}")` - FastAPI's body is
+  // usually {"detail": "..."}, so pull that out rather than toasting raw JSON.
+  const bodyText = String((e && e.message) || e || "").replace(/^\d+\s*/, "");
+  try {
+    const parsed = JSON.parse(bodyText);
+    if (parsed && typeof parsed.detail === "string") return parsed.detail;
+  } catch (err) { /* not JSON - the raw text is all there is */ }
+  return bodyText || "Unknown error";
+}
+
+function _workerOptionLabel(w) {
+  const name = w.name || `${w.first_name || ""} ${w.last_name || ""}`.trim() || w.id;
+  return `${name} (${w.id})${w.active ? "" : " - inactive"}`;
+}
+
+function _workerName(workerId) {
+  const w = (window._workersCache || []).find((w) => w.id === workerId);
+  if (w) return w.name || `${w.first_name || ""} ${w.last_name || ""}`.trim() || w.id;
+  return workerId || "(no worker recorded)";
+}
+
+async function openLotCrates(lotId) {
+  let data;
+  try {
+    data = await LW.api(`/api/lots/${lotId}`, { auth: true });
+  } catch (e) {
+    if (LW.isAuthError(e)) { sessionExpired(); return; }
+    LW.toast("Could not load this lot's crates - check connection");
+    return;
+  }
+  _lotCratesContext = data;
+  document.getElementById("lotCratesWagesWarning").classList.add("hidden");
+  renderLotCratesModal();
+  document.getElementById("lotCratesModal").classList.remove("hidden");
+  document.getElementById("lotCratesModal").classList.add("flex");
+}
+
+function closeLotCratesModal() {
+  document.getElementById("lotCratesModal").classList.add("hidden");
+  document.getElementById("lotCratesModal").classList.remove("flex");
+  _lotCratesContext = null;
+}
+
+function renderLotCratesModal() {
+  if (!_lotCratesContext) return;
+  const { lot, crates } = _lotCratesContext;
+  document.getElementById("lotCratesTitle").textContent = `Lot ${lot.slip_number}`;
+  document.getElementById("lotCratesMeta").textContent =
+    `${lot.total_crates} crates / ${lot.total_kg} kg - received ${LW.fmtDateTime(lot.received_at)}`;
+
+  document.getElementById("lotCratesRows").innerHTML = crates.map((c) => {
+    const net = (c.weight_kg - (c.deduction_kg || 0)).toFixed(1);
+    const editedNote = c.edited_at
+      ? `<div class="text-[11px] text-amber-700">edited by ${c.edited_by || "admin"}, ${LW.fmtDateTime(c.edited_at)}</div>`
+      : "";
+    return `
+      <tr class="border-b align-top">
+        <td class="p-2 whitespace-nowrap">${LW.fmtTime(c.timestamp)}</td>
+        <td class="p-2">${c.block_id || ""}</td>
+        <td class="p-2">${_workerName(c.worker_id)}${editedNote}</td>
+        <td class="p-2">${c.weight_kg}</td>
+        <td class="p-2">${c.deduction_kg || 0}</td>
+        <td class="p-2 font-semibold">${net}</td>
+        <td class="p-2 text-right"><button class="text-blue-700 text-xs" data-edit-crate="${c.uuid}">Edit</button></td>
+      </tr>`;
+  }).join("") || `<tr><td class="p-2 text-slate-400" colspan="7">No crates on this lot</td></tr>`;
+
+  document.querySelectorAll("#lotCratesRows [data-edit-crate]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const crate = _lotCratesContext.crates.find((c) => c.uuid === btn.dataset.editCrate);
+      if (crate) editCrate(crate);
+    });
+  });
+}
+
+function renderWagesWarning(wagesAffected) {
+  // Left alone (never cleared) when a save comes back with nothing affected,
+  // so correcting a second crate in the same session doesn't silently drop
+  // the warning from the first one.
+  if (!wagesAffected || !wagesAffected.length) return;
+  const el = document.getElementById("lotCratesWagesWarning");
+  const lines = wagesAffected.map((w) =>
+    `<strong>${w.worker_name}</strong>: wages for ${w.period_start} to ${w.period_end} were already calculated and do not reflect this change.`);
+  el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${lines.join("<br>")}<br>` +
+    `Re-run <strong>Calculate Wages</strong> for the affected period(s) in Payments to update the wage sheet.`;
+  el.classList.remove("hidden");
+}
+
+function editCrate(crate) {
+  // The worker who picked this crate must stay selectable even if they've
+  // since been deactivated - the select is populated from initial[key]
+  // (see openEditModal), and if that id isn't among the options the browser
+  // silently falls back to whatever option is first, which would submit a
+  // worker the admin never actually chose.
+  const cache = window._workersCache || [];
+  const options = cache
+    .filter((w) => w.active || w.id === crate.worker_id)
+    .map((w) => ({ value: w.id, label: _workerOptionLabel(w) }));
+  if (!crate.worker_id) options.unshift({ value: "", label: "(no worker recorded)" });
+
+  openEditModal("Edit Crate", [
+    { key: "worker_id", label: "Worker", type: "select", options },
+    { key: "weight_kg", label: "Weight (kg)", type: "number" },
+    { key: "deduction_kg", label: "Deduction (kg)", type: "number" },
+  ], crate, async (values) => {
+    const body = {
+      worker_id: values.worker_id,
+      weight_kg: parseFloat(values.weight_kg),
+      deduction_kg: parseFloat(values.deduction_kg) || 0,
+    };
+    let result;
+    try {
+      result = await LW.api(`/api/harvest-records/${encodeURIComponent(crate.uuid)}`, {
+        method: "PATCH", auth: true, body,
+      });
+    } catch (e) {
+      if (LW.isAuthError(e)) { sessionExpired(); return; }
+      LW.toast("Could not save: " + _apiErrorDetail(e));
+      throw e; // the bindMasterData save handler only closes the modal on
+      // success - rethrowing keeps it open so a bad number can be fixed
+      // without re-entering everything.
+    }
+    LW.toast("Crate updated");
+
+    if (_lotCratesContext) {
+      const idx = _lotCratesContext.crates.findIndex((c) => c.uuid === crate.uuid);
+      if (idx >= 0) _lotCratesContext.crates[idx] = result.record;
+      if (result.lot && _lotCratesContext.lot.id === result.lot.lot_id) {
+        _lotCratesContext.lot.total_crates = result.lot.total_crates;
+        _lotCratesContext.lot.total_kg = result.lot.total_kg;
+      }
+      renderLotCratesModal();
+    }
+    renderWagesWarning(result.wages_affected);
+    await refreshDashboard(); // Received row, KPIs, Workers/Blocks all move together
+  });
 }
 
 // ---------------------------------------------------------------------

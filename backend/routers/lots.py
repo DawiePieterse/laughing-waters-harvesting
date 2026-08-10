@@ -8,6 +8,7 @@ from sqlmodel import Session, SQLModel, select
 
 from db import get_own_supplier_id, get_session
 from models import HarvestRecord, Lot, LotStatus, Supplier, SystemSetting
+from security import get_current_admin
 from timeutil import day_bounds
 from weather import fetch_weather as _fetch_weather
 
@@ -68,6 +69,26 @@ def _with_urgency(lot: Lot, settings: SystemSetting, suppliers: dict) -> dict:
 
 def _supplier_map(session: Session) -> dict:
     return {s.id: s for s in session.exec(select(Supplier)).all()}
+
+
+def recompute_lot_totals(session: Session, lot: Lot) -> None:
+    """Re-derive a dispatched lot's stored total_crates/total_kg from its
+    HarvestRecords, and persist them onto the Lot row.
+
+    Only Lot.status != created carries stored totals in the first place -
+    a still-pending lot (list_pending, above) always computes live, so
+    there's nothing to recompute there. Every other lot's totals are set
+    once at dispatch (LotIn.total_crates/total_kg) and never touched again
+    server-side - so after routers/harvest_records.py corrects a crate, this
+    is what keeps the Received list, the dashboard KPIs, the receiving/lot
+    exports, and supplier billing (routers/suppliers.py) all showing the
+    same number the crates actually add up to."""
+    if lot.status == LotStatus.created:
+        return
+    crates = session.exec(select(HarvestRecord).where(HarvestRecord.lot_id == lot.id)).all()
+    lot.total_crates = len(crates)
+    lot.total_kg = round(sum(c.weight_kg - c.deduction_kg for c in crates), 1)
+    session.add(lot)
 
 
 def _build_split_index(session: Session):
@@ -211,11 +232,16 @@ def list_lots(status: Optional[str] = None, supplier_id: Optional[int] = None,
 
 
 @router.get("/{lot_id}")
-def get_lot(lot_id: int, session: Session = Depends(get_session)):
+def get_lot(lot_id: int, session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Admin-only: a lot plus its individual crates, for the harvest-data
+    edit screen. Not used by any field/pack house/owner screen - those only
+    ever need the aggregate totals from the list endpoints above."""
     lot = session.get(Lot, lot_id)
     if not lot:
         raise HTTPException(404, "Lot not found")
-    crates = session.exec(select(HarvestRecord).where(HarvestRecord.lot_id == lot_id)).all()
+    crates = session.exec(
+        select(HarvestRecord).where(HarvestRecord.lot_id == lot_id).order_by(HarvestRecord.timestamp)
+    ).all()
     return {"lot": lot, "crates": crates}
 
 
@@ -246,6 +272,22 @@ def upsert_lot(lot_in: LotIn, session: Session = Depends(get_session)):
     saved = session.merge(lot)
     session.commit()
     session.refresh(saved)
+
+    # A field device that queued this dispatch offline (or is retrying a lost
+    # response) posts the totals it computed at capture time - if an admin
+    # has since corrected one of this lot's crates, that payload would
+    # silently undo the correction. Existing-lot only: a brand new slip_number
+    # can't have any crates against it yet, edited or otherwise.
+    if existing:
+        has_edit = session.exec(
+            select(HarvestRecord.uuid)
+            .where(HarvestRecord.lot_id == saved.id, HarvestRecord.edited_at != None)  # noqa: E711
+        ).first()
+        if has_edit:
+            recompute_lot_totals(session, saved)
+            session.commit()
+            session.refresh(saved)
+
     return saved
 
 

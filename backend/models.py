@@ -170,6 +170,12 @@ class HarvestRecord(SQLModel, table=True):
     weather_temp: Optional[float] = None
     weather_humidity: Optional[float] = None
     weather_condition: str = ""
+    # Set only by an admin correction (routers/harvest_records.py), never by
+    # the field app. Lets a re-synced record know an admin's numbers outrank
+    # whatever the device still has queued - see the preservation logic in
+    # routers/sync.py's upsert branch.
+    edited_at: Optional[datetime] = None
+    edited_by: Optional[str] = None  # AdminUser.username
 
 
 class ReceivingRecord(SQLModel, table=True):
