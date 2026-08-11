@@ -78,6 +78,19 @@
     </div>
 
     <div class="bg-white rounded-xl shadow">
+      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-workers-body">
+        <span id="dash-workers-title" class="font-semibold">Workers</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+      <div id="dash-workers-body" class="collapsible-body hidden border-t overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left border-b"><th class="p-2">Employee Code</th><th class="p-2">Worker</th><th class="p-2">Farm/Supplier</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th></tr></thead>
+          <tbody id="dash-workers-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow">
       <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-blocks-body">
         <span id="dash-blocks-title" class="font-semibold">Blocks</span>
         <i class="fa-solid fa-chevron-down"></i>

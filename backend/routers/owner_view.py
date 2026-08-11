@@ -7,9 +7,10 @@ Access is a single shared secret token embedded in the link
 View (read-only dashboard link)". The token lives in its own table
 (OwnerViewToken), deliberately kept off the public SystemSetting model.
 
-Deliberately omits per-worker wage data (amount_due) that the full
-Admin Dashboard shows - that's payroll information the farm office
-needs, not something to hand out on a shareable link.
+Shows per-worker kg/crates like the full Admin Dashboard, but
+deliberately omits the wage figure (amount_due) - that's payroll
+information the farm office needs, not something to hand out on a
+shareable link.
 """
 import secrets
 from datetime import date
@@ -18,9 +19,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from db import get_session
-from models import Block, HarvestRecord, OwnerViewToken
-from routers.payments import _worker_ids_for_supplier
+from db import get_own_supplier_id, get_session
+from models import Block, HarvestRecord, OwnerViewToken, Supplier, Worker
+from routers.payments import _supplier_display_name, _worker_ids_for_supplier, _worker_totals
 from security import get_current_admin
 from timeutil import day_bounds
 
@@ -79,6 +80,31 @@ def owner_view_summary(token: str, period_start: date, period_end: date, supplie
     active_workers = {r.worker_id for r in records if r.worker_id}
     active_blocks = {r.block_id for r in records if r.block_id}
 
+    crate_counts: dict[str, int] = {}
+    for r in records:
+        if r.worker_id:
+            crate_counts[r.worker_id] = crate_counts.get(r.worker_id, 0) + 1
+
+    totals, _ = _worker_totals(session, period_start, period_end, supplier_id)
+    workers_by_id = {w.id: w for w in session.exec(select(Worker)).all()}
+    suppliers_by_id = {s.id: s for s in session.exec(select(Supplier)).all()}
+    own_id = get_own_supplier_id(session)
+    own_supplier = suppliers_by_id.get(own_id)
+    own_name = own_supplier.name if own_supplier else "Own Farm"
+    workers = []
+    for worker_id, data in totals.items():
+        w = workers_by_id.get(worker_id)
+        crates = crate_counts.get(worker_id, 0)
+        workers.append({
+            "worker_id": worker_id,
+            "name": w.name if w else worker_id,
+            "supplier_name": _supplier_display_name(w, suppliers_by_id, own_id, own_name),
+            "crates": crates,
+            "total_kg": round(data["total_kg"], 1),
+            "avg_kg_crate": round(data["total_kg"] / crates, 2) if crates else 0,
+        })
+    workers.sort(key=lambda w: w["total_kg"], reverse=True)
+
     block_totals: dict[str, dict] = {}
     for r in records:
         if not r.block_id:
@@ -106,6 +132,7 @@ def owner_view_summary(token: str, period_start: date, period_end: date, supplie
         "active_teams": len(active_teams),
         "active_workers": len(active_workers),
         "active_blocks": len(active_blocks),
+        "workers": workers,
         "blocks": blocks,
     }
 

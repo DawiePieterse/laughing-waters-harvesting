@@ -165,8 +165,10 @@ function renderNoOfflineData() {
     document.getElementById(`${id}-body`).innerHTML =
       `<div class="p-3 text-sm text-slate-400">Not available offline</div>`;
   });
+  document.getElementById("dash-workers-rows").innerHTML =
+    `<tr><td class="p-2 text-slate-400" colspan="6">Not available offline</td></tr>`;
   document.getElementById("dash-blocks-rows").innerHTML =
-    `<tr><td class="p-2 text-slate-400" colspan="5">Not available offline</td></tr>`;
+    `<tr><td class="p-2 text-slate-400" colspan="6">Not available offline</td></tr>`;
 }
 
 async function refreshDashboard() {
@@ -262,6 +264,18 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
       <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${LW.fmtDateTime(l.received_at)}</div>
     </div>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing received in this period</div>`;
+
+  document.getElementById("dash-workers-title").textContent = `Workers - ${summary.workers.length} workers`;
+  document.getElementById("dash-workers-rows").innerHTML = summary.workers.map((w) => `
+    <tr class="border-b">
+      <td class="p-2">${w.worker_id}</td>
+      <td class="p-2">${w.name}</td>
+      <td class="p-2">${w.supplier_name}</td>
+      <td class="p-2">${w.crates}</td>
+      <td class="p-2">${w.total_kg}</td>
+      <td class="p-2">${w.avg_kg_crate}</td>
+    </tr>
+  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="6">No harvest activity in this period</td></tr>`;
 
   document.getElementById("dash-blocks-title").textContent = `Blocks - ${summary.blocks.length} blocks`;
   document.getElementById("dash-blocks-rows").innerHTML = summary.blocks.map((b) => `
