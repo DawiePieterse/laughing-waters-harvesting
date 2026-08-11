@@ -10,7 +10,7 @@ from db import get_own_supplier_id, get_session
 from models import HarvestRecord, Lot, LotStatus, Supplier, SystemSetting
 from security import get_current_admin
 from timeutil import day_bounds
-from weather import fetch_weather as _fetch_weather
+from weather import fetch_weather_cached
 
 router = APIRouter(prefix="/api/lots", tags=["lots"])
 
@@ -261,13 +261,25 @@ def upsert_lot(lot_in: LotIn, session: Session = Depends(get_session)):
         # every time an existing lot is re-upserted (e.g. field->in_transit).
         lot.split_from_slip_number = existing.split_from_slip_number
 
-    if not existing and lot_in.status == LotStatus.in_transit:
+    # Capture conditions at the moment of dispatch. Most lots already exist as
+    # a placeholder row by this point (crates synced from the field before
+    # "Send Picking Slip" was tapped - see sync.py _resolve_lot_id), so this
+    # can't be gated on `not existing`; it has to key off the created->in_transit
+    # transition instead. Once a lot is in_transit, leave its weather alone -
+    # a retried dispatch shouldn't overwrite the conditions at check-in.
+    dispatching = lot_in.status == LotStatus.in_transit and (
+        not existing or existing.status != LotStatus.in_transit)
+    if dispatching:
         settings = session.exec(select(SystemSetting)).first()
         if settings and settings.gps_lat is not None and settings.gps_lon is not None:
-            weather = _fetch_weather(settings.gps_lat, settings.gps_lon)
+            weather = fetch_weather_cached(settings.gps_lat, settings.gps_lon)
             lot.weather_temp = weather.get("temp")
             lot.weather_humidity = weather.get("humidity")
             lot.weather_condition = weather.get("condition", "")
+    elif existing:
+        lot.weather_temp = existing.weather_temp
+        lot.weather_humidity = existing.weather_humidity
+        lot.weather_condition = existing.weather_condition
 
     saved = session.merge(lot)
     session.commit()
@@ -359,6 +371,18 @@ def create_external_lot(lot_in: ExternalLotIn, session: Session = Depends(get_se
         status=LotStatus.in_transit,
         notes=lot_in.notes,
     )
+    # This lot goes straight to in_transit with no separate dispatch step, so
+    # it needs its own weather capture - it'd otherwise never get one. Same
+    # farm-location conditions as a field dispatch (routers/lots.py upsert_lot):
+    # there's no GPS for wherever the other farmer picked, so this is read as
+    # "conditions at the pack house when the delivery was logged," not
+    # "conditions where it was grown."
+    settings = session.exec(select(SystemSetting)).first()
+    if settings and settings.gps_lat is not None and settings.gps_lon is not None:
+        weather = fetch_weather_cached(settings.gps_lat, settings.gps_lon)
+        lot.weather_temp = weather.get("temp")
+        lot.weather_humidity = weather.get("humidity")
+        lot.weather_condition = weather.get("condition", "")
     session.add(lot)
     session.commit()
     session.refresh(lot)
