@@ -139,7 +139,7 @@ def picking_notes_report(date_from: date, date_to: date, supplier_id: Optional[i
     headers = ["Slip Number", "Date", "Time", "Block", "Team", "Crates Sent", "Crates Received",
                "Total Kg", "Driver", "Supplier", "Condition", "Notes", "Received By",
                "Weather", "Temp (°C)", "Humidity (%)"]
-    rows = []
+    entries = []
     for lot in lots:
         rec = receiving_by_lot.get(lot.id)
         supplier = suppliers.get(lot.supplier_id)
@@ -149,17 +149,23 @@ def picking_notes_report(date_from: date, date_to: date, supplier_id: Optional[i
         crates = session.exec(select(HarvestRecord).where(HarvestRecord.lot_id == lot.id)).all()
         blocks = sorted({c.block_id for c in crates if c.block_id})
         local_ts = to_local(lot.timestamp)
-        rows.append([
-            lot.slip_number, local_ts.strftime("%Y-%m-%d") if local_ts else "",
-            local_ts.strftime("%H:%M") if local_ts else "", ", ".join(blocks),
-            team.name if team else lot.team_id or "", lot.total_crates,
-            rec.actual_crates if rec else "", round(lot.total_kg, 1), lot.driver,
-            supplier.name if supplier else "",
-            rec.condition if rec else "", rec.notes if rec else "", rec.received_by if rec else "",
-            lot.weather_condition or "",
-            lot.weather_temp if lot.weather_temp is not None else "",
-            lot.weather_humidity if lot.weather_humidity is not None else "",
-        ])
+        team_name = team.name if team else lot.team_id or ""
+        entries.append((
+            local_ts.date() if local_ts else date.min, team_name, local_ts,
+            [
+                lot.slip_number, local_ts.strftime("%Y-%m-%d") if local_ts else "",
+                local_ts.strftime("%H:%M") if local_ts else "", ", ".join(blocks),
+                team_name, lot.total_crates,
+                rec.actual_crates if rec else "", round(lot.total_kg, 1), lot.driver,
+                supplier.name if supplier else "",
+                rec.condition if rec else "", rec.notes if rec else "", rec.received_by if rec else "",
+                lot.weather_condition or "",
+                lot.weather_temp if lot.weather_temp is not None else "",
+                lot.weather_humidity if lot.weather_humidity is not None else "",
+            ],
+        ))
+    entries.sort(key=lambda e: (e[0], e[1], e[2]))
+    rows = [e[3] for e in entries]
     return _xlsx_response(headers, rows, "Picking Notes", f"Picking_Notes_{date_from}_{date_to}.xlsx")
 
 
