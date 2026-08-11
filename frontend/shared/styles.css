@@ -69,6 +69,8 @@ body {
 .subtab-btn { padding: 0.4rem 1rem; border-radius: 999px; font-size: 0.85rem; background: #e2e8f0; color: #334155; }
 .subtab-btn.active { background: var(--lw-blue); color: white; font-weight: 600; }
 
+.date-preset-btn.active { background: var(--lw-blue); color: white; font-weight: 600; }
+
 .toast {
   position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
   background: #111827; color: white; padding: 0.6rem 1.2rem; border-radius: 999px;

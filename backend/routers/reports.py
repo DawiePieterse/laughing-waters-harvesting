@@ -178,8 +178,10 @@ def worker_harvest_report(period_start: date, period_end: date, supplier_id: Opt
 def block_harvest_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
                           session: Session = Depends(get_session), admin=Depends(get_current_admin)):
     summary = dashboard_summary(period_start, period_end, supplier_id, session, admin)
-    headers = ["Block", "Crates", "Kg", "Avg Kg/Crate", "Avg Kg/Tree"]
+    headers = ["Block", "Crates", "Kg", "Avg Kg/Crate", "Avg Kg/Tree", "Avg Kg/Ha"]
     rows = [[
-        b["name"], b["crates"], b["total_kg"], b["avg_kg_crate"], b["avg_kg_tree"] if b["avg_kg_tree"] is not None else "",
+        b["name"], b["crates"], b["total_kg"], b["avg_kg_crate"],
+        b["avg_kg_tree"] if b["avg_kg_tree"] is not None else "",
+        b["avg_kg_hectare"] if b["avg_kg_hectare"] is not None else "",
     ] for b in summary["blocks"]]
     return _xlsx_response(headers, rows, "Block Harvest", f"Block_Harvest_{period_start}_{period_end}.xlsx")

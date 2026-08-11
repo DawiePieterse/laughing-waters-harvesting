@@ -158,35 +158,21 @@ function bindDashboard() {
   const today = LW.localDateStr();
   document.getElementById("dashStart").value = today;
   document.getElementById("dashEnd").value = today;
-  document.getElementById("dashRefreshBtn").addEventListener("click", refreshDashboard);
   document.querySelector('.tab-btn[data-tab="dashboard"]').addEventListener("click", refreshDashboard);
 
   // Picking a period or a supplier must redraw the dashboard straight away.
   // Setting the inputs alone leaves the old period's figures on screen under
   // the new dates - which reads as "the season looks exactly like today"
-  // rather than "you still have to press Refresh". The Owner View has always
+  // rather than needing a separate Refresh press. The Owner View has always
   // refreshed on change; this keeps the two screens behaving the same.
-  document.getElementById("dashTodayBtn").addEventListener("click", () => {
-    const t = LW.localDateStr();
-    document.getElementById("dashStart").value = t;
-    document.getElementById("dashEnd").value = t;
-    refreshDashboard();
-  });
-  document.getElementById("dashWeekBtn").addEventListener("click", () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 6);
-    document.getElementById("dashStart").value = LW.localDateStr(start);
-    document.getElementById("dashEnd").value = LW.localDateStr(end);
-    refreshDashboard();
-  });
-  document.getElementById("dashSeasonBtn").addEventListener("click", () => {
-    if (_systemSettings) {
-      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
-      document.getElementById("dashStart").value = `${year}-01-01`;
-      document.getElementById("dashEnd").value = `${year}-12-31`;
-    }
-    refreshDashboard();
+  LW.bindDateRangePresets({
+    todayBtn: document.getElementById("dashTodayBtn"),
+    weekBtn: document.getElementById("dashWeekBtn"),
+    seasonBtn: document.getElementById("dashSeasonBtn"),
+    startInput: document.getElementById("dashStart"),
+    endInput: document.getElementById("dashEnd"),
+    seasonYear: () => (_systemSettings && _systemSettings.current_harvest_year) || new Date().getFullYear(),
+    onChange: refreshDashboard,
   });
   document.getElementById("dashStart").addEventListener("change", refreshDashboard);
   document.getElementById("dashEnd").addEventListener("change", refreshDashboard);
@@ -314,8 +300,9 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
       <td class="p-2">${b.total_kg}</td>
       <td class="p-2">${b.avg_kg_crate}</td>
       <td class="p-2">${b.avg_kg_tree ?? "-"}</td>
+      <td class="p-2">${b.avg_kg_hectare ?? "-"}</td>
     </tr>
-  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="5">No harvest activity in this period</td></tr>`;
+  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="6">No harvest activity in this period</td></tr>`;
 }
 
 // ---------------------------------------------------------------------
@@ -946,24 +933,13 @@ function bindPayments() {
   document.getElementById("calcPayBtn").addEventListener("click", calculatePayments);
   document.getElementById("exportPayBtn").addEventListener("click", exportPayments);
 
-  document.getElementById("payTodayBtn").addEventListener("click", () => {
-    const t = LW.localDateStr();
-    document.getElementById("payStart").value = t;
-    document.getElementById("payEnd").value = t;
-  });
-  document.getElementById("payWeekBtn").addEventListener("click", () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 6);
-    document.getElementById("payStart").value = LW.localDateStr(start);
-    document.getElementById("payEnd").value = LW.localDateStr(end);
-  });
-  document.getElementById("paySeasonBtn").addEventListener("click", () => {
-    if (_systemSettings) {
-      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
-      document.getElementById("payStart").value = `${year}-01-01`;
-      document.getElementById("payEnd").value = `${year}-12-31`;
-    }
+  LW.bindDateRangePresets({
+    todayBtn: document.getElementById("payTodayBtn"),
+    weekBtn: document.getElementById("payWeekBtn"),
+    seasonBtn: document.getElementById("paySeasonBtn"),
+    startInput: document.getElementById("payStart"),
+    endInput: document.getElementById("payEnd"),
+    seasonYear: () => (_systemSettings && _systemSettings.current_harvest_year) || new Date().getFullYear(),
   });
 }
 
@@ -1062,24 +1038,13 @@ function bindReports() {
   document.getElementById("reportDate1").value = today;
   document.getElementById("reportDate2").value = today;
 
-  document.getElementById("reportsTodayBtn").addEventListener("click", () => {
-    const t = LW.localDateStr();
-    document.getElementById("reportDate1").value = t;
-    document.getElementById("reportDate2").value = t;
-  });
-  document.getElementById("reportsWeekBtn").addEventListener("click", () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 6);
-    document.getElementById("reportDate1").value = LW.localDateStr(start);
-    document.getElementById("reportDate2").value = LW.localDateStr(end);
-  });
-  document.getElementById("setSeasonDatesBtn").addEventListener("click", () => {
-    if (_systemSettings) {
-      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
-      document.getElementById("reportDate1").value = `${year}-01-01`;
-      document.getElementById("reportDate2").value = `${year}-12-31`;
-    }
+  LW.bindDateRangePresets({
+    todayBtn: document.getElementById("reportsTodayBtn"),
+    weekBtn: document.getElementById("reportsWeekBtn"),
+    seasonBtn: document.getElementById("setSeasonDatesBtn"),
+    startInput: document.getElementById("reportDate1"),
+    endInput: document.getElementById("reportDate2"),
+    seasonYear: () => (_systemSettings && _systemSettings.current_harvest_year) || new Date().getFullYear(),
   });
 
   document.getElementById("reportsGrid").innerHTML = REPORTS.map((r) => `

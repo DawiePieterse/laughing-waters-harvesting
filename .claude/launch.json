@@ -8,6 +8,12 @@
       "runtimeArgs": ["run_preview.py"],
       "port": 8811,
       "autoPort": true
+    },
+    {
+      "name": "lite-backend",
+      "runtimeExecutable": "/tmp/lw_lite_venv/bin/python3",
+      "runtimeArgs": ["/tmp/lw_lite_launcher.py"],
+      "port": 8823
     }
   ]
 }

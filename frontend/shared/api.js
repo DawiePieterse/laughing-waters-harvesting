@@ -8,7 +8,7 @@ const LW = {
   // actually up to date - especially useful given the service workers'
   // cache-first strategy (see field/packhouse/admin service-worker.js).
   // Reset to 1.0 on 2026-08-06 to mark the first stable release.
-  VERSION: "1.5",
+  VERSION: "1.6",
 
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },
@@ -252,6 +252,35 @@ const LW = {
   },
   beepScanned() { LW._tone(880, 0.12); },
   beepSaved() { LW._tone(660, 0.09); LW._tone(988, 0.14, 0.1); },
+
+  // Wires a Today/Week/Season button group to a pair of date inputs: clicking
+  // a button sets the inputs and highlights that button; editing a date input
+  // directly clears the highlight since the selection no longer matches a preset.
+  bindDateRangePresets({ todayBtn, weekBtn, seasonBtn, startInput, endInput, seasonYear, onChange }) {
+    const buttons = [todayBtn, weekBtn, seasonBtn];
+    const setActive = (btn) => buttons.forEach((b) => b.classList.toggle("active", b === btn));
+    const clearActive = () => buttons.forEach((b) => b.classList.remove("active"));
+
+    todayBtn.addEventListener("click", () => {
+      const t = LW.localDateStr();
+      startInput.value = t; endInput.value = t;
+      setActive(todayBtn); if (onChange) onChange();
+    });
+    weekBtn.addEventListener("click", () => {
+      const end = new Date(); const start = new Date();
+      start.setDate(end.getDate() - 6);
+      startInput.value = LW.localDateStr(start); endInput.value = LW.localDateStr(end);
+      setActive(weekBtn); if (onChange) onChange();
+    });
+    seasonBtn.addEventListener("click", () => {
+      const year = seasonYear ? seasonYear() : new Date().getFullYear();
+      startInput.value = `${year}-01-01`; endInput.value = `${year}-12-31`;
+      setActive(seasonBtn); if (onChange) onChange();
+    });
+    startInput.addEventListener("change", clearActive);
+    endInput.addEventListener("change", clearActive);
+    setActive(todayBtn); // screens all initialize inputs to "today"
+  },
 
   downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);

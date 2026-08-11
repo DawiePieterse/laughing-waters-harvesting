@@ -2,7 +2,7 @@
 // unavailable, but correctly styled) when the phone has no connection to
 // the farm server. Data always goes over the network when available.
 const CACHE_PREFIX = "lw-owner-";
-const CACHE = "lw-owner-v4";
+const CACHE = "lw-owner-v5";
 const REVALIDATE_TIMEOUT_MS = 10000;
 const SHELL = [
   "./",

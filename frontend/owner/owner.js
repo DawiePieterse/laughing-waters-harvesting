@@ -50,28 +50,14 @@ function bindDashboard() {
   document.getElementById("dashStart").value = today;
   document.getElementById("dashEnd").value = today;
 
-  document.getElementById("dashRefreshBtn").addEventListener("click", refreshDashboard);
-  document.getElementById("dashTodayBtn").addEventListener("click", () => {
-    const t = LW.localDateStr();
-    document.getElementById("dashStart").value = t;
-    document.getElementById("dashEnd").value = t;
-    refreshDashboard();
-  });
-  document.getElementById("dashWeekBtn").addEventListener("click", () => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 6);
-    document.getElementById("dashStart").value = LW.localDateStr(start);
-    document.getElementById("dashEnd").value = LW.localDateStr(end);
-    refreshDashboard();
-  });
-  document.getElementById("dashSeasonBtn").addEventListener("click", () => {
-    if (_systemSettings) {
-      const year = _systemSettings.current_harvest_year || new Date().getFullYear();
-      document.getElementById("dashStart").value = `${year}-01-01`;
-      document.getElementById("dashEnd").value = `${year}-12-31`;
-    }
-    refreshDashboard();
+  LW.bindDateRangePresets({
+    todayBtn: document.getElementById("dashTodayBtn"),
+    weekBtn: document.getElementById("dashWeekBtn"),
+    seasonBtn: document.getElementById("dashSeasonBtn"),
+    startInput: document.getElementById("dashStart"),
+    endInput: document.getElementById("dashEnd"),
+    seasonYear: () => (_systemSettings && _systemSettings.current_harvest_year) || new Date().getFullYear(),
+    onChange: refreshDashboard,
   });
   document.getElementById("dashSupplierFilter").addEventListener("change", refreshDashboard);
 }
@@ -285,8 +271,9 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
       <td class="p-2">${b.total_kg}</td>
       <td class="p-2">${b.avg_kg_crate}</td>
       <td class="p-2">${b.avg_kg_tree ?? "-"}</td>
+      <td class="p-2">${b.avg_kg_hectare ?? "-"}</td>
     </tr>
-  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="5">No harvest activity in this period</td></tr>`;
+  `).join("") || `<tr><td class="p-2 text-slate-400" colspan="6">No harvest activity in this period</td></tr>`;
 }
 
 // The page is shown before any request is made. Waiting on the server first

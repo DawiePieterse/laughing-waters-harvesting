@@ -76,8 +76,9 @@ def dashboard_summary(period_start: date, period_end: date, supplier_id: Optiona
             "total_kg": total_kg,
             "avg_kg_crate": round(total_kg / data["crates"], 2) if data["crates"] else 0,
             "avg_kg_tree": round(total_kg / b.trees, 2) if b and b.trees else None,
+            "avg_kg_hectare": round(total_kg / b.hectares, 2) if b and b.hectares else None,
         })
-    blocks.sort(key=lambda b: b["total_kg"], reverse=True)
+    blocks.sort(key=lambda b: (b["name"] or "").lower())
 
     return {
         "active_teams": len(active_teams),
