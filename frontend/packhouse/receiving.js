@@ -144,8 +144,9 @@ function renderQueue(lots) {
 }
 
 function updateLastUpdatedLabel() {
+  const btn = document.getElementById("refreshBtn");
   const el = document.getElementById("lastUpdatedLabel");
-  if (!el) return;
+  if (!btn || !el) return;
   if (!_lastRefreshed) {
     el.textContent = LW.isOffline() ? "offline" : "updating...";
   } else {
@@ -153,8 +154,8 @@ function updateLastUpdatedLabel() {
     const age = secs < 60 ? (secs < 5 ? "just now" : `${secs}s ago`) : `${Math.round(secs / 60)} min ago`;
     el.textContent = LW.isOffline() ? `offline - last update ${age}` : age;
   }
-  el.classList.toggle("text-amber-300", LW.isOffline());
-  el.classList.toggle("font-semibold", LW.isOffline());
+  btn.classList.toggle("bg-red-600", LW.isOffline());
+  btn.classList.toggle("bg-white/20", !LW.isOffline());
 }
 
 function renderRelatedLots(lot) {
