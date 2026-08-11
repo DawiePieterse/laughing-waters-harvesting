@@ -14,7 +14,7 @@ from routers.dashboard import dashboard_summary
 from routers.lots import list_in_transit, list_pending, list_received
 from routers.payments import _worker_ids_for_supplier
 from security import get_current_admin
-from timeutil import day_bounds, local_str
+from timeutil import day_bounds, local_str, to_local
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -120,6 +120,47 @@ def lot_receiving_report(date_from: date, date_to: date, supplier_id: Optional[i
             lot.weather_condition or "",
         ])
     return _xlsx_response(headers, rows, "Lot & Receiving", f"Lot_Receiving_{date_from}_{date_to}.xlsx")
+
+
+@router.get("/picking-notes")
+def picking_notes_report(date_from: date, date_to: date, supplier_id: Optional[int] = None,
+                          session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    start, end = day_bounds(date_from, date_to)
+    query = select(Lot).where(Lot.timestamp >= start, Lot.timestamp <= end)
+    if supplier_id is not None:
+        query = query.where(Lot.supplier_id == supplier_id)
+    lots = session.exec(query.order_by(Lot.timestamp)).all()
+    receiving_by_lot = {}
+    for rec in session.exec(select(ReceivingRecord)).all():
+        receiving_by_lot.setdefault(rec.lot_id, rec)
+    suppliers = {s.id: s for s in session.exec(select(Supplier)).all()}
+    teams = {t.id: t for t in session.exec(select(Team)).all()}
+
+    headers = ["Slip Number", "Date", "Time", "Block", "Team", "Crates Sent", "Crates Received",
+               "Total Kg", "Driver", "Supplier", "Condition", "Notes", "Received By",
+               "Weather", "Temp (°C)", "Humidity (%)"]
+    rows = []
+    for lot in lots:
+        rec = receiving_by_lot.get(lot.id)
+        supplier = suppliers.get(lot.supplier_id)
+        team = teams.get(lot.team_id)
+        # A lot has no block field of its own - it's stamped per crate, so the
+        # slip's block(s) are whatever its HarvestRecords were captured against.
+        crates = session.exec(select(HarvestRecord).where(HarvestRecord.lot_id == lot.id)).all()
+        blocks = sorted({c.block_id for c in crates if c.block_id})
+        local_ts = to_local(lot.timestamp)
+        rows.append([
+            lot.slip_number, local_ts.strftime("%Y-%m-%d") if local_ts else "",
+            local_ts.strftime("%H:%M") if local_ts else "", ", ".join(blocks),
+            team.name if team else lot.team_id or "", lot.total_crates,
+            rec.actual_crates if rec else "", round(lot.total_kg, 1), lot.driver,
+            supplier.name if supplier else "",
+            rec.condition if rec else "", rec.notes if rec else "", rec.received_by if rec else "",
+            lot.weather_condition or "",
+            lot.weather_temp if lot.weather_temp is not None else "",
+            lot.weather_humidity if lot.weather_humidity is not None else "",
+        ])
+    return _xlsx_response(headers, rows, "Picking Notes", f"Picking_Notes_{date_from}_{date_to}.xlsx")
 
 
 def _lot_rows(lots_data: list) -> list:

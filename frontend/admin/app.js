@@ -1021,6 +1021,8 @@ const REPORTS = [
     params: (d1, d2, s) => `day=${d1}${s ? `&supplier_id=${s}` : ""}` },
   { key: "lot-receiving", label: "Lot & Receiving Report", icon: "fa-truck",
     params: (d1, d2, s) => `date_from=${d1}&date_to=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "picking-notes", label: "Plukstrokies / Picking Notes", icon: "fa-clipboard-list",
+    params: (d1, d2, s) => `date_from=${d1}&date_to=${d2}${s ? `&supplier_id=${s}` : ""}` },
   { key: "harvesting-list", label: "Harvesting List", icon: "fa-seedling",
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
   { key: "in-transit-list", label: "In Transit List", icon: "fa-truck-fast",
