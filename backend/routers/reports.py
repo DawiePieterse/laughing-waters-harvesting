@@ -71,14 +71,14 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), supplier
         if r.weather_condition:
             entry["conditions"][r.weather_condition] += 1
 
-    headers = ["Block", "Variety", "Team", "Induna", "Crates", "Kg",
+    headers = ["Date", "Block", "Variety", "Team", "Induna", "Crates", "Kg",
                "Avg Temp (°C)", "Avg Humidity (%)", "Conditions"]
     rows = []
     for (block_id, team_id), data in sorted(totals.items(), key=lambda x: (x[0][0] or "", x[0][1] or "")):
         block = blocks.get(block_id)
         team = teams.get(team_id)
         rows.append([
-            block_id or "", block.variety if block else "", team.name if team else team_id or "",
+            day.isoformat(), block_id or "", block.variety if block else "", team.name if team else team_id or "",
             team.induna if team else "", data["crates"], round(data["kg"], 1),
             _mean(data["temps"], 1), _mean(data["humidity"], 0),
             # Whatever it was doing for most of the picking, so a block picked

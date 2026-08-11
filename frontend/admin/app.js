@@ -1033,6 +1033,35 @@ const REPORTS = [
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
 ];
 
+// Reports whose export ignores the period-end date and only ever covers a
+// single day, no matter how wide a range is picked above.
+const DAILY_ONLY_REPORTS = new Set(["daily-harvest"]);
+
+function renderReportsGrid() {
+  const d1 = document.getElementById("reportDate1").value;
+  const d2 = document.getElementById("reportDate2").value;
+  const isRange = d1 && d2 && d1 !== d2;
+
+  document.getElementById("reportsGrid").innerHTML = REPORTS.map((r) => {
+    const flagDailyOnly = isRange && DAILY_ONLY_REPORTS.has(r.key);
+    const subtitle = flagDailyOnly
+      ? `<div class="text-xs text-amber-600 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Daily report only - uses ${d1} (period start)</div>`
+      : `<div class="text-xs text-slate-400">Download .xlsx</div>`;
+    return `
+    <button class="bg-white rounded-xl shadow p-4 text-left hover:bg-slate-50 flex items-start gap-3" data-report="${r.key}">
+      <i class="fa-solid ${r.icon} text-slate-400 mt-0.5"></i>
+      <div>
+        <div class="font-semibold text-sm">${r.label}</div>
+        ${subtitle}
+      </div>
+    </button>
+  `;
+  }).join("");
+  document.querySelectorAll("[data-report]").forEach((btn) => {
+    btn.addEventListener("click", () => downloadReport(btn.dataset.report));
+  });
+}
+
 function bindReports() {
   const today = LW.localDateStr();
   document.getElementById("reportDate1").value = today;
@@ -1045,20 +1074,12 @@ function bindReports() {
     startInput: document.getElementById("reportDate1"),
     endInput: document.getElementById("reportDate2"),
     seasonYear: () => (_systemSettings && _systemSettings.current_harvest_year) || new Date().getFullYear(),
+    onChange: renderReportsGrid,
   });
+  document.getElementById("reportDate1").addEventListener("change", renderReportsGrid);
+  document.getElementById("reportDate2").addEventListener("change", renderReportsGrid);
 
-  document.getElementById("reportsGrid").innerHTML = REPORTS.map((r) => `
-    <button class="bg-white rounded-xl shadow p-4 text-left hover:bg-slate-50 flex items-start gap-3" data-report="${r.key}">
-      <i class="fa-solid ${r.icon} text-slate-400 mt-0.5"></i>
-      <div>
-        <div class="font-semibold text-sm">${r.label}</div>
-        <div class="text-xs text-slate-400">Download .xlsx</div>
-      </div>
-    </button>
-  `).join("");
-  document.querySelectorAll("[data-report]").forEach((btn) => {
-    btn.addEventListener("click", () => downloadReport(btn.dataset.report));
-  });
+  renderReportsGrid();
 }
 
 async function downloadReport(key) {
