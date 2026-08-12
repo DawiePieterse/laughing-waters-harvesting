@@ -1187,7 +1187,7 @@ Dashboard (Farm/Supplier + date range):
 | Lot & Receiving Report | Every lot dispatched in the range, with receiving detail once received |
 | Plukstrokies / Picking Notes | One row per dispatched lot - slip number, date/time, block(s), crates sent vs. received, driver, supplier, condition, notes, received by, weather - sorted by date then team, matching the paper picking-slip notes an induna keeps |
 | Span Pluklys / Team Picking List | One row per team per day, matching the paper "Inligting van die Dag" slip - data capturer, induna, worker count and total deductions, plus repeating columns for every block picked that day (name, kg, deductions) and every lot dispatched that day (crates, time, slip number) |
-| Daaglikse Oesdata / Daily Harvest Data | Kg by block (rows) x date (columns) over a range, with per-block totals (kg, avg/tree, avg/hectare) and per-day totals (kg, workers, avg/worker, crates, avg/crate) |
+| Daaglikse Oesdata / Daily Harvest Data | Kg by date (rows) x block (columns) over a range, with per-day totals (kg, workers, avg/worker, crates, avg/crate) and per-block totals (kg, avg/tree, avg/hectare) |
 | Harvesting List | Loads still being picked, matching the Dashboard's Harvesting list |
 | In Transit List | Dispatched, not-yet-received loads |
 | Pakhuis Ontvangstes / Pack House Receivables | Received loads, matching the pack house's paper "Packhouse Receipt Lists" slip - slip number, date/time split out, the receiving block, farm/supplier, team, driver, crates, kg, and rejected (waste) kg |

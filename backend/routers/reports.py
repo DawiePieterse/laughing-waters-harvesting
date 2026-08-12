@@ -92,11 +92,9 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), supplier
 def harvest_data_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
                          session: Session = Depends(get_session), admin=Depends(get_current_admin)):
     """Daaglikse Oesdata / Daily Harvest Data: the block x date pivot behind
-    the paper "Daaglikse Oesdata" log, but with blocks down the rows and
-    dates across the columns - the paper form runs one column per block and
-    one row per day, which only works because each page covers a single day;
-    a season-long export needs the axes swapped so the row count stays fixed
-    at the block count instead of growing with the date range."""
+    the paper "Daaglikse Oesdata" log - one column per block, one row per
+    day, matching how the paper form and the season workbook both lay it
+    out."""
     start, end = day_bounds(period_start, period_end)
     worker_ids = _worker_ids_for_supplier(session, supplier_id)
     query = select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
@@ -124,24 +122,29 @@ def harvest_data_report(period_start: date, period_end: date, supplier_id: Optio
             dt["workers"].add(r.worker_id)
 
     days = sorted(day_totals.keys())
-    headers = ["Block", "Variety", "Trees", "Hectares"] + [d.isoformat() for d in days] + \
-              ["Total Kg", "Avg Kg/Tree", "Avg Kg/Hectare"]
-
     block_ids = sorted(block_totals, key=lambda bid: ((blocks.get(bid).name if blocks.get(bid) else "") or bid or ""),
                         reverse=True)
-    rows = []
-    for block_id in block_ids:
-        block = blocks.get(block_id)
-        total_kg = round(block_totals[block_id], 1)
-        row = [
-            block.name if block and block.name else (block_id or ""),
-            block.variety if block else "", block.trees if block else "", block.hectares if block else "",
-        ]
-        row += [round(block_days[block_id][d], 1) if d in block_days[block_id] else "" for d in days]
+    block_names = [(blocks[bid].name if blocks.get(bid) and blocks[bid].name else (bid or "")) for bid in block_ids]
+
+    headers = ["Date"] + block_names + \
+              ["Daily Total Kg", "Number of Workers", "Avg Kg/Worker", "Number of Crates", "Avg Kg/Crate"]
+    tail_blank = ["", "", "", "", ""]
+
+    rows = [
+        ["Variety"] + [blocks[bid].variety if bid in blocks else "" for bid in block_ids] + tail_blank,
+        ["Trees"] + [blocks[bid].trees if bid in blocks else "" for bid in block_ids] + tail_blank,
+        ["Hectares"] + [blocks[bid].hectares if bid in blocks else "" for bid in block_ids] + tail_blank,
+        [""] * len(headers),
+    ]
+    for d in days:
+        dt = day_totals[d]
+        row = [d.isoformat()]
+        row += [round(block_days[bid][d], 1) if d in block_days.get(bid, {}) else "" for bid in block_ids]
         row += [
-            total_kg,
-            round(total_kg / block.trees, 2) if block and block.trees else "",
-            round(total_kg / block.hectares, 2) if block and block.hectares else "",
+            round(dt["kg"], 1), len(dt["workers"]),
+            round(dt["kg"] / len(dt["workers"]), 1) if dt["workers"] else "",
+            dt["crates"],
+            round(dt["kg"] / dt["crates"], 1) if dt["crates"] else "",
         ]
         rows.append(row)
 
@@ -149,25 +152,17 @@ def harvest_data_report(period_start: date, period_end: date, supplier_id: Optio
     total_trees = sum((blocks[bid].trees if bid in blocks else 0) for bid in block_ids)
     total_hectares = sum((blocks[bid].hectares if bid in blocks else 0) for bid in block_ids)
 
-    def _totals_row(label, values_fn, tail=("", "", "")):
-        return [label, "", "", ""] + [values_fn(d) for d in days] + list(tail)
-
     rows.append([""] * len(headers))
-    rows.append(_totals_row("Daily Total Kg", lambda d: round(day_totals[d]["kg"], 1), tail=(
-        grand_total_kg,
-        round(grand_total_kg / total_trees, 2) if total_trees else "",
-        round(grand_total_kg / total_hectares, 2) if total_hectares else "",
-    )))
-    rows.append(_totals_row("Number of Workers", lambda d: len(day_totals[d]["workers"])))
-    rows.append(_totals_row(
-        "Avg Kg/Worker",
-        lambda d: round(day_totals[d]["kg"] / len(day_totals[d]["workers"]), 1) if day_totals[d]["workers"] else "",
-    ))
-    rows.append(_totals_row("Number of Crates", lambda d: day_totals[d]["crates"]))
-    rows.append(_totals_row(
-        "Avg Kg/Crate",
-        lambda d: round(day_totals[d]["kg"] / day_totals[d]["crates"], 1) if day_totals[d]["crates"] else "",
-    ))
+    rows.append(["Total Kg"] + [round(block_totals[bid], 1) for bid in block_ids] +
+                [grand_total_kg, "", "", "", ""])
+    rows.append(["Avg Kg/Tree"] + [
+        round(block_totals[bid] / blocks[bid].trees, 2) if bid in blocks and blocks[bid].trees else ""
+        for bid in block_ids
+    ] + [round(grand_total_kg / total_trees, 2) if total_trees else "", "", "", "", ""])
+    rows.append(["Avg Kg/Hectare"] + [
+        round(block_totals[bid] / blocks[bid].hectares, 2) if bid in blocks and blocks[bid].hectares else ""
+        for bid in block_ids
+    ] + [round(grand_total_kg / total_hectares, 2) if total_hectares else "", "", "", "", ""])
 
     return _xlsx_response(headers, rows, "Daily Harvest Data",
                            f"Daily_Harvest_Data_{period_start}_{period_end}.xlsx")
