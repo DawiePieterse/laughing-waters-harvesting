@@ -23,7 +23,9 @@ This is where you check how the harvest is moving.
 
 1. Set the **Farm/Supplier** filter (or leave it on "All") and a
    **Period start/end** date range — or just tap **Today**, **This
-   Week**, or **Season** for a quick preset.
+   Week**, or **Season** for a quick preset (whichever one matches the
+   current dates stays highlighted). Everything below refreshes the
+   moment any filter changes — there's no separate Refresh button.
 2. The KPI cards along the top summarize the period: teams/workers/
    blocks active, total kg and crates, averages, and a breakdown of
    Harvesting / In Transit / Received.
@@ -31,15 +33,30 @@ This is where you check how the harvest is moving.
    numbers:
    - **Harvesting** — loads still being picked in the field.
    - **In Transit** — dispatched, not yet received at the pack house.
-   - **Received** — already checked in.
+   - **Received** — already checked in; tap a row to open its crates.
    - **Workers** — per-worker totals for the period.
-   - **Blocks** — per-block totals for the period.
+   - **Blocks** — per-block totals for the period, including yield per
+     hectare.
 
 Tap any list's header to expand or collapse it.
 
 **Harvesting and In Transit use the same green/yellow/red color coding
 as the Pack House screen** — red means a load has been waiting too long
 and needs attention.
+
+### Correcting a captured crate
+
+Tapping a row in the **Received** list opens that load's crates —
+time, block, worker, weight, deduction, and net kg — each with an
+**Edit** link. Use this to fix a mistake made at capture time (wrong
+worker scanned, mistyped weight): you can change the **Worker**,
+**Weight (kg)**, and **Deduction (kg)** on that crate, and the lot's
+totals recalculate immediately everywhere they're shown.
+
+If wages were already calculated for the affected period, a warning
+banner says so — re-run **Calculate Wages** in Payments for that period
+afterward, since a correction doesn't rewrite a wage sheet that's
+already been run.
 
 ---
 
@@ -110,12 +127,16 @@ joins.
 
 | Report | What it contains |
 |---|---|
-| Daily Harvest Summary | Crates/kg by block and team for one day |
+| Daily Harvest Summary | Crates/kg by block and team for one day (always just the start date — a wider range gets flagged "Daily report only") |
 | Lot & Receiving Report | Every load dispatched in the range, with receiving detail |
+| Plukstrokies / Picking Notes | One row per dispatched load — block(s), crates sent vs. received, driver, condition, notes, weather |
+| Span Pluklys / Team Picking List | One row per team per day, matching the paper picking slip — blocks picked and loads dispatched that day |
+| Daaglikse Oesdata / Daily Harvest Data | Kg by block vs. date over a range, with block and day totals |
 | Harvesting List | Loads still being picked |
 | In Transit List | Dispatched but not yet received |
-| Received List | Already received loads |
+| Pakhuis Ontvangstes / Pack House Receivables | Already received loads, matching the paper receiving slip — date/time, block, and rejected kg included |
 | Worker Harvest Report | Per-worker crates/kg/amount due |
+| Lietsjie Lone / Litchi Wages | Per-worker crates harvested vs. crates received per day — flags fruit that never made it off its lot before wages are paid |
 | Block Harvest Report | Per-block crates/kg/averages |
 
 ---
@@ -135,9 +156,10 @@ joins.
 - **Change admin password** — do this immediately after first login if
   you haven't already.
 - **Owner View** — a read-only dashboard link for an owner or other
-  interested party who just wants to check progress, no login needed and
-  no worker wage data shown. Tap **Copy** to grab the link and send it
-  directly to them, or **Regenerate Link** if it was ever shared more
+  interested party who just wants to check progress, no login needed.
+  It shows the same Workers/Blocks breakdown as the full Dashboard, just
+  without amount-due wage figures. Tap **Copy** to grab the link and send
+  it directly to them, or **Regenerate Link** if it was ever shared more
   widely than intended — that immediately breaks the old link.
 
 ---

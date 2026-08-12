@@ -99,5 +99,5 @@ stored up to send later, so don't assume it went through.)
 - **Wrong crate count already confirmed?** You can't edit a receipt from
   this screen once it's submitted — tell the office so they can correct
   it.
-- **Screen looks out of date** — tap the refresh icon, top right, or drag
-  down from the top of the list and let go.
+- **Screen looks out of date** — tap the status pill, top right (it turns
+  red when offline), or drag down from the top of the list and let go.

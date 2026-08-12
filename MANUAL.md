@@ -1035,9 +1035,13 @@ what's happening right now, all scoped to a shared filter bar at the top.
   leave on "All farms / suppliers"
 - **Period start / Period end**, plus quick-fill buttons **Today**,
   **This Week**, **Season** (season = 1 Jan - 31 Dec of the harvest year
-  set in [Settings](#11-admin---settings)) - or set custom dates directly
-- **Refresh** - re-fetches everything below using the current filter values
-  (dragging down from the top of the page does the same thing)
+  set in [Settings](#11-admin---settings)) - or set custom dates directly.
+  Whichever preset matches the dates currently selected is highlighted, so
+  it's clear at a glance whether "Today" or a custom range is showing.
+- Changing any filter - a preset button, a typed date, or the Farm/Supplier
+  dropdown - refreshes everything below immediately, so there's no separate
+  Refresh button to remember to press (dragging down from the top of the
+  page still refreshes too, same as everywhere else in the app).
 
 ### If the server can't be reached
 
@@ -1065,10 +1069,40 @@ expand for the detail rows.
 1. **Harvesting** - loads still being picked (not yet dispatched),
    oldest-first, color-coded the same as pack house
 2. **In Transit** - dispatched, not yet received, same ordering/coloring
-3. **Received** - newest-received first
+3. **Received** - newest-received first; tap any row to open that load's
+   crates - see
+   [Correcting a captured crate](#correcting-a-captured-crate) below
 4. **Workers** - per-worker crates/kg/amount-due/avg-kg-per-crate, sorted
    by kg picked (highest first), showing each worker's **Farm/Supplier**
-5. **Blocks** - per-block crates/kg/avg-kg-per-crate/avg-kg-per-tree
+5. **Blocks** - per-block crates/kg/avg-kg-per-crate/avg-kg-per-tree/
+   avg-kg-per-hectare, sorted alphabetically by block name
+
+### Correcting a captured crate
+
+Tapping a row in the **Received** list opens that load's individual
+crates - time, block, worker, weight, deduction, and net kg - each with
+an **Edit** link. This is the one place to fix a mistake made at capture
+time (the wrong worker scanned, a mistyped weight) after the fact; there's
+no equivalent for a load still Harvesting or In Transit.
+
+Editing a crate lets you change its **Worker**, **Weight (kg)**, and
+**Deduction (kg)** - nothing else about it (block, device, and when it was
+picked stay exactly as captured). Saving:
+
+- Recalculates that lot's total crates/kg immediately, so the Received
+  list, Dashboard KPIs, exports, and supplier billing all reflect the
+  correction right away.
+- Shows a warning if **wages were already calculated** for the affected
+  worker(s) and period - correcting a crate doesn't retroactively update a
+  wage sheet that was already run, so re-run **Calculate Wages** in
+  [Payments](#9-admin---payments) for that period afterward. If the crate
+  was reassigned to a different worker, both the old and new worker's
+  periods are checked, since the correction changes both their totals.
+
+> A field device is never able to undo a correction made this way - it
+> doesn't re-send a crate it thinks already synced, and even if it retried
+> after a lost connection, the correction always wins over the device's
+> original capture.
 
 ---
 
@@ -1149,13 +1183,16 @@ Dashboard (Farm/Supplier + date range):
 
 | Report | Contents |
 |---|---|
-| Daily Harvest Summary | Crates/kg by block and team for one day |
-| Daaglikse Oesdata / Daily Harvest Data | Kg by block (rows) x date (columns) over a range, with per-block totals (kg, avg/tree, avg/hectare) and per-day totals (kg, workers, avg/worker, crates, avg/crate) |
+| Daily Harvest Summary | Crates/kg by block and team for one day. Always uses just the period start date, even if a wider range is picked - the reports grid flags this one "Daily report only" when that happens. |
 | Lot & Receiving Report | Every lot dispatched in the range, with receiving detail once received |
+| Plukstrokies / Picking Notes | One row per dispatched lot - slip number, date/time, block(s), crates sent vs. received, driver, supplier, condition, notes, received by, weather - sorted by date then team, matching the paper picking-slip notes an induna keeps |
+| Span Pluklys / Team Picking List | One row per team per day, matching the paper "Inligting van die Dag" slip - data capturer, induna, worker count and total deductions, plus repeating columns for every block picked that day (name, kg, deductions) and every lot dispatched that day (crates, time, slip number) |
+| Daaglikse Oesdata / Daily Harvest Data | Kg by block (rows) x date (columns) over a range, with per-block totals (kg, avg/tree, avg/hectare) and per-day totals (kg, workers, avg/worker, crates, avg/crate) |
 | Harvesting List | Loads still being picked, matching the Dashboard's Harvesting list |
 | In Transit List | Dispatched, not-yet-received loads |
-| Received List | Received loads |
+| Pakhuis Ontvangstes / Pack House Receivables | Received loads, matching the pack house's paper "Packhouse Receipt Lists" slip - slip number, date/time split out, the receiving block, farm/supplier, team, driver, crates, kg, and rejected (waste) kg |
 | Worker Harvest Report | Per-worker crates/kg/amount-due/avg-kg-per-crate |
+| Lietsjie Lone / Litchi Wages | One row per worker, with crates harvested vs. crates actually received at the pack house broken out per day (plus deductions and the difference) - the gap flags fruit that never made it off the lot it was picked into before wages get paid out on it |
 | Block Harvest Report | Per-block crates/kg/avg-kg-per-crate/avg-kg-per-tree |
 
 Every generated report is also saved on the server itself, in
@@ -1248,9 +1285,10 @@ username/password and without being able to change anything.
 
 The link (`.../owner/?key=...`) opens a stripped-down version of the
 Dashboard tab - the same KPI cards, Harvesting/In Transit/Received
-lists, and Blocks breakdown, filtered the same way - but with **no
-Workers wage breakdown** (amount due per worker isn't shown on this
-link) and none of Admin's other tabs.
+lists, a per-worker Workers breakdown, and Blocks breakdown, filtered the
+same way - but with **no wage figures** (the Workers list shows
+crates/kg/avg-kg-per-crate, same as full Admin, just without amount due)
+and none of Admin's other tabs.
 
 - **Copy** the link from Settings and send it directly to whoever it's
   for - opening it needs no login at all, just the link itself.
@@ -1269,6 +1307,15 @@ link) and none of Admin's other tabs.
 > figures still on screen. So if they report the invalid-link message,
 > re-send them the current link from Settings; it isn't a connection
 > problem.
+
+> **Offline, the page shows its own last-seen figures, not just whatever
+> happened to be on screen already.** It keeps a small local cache (a
+> handful of recently-viewed date-range/farm combinations) on that
+> device, so reopening the page or switching back to a preset like Today
+> while offline still shows real numbers, labeled with how old they are
+> (e.g. *"Offline - showing figures from 12 min ago"*) instead of going
+> blank. A combination it's never loaded before shows *"No saved figures
+> for this period"* rather than stale numbers from a different range.
 
 This link only works the same way any other screen does - reachable on
 the farm's own Wi-Fi, or over Tailscale if the recipient needs it from
@@ -1449,8 +1496,10 @@ keys below match `backend/models.py` exactly.
 | `worker_id` | text (optional) | `"001"` | Set via the QR badge scan (chapter 4) - required in practice even though nullable in the schema. |
 | `block_id` | text (optional) | `"8a"` | Required in practice. |
 | `weight_kg` | decimal | `12.4` | A single crate's weight - typically in the 8-20kg range for litchi crates. |
-| `deduction_kg` | decimal | `0.0` | Exists in the schema for a future "aftrekkings" (waste/reject deduction) workflow, but there is currently no screen to enter a non-zero value - always `0` in this version of the app. |
+| `deduction_kg` | decimal | `0.0` | "Aftrekkings" (waste/reject deduction), subtracted from the crate's weight everywhere a total is calculated. Always `0` at capture time - there's no field-app screen for it - but an admin can set a non-zero value when [correcting a crate](#correcting-a-captured-crate) after it's received. |
 | `lot_id` | number (optional) | `21` | Always set at capture time, pointing at a placeholder load that becomes a real dispatch once "Send Picking Slip" is used. |
+| `weather_temp` / `weather_humidity` / `weather_condition` | decimal / decimal / text | `24.1` / `55` / `"Clear"` | Conditions at the farm the moment the crate synced to the server, only if GPS coordinates are set in Settings - same source as the per-lot weather on Lot below, but stamped once per crate rather than once per dispatch. |
+| `edited_at` / `edited_by` | timestamp / text (both optional) | — / `"admin"` | Set only when an admin [corrects this crate](#correcting-a-captured-crate) after capture - never touched by the field app. Once set, a re-sync of the capturing device's original copy of this crate can no longer overwrite the correction. |
 
 ### Lot (a picking slip / load)
 
@@ -1463,7 +1512,7 @@ keys below match `backend/models.py` exactly.
 | `total_crates` / `total_kg` | number / decimal | `18` / `238.5` | |
 | `status` | enum | `"in_transit"` | One of `created` (still being picked), `in_transit` (dispatched), `received`, `processing_complete`. |
 | `received_at` | timestamp (optional) | — | Set the moment pack house staff confirm receipt. |
-| `weather_temp` / `weather_humidity` / `weather_condition` | decimal / decimal / text | `24.1` / `55` / `"Clear"` | Captured automatically at dispatch time, only if GPS coordinates are set in Settings. |
+| `weather_temp` / `weather_humidity` / `weather_condition` | decimal / decimal / text | `24.1` / `55` / `"Clear"` | Captured automatically at dispatch time (or when an external delivery is logged), only if GPS coordinates are set in Settings. |
 | `split_from_slip_number` | text (optional) | — | Only set on the "leftover" slip created by a split (chapter 4) - points back at the original slip it was carved out of. |
 
 ### ReceivingRecord

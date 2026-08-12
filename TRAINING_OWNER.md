@@ -43,8 +43,11 @@ Below that, a filter bar:
 - **Farm / Supplier** — narrow the view to one farm/supplier, or leave it
   on "All farms / suppliers."
 - **Period start / Period end** — the date range you're looking at, or
-  tap **Today**, **This Week**, or **Season** for a quick preset.
-- **Refresh** — pull the latest numbers for whatever range is selected.
+  tap **Today**, **This Week**, or **Season** for a quick preset (whichever
+  one matches the current dates stays highlighted).
+
+Changing any of these pulls fresh numbers straight away — there's no
+separate Refresh button to look for.
 
 Then the numbers themselves:
 
@@ -55,8 +58,11 @@ Then the numbers themselves:
   the actual list of loads. Harvesting and In Transit are color-coded:
   🟢 green (recent), 🟡 yellow (been a while), 🔴 red (waiting too
   long) — the same color scheme used throughout the farm's own app.
+- **Workers** — tap to expand a per-worker breakdown: crates, kg, and
+  average yield per crate for the period (no wage/amount-due figures —
+  see "What this doesn't show" below).
 - **Blocks** — tap to expand a per-block breakdown: crates, kg, and
-  average yield per crate and per tree for the period.
+  average yield per crate, per tree, and per hectare for the period.
 
 ---
 
@@ -77,12 +83,16 @@ directly.
   if it needed to be revoked and reissued) or mistyped/cut off when it
   was shared with you. Ask the farm office for the current link.
 - **An amber bar says you're offline** — this one *is* the connection.
-  Whatever is on screen is the last thing that loaded, so read it as a
-  snapshot rather than live figures. Check **Tailscale** is connected
-  (below); the page updates itself once it can reach the farm again.
-- **Numbers look outdated** — tap **Refresh**, or drag down from the top
-  of the page and let go, or double-check the date range at the top
-  actually covers the period you're expecting.
+  The page shows the last figures it saved for whatever date range/farm
+  is selected, labeled with how old they are (e.g. *"Offline - showing
+  figures from 12 min ago"*), rather than just freezing whatever happened
+  to be on screen. If it's never loaded that particular combination
+  before, it says so plainly instead of guessing. It updates itself once
+  it can reach the farm again. Check **Tailscale** is connected (below).
+- **Numbers look outdated** — drag down from the top of the page and let
+  go, or double-check the date range at the top actually covers the
+  period you're expecting (changing any filter also pulls fresh numbers
+  automatically).
 - **Nothing loads at all, and you're off the farm** — check that
   **Tailscale** is open and shows **"Connected"** first (see "If you're
   checking this from off the farm" above) - this is the most common
