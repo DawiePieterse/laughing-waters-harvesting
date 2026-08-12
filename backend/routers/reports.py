@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from db import DATA_DIR, get_session
 from excel_io import rows_to_xlsx_bytes
-from models import Block, HarvestRecord, Lot, ReceivingRecord, Supplier, Team
+from models import Block, Device, HarvestRecord, Lot, ReceivingRecord, Supplier, Team
 from routers.dashboard import dashboard_summary
 from routers.lots import list_in_transit, list_pending, list_received
 from routers.payments import _worker_ids_for_supplier
@@ -167,6 +167,91 @@ def picking_notes_report(date_from: date, date_to: date, supplier_id: Optional[i
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
     rows = [e[3] for e in entries]
     return _xlsx_response(headers, rows, "Picking Notes", f"Picking_Notes_{date_from}_{date_to}.xlsx")
+
+
+@router.get("/team-picking-list")
+def team_picking_list_report(date_from: date, date_to: date, supplier_id: Optional[int] = None,
+                              session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Span Pluklys / Team Picking List: one row per team per day, with the
+    day's blocks (kg + deductions) and dispatched lots (slip, crates, kg)
+    laid out as repeating column groups - the same shape as the paper
+    picking slip an induna's device prints."""
+    start, end = day_bounds(date_from, date_to)
+
+    worker_ids = _worker_ids_for_supplier(session, supplier_id)
+    hr_query = select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
+    if worker_ids is not None:
+        hr_query = hr_query.where(HarvestRecord.worker_id.in_(worker_ids))
+    records = session.exec(hr_query).all()
+
+    lot_query = select(Lot).where(Lot.timestamp >= start, Lot.timestamp <= end)
+    if supplier_id is not None:
+        lot_query = lot_query.where(Lot.supplier_id == supplier_id)
+    lots = session.exec(lot_query).all()
+
+    teams = {t.id: t for t in session.exec(select(Team)).all()}
+    blocks = {b.id: b for b in session.exec(select(Block)).all()}
+    devices = {d.id: d for d in session.exec(select(Device)).all()}
+
+    groups: dict = {}
+
+    def _group(team_id, day):
+        return groups.setdefault((team_id, day), {
+            "devices": Counter(), "workers": set(), "blocks": {}, "lots": [],
+        })
+
+    for r in records:
+        local_ts = to_local(r.timestamp)
+        day = local_ts.date() if local_ts else date.min
+        g = _group(r.team_id, day)
+        if r.device_id:
+            g["devices"][r.device_id] += 1
+        if r.worker_id:
+            g["workers"].add(r.worker_id)
+        entry = g["blocks"].setdefault(r.block_id, {"kg": 0.0, "deductions": 0.0})
+        entry["kg"] += r.weight_kg
+        entry["deductions"] += r.deduction_kg
+
+    for lot in lots:
+        local_ts = to_local(lot.timestamp)
+        day = local_ts.date() if local_ts else date.min
+        g = _group(lot.team_id, day)
+        if not g["devices"] and lot.device_id:
+            g["devices"][lot.device_id] += 1
+        g["lots"].append((local_ts, lot))
+
+    max_blocks = max((len(g["blocks"]) for g in groups.values()), default=0)
+    max_lots = max((len(g["lots"]) for g in groups.values()), default=0)
+
+    headers = ["Field Station", "Data Capturer", "Team", "Induna", "Date", "Workers"]
+    for i in range(1, max_blocks + 1):
+        headers += [f"Block {i} Name", f"Block {i} Total Kg", f"Block {i} Deductions"]
+    for i in range(1, max_lots + 1):
+        headers += [f"Lot {i} Slip Number", f"Lot {i} Date", f"Lot {i} Time", f"Lot {i} Crates", f"Lot {i} Total Kg"]
+
+    rows = []
+    for (team_id, day), g in sorted(groups.items(), key=lambda kv: (kv[0][1], teams.get(kv[0][0]).name if teams.get(kv[0][0]) else kv[0][0] or "")):
+        team = teams.get(team_id)
+        device = devices.get(g["devices"].most_common(1)[0][0]) if g["devices"] else None
+        row = [
+            device.station if device else "", device.data_capturer if device else "",
+            team.name if team else team_id or "", team.induna if team else "",
+            day.isoformat() if day != date.min else "", len(g["workers"]),
+        ]
+        for block_id in sorted(g["blocks"], key=lambda x: x or ""):
+            block = blocks.get(block_id)
+            b = g["blocks"][block_id]
+            row += [block.name or block_id if block else (block_id or ""), round(b["kg"], 1), round(b["deductions"], 1)]
+        row += [""] * (3 * (max_blocks - len(g["blocks"])))
+        for local_ts, lot in sorted(g["lots"], key=lambda x: x[1].timestamp):
+            row += [
+                lot.slip_number, local_ts.strftime("%Y-%m-%d") if local_ts else "",
+                local_ts.strftime("%H:%M") if local_ts else "", lot.total_crates, round(lot.total_kg, 1),
+            ]
+        row += [""] * (5 * (max_lots - len(g["lots"])))
+        rows.append(row)
+
+    return _xlsx_response(headers, rows, "Team Picking List", f"Team_Picking_List_{date_from}_{date_to}.xlsx")
 
 
 def _lot_rows(lots_data: list) -> list:
