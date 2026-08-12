@@ -127,7 +127,8 @@ def harvest_data_report(period_start: date, period_end: date, supplier_id: Optio
     headers = ["Block", "Variety", "Trees", "Hectares"] + [d.isoformat() for d in days] + \
               ["Total Kg", "Avg Kg/Tree", "Avg Kg/Hectare"]
 
-    block_ids = sorted(block_totals, key=lambda bid: ((blocks.get(bid).name if blocks.get(bid) else "") or bid or ""))
+    block_ids = sorted(block_totals, key=lambda bid: ((blocks.get(bid).name if blocks.get(bid) else "") or bid or ""),
+                        reverse=True)
     rows = []
     for block_id in block_ids:
         block = blocks.get(block_id)
