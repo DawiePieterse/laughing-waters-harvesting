@@ -1035,6 +1035,8 @@ const REPORTS = [
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
   { key: "worker-harvest", label: "Worker Harvest Report", icon: "fa-users",
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
+  { key: "litchi-wages", label: "Lietsjie Lone / Litchi Wages", icon: "fa-hand-holding-dollar",
+    params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
   { key: "block-harvest", label: "Block Harvest Report", icon: "fa-tree",
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
 ];

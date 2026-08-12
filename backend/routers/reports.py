@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from db import DATA_DIR, get_session
 from excel_io import rows_to_xlsx_bytes
-from models import Block, Device, HarvestRecord, Lot, ReceivingRecord, Supplier, Team
+from models import Block, Device, HarvestRecord, Lot, LotStatus, ReceivingRecord, Supplier, Team, Worker
 from routers.dashboard import dashboard_summary
 from routers.lots import list_in_transit, list_pending, list_received
 from routers.payments import _worker_ids_for_supplier
@@ -407,6 +407,67 @@ def worker_harvest_report(period_start: date, period_end: date, supplier_id: Opt
         w["avg_kg_crate"],
     ] for w in summary["workers"]]
     return _xlsx_response(headers, rows, "Worker Harvest", f"Worker_Harvest_{period_start}_{period_end}.xlsx")
+
+
+@router.get("/litchi-wages")
+def litchi_wages_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                         session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Lietsjie Lone / Litchi Wages: one row per worker, crates harvested vs.
+    crates actually received at the pack house broken out per day - the gap
+    flags fruit that never made it off the lot it was picked into, before
+    wages get paid out on it."""
+    start, end = day_bounds(period_start, period_end)
+    worker_ids = _worker_ids_for_supplier(session, supplier_id)
+    query = select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
+    if worker_ids is not None:
+        query = query.where(HarvestRecord.worker_id.in_(worker_ids))
+    records = session.exec(query).all()
+
+    lot_ids = {r.lot_id for r in records if r.lot_id}
+    lots = {l.id: l for l in session.exec(select(Lot).where(Lot.id.in_(lot_ids))).all()} if lot_ids else {}
+    workers = {w.id: w for w in session.exec(select(Worker)).all()}
+
+    worker_days: dict = {}  # worker_id -> day -> {harvested, received, deductions}
+    for r in records:
+        if not r.worker_id:
+            continue
+        local_ts = to_local(r.timestamp)
+        day = local_ts.date() if local_ts else date.min
+        entry = worker_days.setdefault(r.worker_id, {}).setdefault(
+            day, {"harvested": 0, "received": 0, "deductions": 0.0})
+        entry["harvested"] += 1
+        entry["deductions"] += r.deduction_kg
+        lot = lots.get(r.lot_id) if r.lot_id else None
+        if lot and lot.status == LotStatus.received:
+            entry["received"] += 1
+
+    days = sorted({d for wd in worker_days.values() for d in wd})
+    headers = ["Emp Nr", "Name & Surname", "ID Number"]
+    for d in days:
+        headers += [f"{d.isoformat()} Crates Harvested", f"{d.isoformat()} Crates Received",
+                    f"{d.isoformat()} Deductions (kg)", f"{d.isoformat()} Difference"]
+    headers += ["Total Crates Harvested", "Total Crates Received", "Total Deductions (kg)", "Total Difference",
+                "Bank", "Account"]
+
+    rows = []
+    for worker_id in sorted(worker_days.keys()):
+        w = workers.get(worker_id)
+        wd = worker_days[worker_id]
+        row = [worker_id, w.name if w else "", w.id_number if w else ""]
+        tot_harvested = tot_received = 0
+        tot_deductions = 0.0
+        for d in days:
+            entry = wd.get(d, {"harvested": 0, "received": 0, "deductions": 0.0})
+            row += [entry["harvested"], entry["received"], round(entry["deductions"], 1),
+                    entry["harvested"] - entry["received"]]
+            tot_harvested += entry["harvested"]
+            tot_received += entry["received"]
+            tot_deductions += entry["deductions"]
+        row += [tot_harvested, tot_received, round(tot_deductions, 1), tot_harvested - tot_received,
+                 w.bank if w else "", w.account if w else ""]
+        rows.append(row)
+
+    return _xlsx_response(headers, rows, "Litchi Wages", f"Litchi_Wages_{period_start}_{period_end}.xlsx")
 
 
 @router.get("/block-harvest")
