@@ -367,13 +367,33 @@ def in_transit_list_report(period_start: date, period_end: date, supplier_id: Op
 @router.get("/received-list")
 def received_list_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
                           session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Matches the packhouse's paper "Packhouse Receipt Lists" slip: date and
+    time split out, plus the receiving block and rejected (waste) amount."""
     lots_data = list_received(period_start=period_start, period_end=period_end, supplier_id=supplier_id,
                                session=session)
-    headers = ["Slip Number", "Farm/Supplier", "Team", "Driver", "Crates", "Kg", "Received At"]
-    rows = [[
-        l["slip_number"], l["supplier_name"], l["team_id"] or "", l["driver"], l["total_crates"], l["total_kg"],
-        local_str(l["received_at"]),
-    ] for l in lots_data]
+    lot_ids = [l["id"] for l in lots_data]
+    receiving_by_lot = {}
+    for rec in session.exec(select(ReceivingRecord).where(ReceivingRecord.lot_id.in_(lot_ids))).all():
+        receiving_by_lot.setdefault(rec.lot_id, rec)
+    blocks_by_lot = {}
+    for c in session.exec(select(HarvestRecord).where(HarvestRecord.lot_id.in_(lot_ids))).all():
+        if c.block_id:
+            blocks_by_lot.setdefault(c.lot_id, set()).add(c.block_id)
+
+    headers = ["Slip Number", "Date", "Time", "Block", "Farm/Supplier", "Team", "Driver", "Crates", "Kg",
+               "Rejected"]
+    rows = []
+    for l in lots_data:
+        rec = receiving_by_lot.get(l["id"])
+        local_ts = to_local(l["received_at"])
+        rows.append([
+            l["slip_number"],
+            local_ts.strftime("%Y-%m-%d") if local_ts else "",
+            local_ts.strftime("%H:%M") if local_ts else "",
+            ", ".join(sorted(blocks_by_lot.get(l["id"], []))),
+            l["supplier_name"], l["team_id"] or "", l["driver"], l["total_crates"], l["total_kg"],
+            rec.waste_kg if rec else "",
+        ])
     return _xlsx_response(headers, rows, "Received", f"Received_{period_start}_{period_end}.xlsx")
 
 

@@ -1031,7 +1031,7 @@ const REPORTS = [
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
   { key: "in-transit-list", label: "In Transit List", icon: "fa-truck-fast",
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
-  { key: "received-list", label: "Received List", icon: "fa-warehouse",
+  { key: "received-list", label: "Pakhuis Ontvangstes / Pack House Receivables", icon: "fa-warehouse",
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
   { key: "worker-harvest", label: "Worker Harvest Report", icon: "fa-users",
     params: (d1, d2, s) => `period_start=${d1}&period_end=${d2}${s ? `&supplier_id=${s}` : ""}` },
