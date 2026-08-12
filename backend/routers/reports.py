@@ -173,9 +173,9 @@ def picking_notes_report(date_from: date, date_to: date, supplier_id: Optional[i
 def team_picking_list_report(date_from: date, date_to: date, supplier_id: Optional[int] = None,
                               session: Session = Depends(get_session), admin=Depends(get_current_admin)):
     """Span Pluklys / Team Picking List: one row per team per day, with the
-    day's blocks (kg + deductions) and dispatched lots (slip, crates, kg)
-    laid out as repeating column groups - the same shape as the paper
-    picking slip an induna's device prints."""
+    day's blocks (kg + deductions) and dispatched lots (crates, time, slip
+    number) laid out as repeating column groups - matching the fields on the
+    paper "Inligting van die Dag" slip an induna's team fills in by hand."""
     start, end = day_bounds(date_from, date_to)
 
     worker_ids = _worker_ids_for_supplier(session, supplier_id)
@@ -223,20 +223,21 @@ def team_picking_list_report(date_from: date, date_to: date, supplier_id: Option
     max_blocks = max((len(g["blocks"]) for g in groups.values()), default=0)
     max_lots = max((len(g["lots"]) for g in groups.values()), default=0)
 
-    headers = ["Field Station", "Data Capturer", "Team", "Induna", "Date", "Workers"]
+    headers = ["Data Capturer", "Team", "Induna", "Date", "Workers", "Total Deductions"]
     for i in range(1, max_blocks + 1):
         headers += [f"Block {i} Name", f"Block {i} Total Kg", f"Block {i} Deductions"]
     for i in range(1, max_lots + 1):
-        headers += [f"Lot {i} Slip Number", f"Lot {i} Date", f"Lot {i} Time", f"Lot {i} Crates", f"Lot {i} Total Kg"]
+        headers += [f"Lot {i} Crates", f"Lot {i} Time", f"Lot {i} Slip Number"]
 
     rows = []
     for (team_id, day), g in sorted(groups.items(), key=lambda kv: (kv[0][1], teams.get(kv[0][0]).name if teams.get(kv[0][0]) else kv[0][0] or "")):
         team = teams.get(team_id)
         device = devices.get(g["devices"].most_common(1)[0][0]) if g["devices"] else None
+        total_deductions = sum(b["deductions"] for b in g["blocks"].values())
         row = [
-            device.station if device else "", device.data_capturer if device else "",
+            device.data_capturer if device else "",
             team.name if team else team_id or "", team.induna if team else "",
-            day.isoformat() if day != date.min else "", len(g["workers"]),
+            day.isoformat() if day != date.min else "", len(g["workers"]), round(total_deductions, 1),
         ]
         for block_id in sorted(g["blocks"], key=lambda x: x or ""):
             block = blocks.get(block_id)
@@ -244,11 +245,8 @@ def team_picking_list_report(date_from: date, date_to: date, supplier_id: Option
             row += [block.name or block_id if block else (block_id or ""), round(b["kg"], 1), round(b["deductions"], 1)]
         row += [""] * (3 * (max_blocks - len(g["blocks"])))
         for local_ts, lot in sorted(g["lots"], key=lambda x: x[1].timestamp):
-            row += [
-                lot.slip_number, local_ts.strftime("%Y-%m-%d") if local_ts else "",
-                local_ts.strftime("%H:%M") if local_ts else "", lot.total_crates, round(lot.total_kg, 1),
-            ]
-        row += [""] * (5 * (max_lots - len(g["lots"])))
+            row += [lot.total_crates, local_ts.strftime("%H:%M") if local_ts else "", lot.slip_number]
+        row += [""] * (3 * (max_lots - len(g["lots"])))
         rows.append(row)
 
     return _xlsx_response(headers, rows, "Team Picking List", f"Team_Picking_List_{date_from}_{date_to}.xlsx")
