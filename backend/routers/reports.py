@@ -88,6 +88,90 @@ def daily_harvest_report(day: date = Query(default_factory=date.today), supplier
     return _xlsx_response(headers, rows, "Daily Harvest", f"Daily_Harvest_{day}.xlsx")
 
 
+@router.get("/harvest-data")
+def harvest_data_report(period_start: date, period_end: date, supplier_id: Optional[int] = None,
+                         session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Daaglikse Oesdata / Daily Harvest Data: the block x date pivot behind
+    the paper "Daaglikse Oesdata" log, but with blocks down the rows and
+    dates across the columns - the paper form runs one column per block and
+    one row per day, which only works because each page covers a single day;
+    a season-long export needs the axes swapped so the row count stays fixed
+    at the block count instead of growing with the date range."""
+    start, end = day_bounds(period_start, period_end)
+    worker_ids = _worker_ids_for_supplier(session, supplier_id)
+    query = select(HarvestRecord).where(HarvestRecord.timestamp >= start, HarvestRecord.timestamp <= end)
+    if worker_ids is not None:
+        query = query.where(HarvestRecord.worker_id.in_(worker_ids))
+    records = session.exec(query).all()
+    blocks = {b.id: b for b in session.exec(select(Block)).all()}
+
+    block_days: dict = {}   # block_id -> {day: kg}
+    block_totals: dict = {}  # block_id -> kg
+    day_totals: dict = {}   # day -> {"kg", "workers", "crates"}
+    for r in records:
+        local_ts = to_local(r.timestamp)
+        if local_ts is None:
+            continue
+        day = local_ts.date()
+        kg = r.weight_kg - r.deduction_kg
+        block_days.setdefault(r.block_id, {})
+        block_days[r.block_id][day] = block_days[r.block_id].get(day, 0.0) + kg
+        block_totals[r.block_id] = block_totals.get(r.block_id, 0.0) + kg
+        dt = day_totals.setdefault(day, {"kg": 0.0, "workers": set(), "crates": 0})
+        dt["kg"] += kg
+        dt["crates"] += 1
+        if r.worker_id:
+            dt["workers"].add(r.worker_id)
+
+    days = sorted(day_totals.keys())
+    headers = ["Block", "Variety", "Trees", "Hectares"] + [d.isoformat() for d in days] + \
+              ["Total Kg", "Avg Kg/Tree", "Avg Kg/Hectare"]
+
+    block_ids = sorted(block_totals, key=lambda bid: ((blocks.get(bid).name if blocks.get(bid) else "") or bid or ""))
+    rows = []
+    for block_id in block_ids:
+        block = blocks.get(block_id)
+        total_kg = round(block_totals[block_id], 1)
+        row = [
+            block.name if block and block.name else (block_id or ""),
+            block.variety if block else "", block.trees if block else "", block.hectares if block else "",
+        ]
+        row += [round(block_days[block_id][d], 1) if d in block_days[block_id] else "" for d in days]
+        row += [
+            total_kg,
+            round(total_kg / block.trees, 2) if block and block.trees else "",
+            round(total_kg / block.hectares, 2) if block and block.hectares else "",
+        ]
+        rows.append(row)
+
+    grand_total_kg = round(sum(block_totals.values()), 1)
+    total_trees = sum((blocks[bid].trees if bid in blocks else 0) for bid in block_ids)
+    total_hectares = sum((blocks[bid].hectares if bid in blocks else 0) for bid in block_ids)
+
+    def _totals_row(label, values_fn, tail=("", "", "")):
+        return [label, "", "", ""] + [values_fn(d) for d in days] + list(tail)
+
+    rows.append([""] * len(headers))
+    rows.append(_totals_row("Daily Total Kg", lambda d: round(day_totals[d]["kg"], 1), tail=(
+        grand_total_kg,
+        round(grand_total_kg / total_trees, 2) if total_trees else "",
+        round(grand_total_kg / total_hectares, 2) if total_hectares else "",
+    )))
+    rows.append(_totals_row("Number of Workers", lambda d: len(day_totals[d]["workers"])))
+    rows.append(_totals_row(
+        "Avg Kg/Worker",
+        lambda d: round(day_totals[d]["kg"] / len(day_totals[d]["workers"]), 1) if day_totals[d]["workers"] else "",
+    ))
+    rows.append(_totals_row("Number of Crates", lambda d: day_totals[d]["crates"]))
+    rows.append(_totals_row(
+        "Avg Kg/Crate",
+        lambda d: round(day_totals[d]["kg"] / day_totals[d]["crates"], 1) if day_totals[d]["crates"] else "",
+    ))
+
+    return _xlsx_response(headers, rows, "Daily Harvest Data",
+                           f"Daily_Harvest_Data_{period_start}_{period_end}.xlsx")
+
+
 @router.get("/lot-receiving")
 def lot_receiving_report(date_from: date, date_to: date, supplier_id: Optional[int] = None,
                           session: Session = Depends(get_session), admin=Depends(get_current_admin)):

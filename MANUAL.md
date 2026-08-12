@@ -1150,6 +1150,7 @@ Dashboard (Farm/Supplier + date range):
 | Report | Contents |
 |---|---|
 | Daily Harvest Summary | Crates/kg by block and team for one day |
+| Daaglikse Oesdata / Daily Harvest Data | Kg by block (rows) x date (columns) over a range, with per-block totals (kg, avg/tree, avg/hectare) and per-day totals (kg, workers, avg/worker, crates, avg/crate) |
 | Lot & Receiving Report | Every lot dispatched in the range, with receiving detail once received |
 | Harvesting List | Loads still being picked, matching the Dashboard's Harvesting list |
 | In Transit List | Dispatched, not-yet-received loads |
