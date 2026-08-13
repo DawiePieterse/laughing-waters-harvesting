@@ -38,8 +38,12 @@ If the link ever stops working, ask the farm office for a new one — see
 ## What you're looking at
 
 At the top: the farm name, the current date/time, and today's weather.
+Below that, two tabs — **Dashboard** (today's activity) and **Analysis**
+(this season vs. 2020-2025 history) — covered in turn below.
 
-Below that, a filter bar:
+### Dashboard tab
+
+Below the header, a filter bar:
 - **Farm / Supplier** — narrow the view to one farm/supplier, or leave it
   on "All farms / suppliers."
 - **Period start / Period end** — the date range you're looking at, or
@@ -63,6 +67,31 @@ Then the numbers themselves:
   see "What this doesn't show" below).
 - **Blocks** — tap to expand a per-block breakdown: crates, kg, and
   average yield per crate, per tree, and per hectare for the period.
+
+### Analysis tab
+
+The same Analysis tab the farm office sees in Admin - how this season is
+doing against 2020-2025 history, not filtered by date range (it always
+covers the full history plus whatever's been picked so far this season):
+
+- **Season Pace** — cumulative kg picked so far, one line per year plus a
+  5-year average, so you can see at a glance whether the season is running
+  ahead or behind.
+- **Per-Block Yield** — each block's yield this season against its own
+  history (switch between kg/hectare and kg/tree), with a farm-wide
+  average line and red/green coloring for under/over-performing blocks.
+- **Harvest Volume by Block and Season** and **Yield per Tree/Hectare by
+  Block and Season** — a bubble chart and a heatmap covering every block
+  against every season at once.
+- **Variety Performance Over Time** — average kg per tree by variety,
+  season by season (filter to a single variety with the dropdown).
+- **Harvest Season Length** — when each season started and ended, and how
+  many of those days actually had picking.
+- **Monthly Harvest Volume** — a heatmap of kg picked by month, with each
+  season's grand total alongside.
+
+Every chart has a small <i class="fa-solid fa-file-pdf"></i> button in its
+top-right corner to download it as a one-page PDF.
 
 ---
 

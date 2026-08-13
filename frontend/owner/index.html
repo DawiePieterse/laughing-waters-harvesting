@@ -10,7 +10,11 @@
 <link rel="stylesheet" href="../shared/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="../shared/styles.css">
 <script src="../shared/api.js"></script>
+<script src="../shared/charts.js"></script>
+<script src="../shared/analysis-tab.js"></script>
 <script src="../shared/ptr.js"></script>
+<script src="../shared/vendor/html2canvas/html2canvas.min.js"></script>
+<script src="../shared/vendor/jspdf/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen pb-6">
 
@@ -41,67 +45,178 @@
     </div>
   </div>
 
-  <div class="p-4 max-w-3xl mx-auto space-y-4">
-    <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-3 items-end">
-      <div><label class="text-xs text-slate-500 block">Farm / Supplier</label><select id="dashSupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select></div>
-      <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="dashStart" class="border border-slate-300 rounded-lg p-2"></div>
-      <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="dashEnd" class="border border-slate-300 rounded-lg p-2"></div>
-      <button id="dashTodayBtn" class="date-preset-btn px-3 py-2 bg-slate-200 rounded-lg text-sm">Today</button>
-      <button id="dashWeekBtn" class="date-preset-btn px-3 py-2 bg-slate-200 rounded-lg text-sm">This Week</button>
-      <button id="dashSeasonBtn" class="date-preset-btn px-3 py-2 bg-slate-200 rounded-lg text-sm">Season</button>
-    </div>
+  <div class="flex overflow-x-auto bg-white shadow sticky top-0 z-10">
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="analysis">Analysis</button>
+  </div>
 
-    <div id="dashKpiGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+  <div class="p-4 max-w-7xl mx-auto">
 
-    <div class="bg-white rounded-xl shadow">
-      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-harvesting-body">
-        <span id="dash-harvesting-title" class="font-semibold">Harvesting</span>
-        <i class="fa-solid fa-chevron-down"></i>
-      </button>
-      <div id="dash-harvesting-body" class="collapsible-body hidden border-t divide-y"></div>
-    </div>
+    <div id="tab-dashboard" class="tab-content space-y-4">
+      <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-3 items-end">
+        <div><label class="text-xs text-slate-500 block">Farm / Supplier</label><select id="dashSupplierFilter" class="border border-slate-300 rounded-lg p-2 text-sm"></select></div>
+        <div><label class="text-xs text-slate-500 block">Period start</label><input type="date" id="dashStart" class="border border-slate-300 rounded-lg p-2"></div>
+        <div><label class="text-xs text-slate-500 block">Period end</label><input type="date" id="dashEnd" class="border border-slate-300 rounded-lg p-2"></div>
+        <button id="dashTodayBtn" class="date-preset-btn px-3 py-2 bg-slate-200 rounded-lg text-sm">Today</button>
+        <button id="dashWeekBtn" class="date-preset-btn px-3 py-2 bg-slate-200 rounded-lg text-sm">This Week</button>
+        <button id="dashSeasonBtn" class="date-preset-btn px-3 py-2 bg-slate-200 rounded-lg text-sm">Season</button>
+      </div>
 
-    <div class="bg-white rounded-xl shadow">
-      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-intransit-body">
-        <span id="dash-intransit-title" class="font-semibold">In Transit</span>
-        <i class="fa-solid fa-chevron-down"></i>
-      </button>
-      <div id="dash-intransit-body" class="collapsible-body hidden border-t divide-y"></div>
-    </div>
+      <div id="dashKpiGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
 
-    <div class="bg-white rounded-xl shadow">
-      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-received-body">
-        <span id="dash-received-title" class="font-semibold">Received</span>
-        <i class="fa-solid fa-chevron-down"></i>
-      </button>
-      <div id="dash-received-body" class="collapsible-body hidden border-t divide-y"></div>
-    </div>
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-harvesting-body">
+          <span id="dash-harvesting-title" class="font-semibold">Harvesting</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="dash-harvesting-body" class="collapsible-body hidden border-t divide-y"></div>
+      </div>
 
-    <div class="bg-white rounded-xl shadow">
-      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-workers-body">
-        <span id="dash-workers-title" class="font-semibold">Workers</span>
-        <i class="fa-solid fa-chevron-down"></i>
-      </button>
-      <div id="dash-workers-body" class="collapsible-body hidden border-t overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead><tr class="text-left border-b"><th class="p-2">Employee Code</th><th class="p-2">Worker</th><th class="p-2">Farm/Supplier</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th></tr></thead>
-          <tbody id="dash-workers-rows"></tbody>
-        </table>
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-intransit-body">
+          <span id="dash-intransit-title" class="font-semibold">In Transit</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="dash-intransit-body" class="collapsible-body hidden border-t divide-y"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-received-body">
+          <span id="dash-received-title" class="font-semibold">Received</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="dash-received-body" class="collapsible-body hidden border-t divide-y"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-workers-body">
+          <span id="dash-workers-title" class="font-semibold">Workers</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="dash-workers-body" class="collapsible-body hidden border-t overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b"><th class="p-2">Employee Code</th><th class="p-2">Worker</th><th class="p-2">Farm/Supplier</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th></tr></thead>
+            <tbody id="dash-workers-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow">
+        <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-blocks-body">
+          <span id="dash-blocks-title" class="font-semibold">Blocks</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="dash-blocks-body" class="collapsible-body hidden border-t overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b"><th class="p-2">Block</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th><th class="p-2">Avg Kg/Tree</th><th class="p-2">Avg Kg/Ha</th></tr></thead>
+            <tbody id="dash-blocks-rows"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow">
-      <button class="collapsible-header w-full flex justify-between items-center p-4 text-left" data-target="dash-blocks-body">
-        <span id="dash-blocks-title" class="font-semibold">Blocks</span>
-        <i class="fa-solid fa-chevron-down"></i>
-      </button>
-      <div id="dash-blocks-body" class="collapsible-body hidden border-t overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead><tr class="text-left border-b"><th class="p-2">Block</th><th class="p-2">Crates</th><th class="p-2">Kg</th><th class="p-2">Avg Kg/Crate</th><th class="p-2">Avg Kg/Tree</th><th class="p-2">Avg Kg/Ha</th></tr></thead>
-          <tbody id="dash-blocks-rows"></tbody>
-        </table>
+    <!-- ANALYSIS -->
+    <div id="tab-analysis" class="tab-content hidden space-y-4">
+      <div class="text-xs text-slate-500">
+        Comparing the current season against 2020-2025 historical records. Figures marked
+        <i class="fa-solid fa-circle-info"></i> are estimates split from combined historical block totals.
+      </div>
+
+      <div id="analysisKpiGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Season Pace - cumulative kg vs history</div>
+          <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="seasonPaceExport" data-title="Season Pace" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">How this season's cumulative harvest compares to each prior year and the 5-year average, day by day.</div>
+        <div id="seasonPaceExport">
+          <div id="seasonPaceChart" class="overflow-x-auto"></div>
+          <div id="seasonPaceLegend" class="mt-2"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Per-Block Yield - this season vs historical average</div>
+          <div class="flex items-center gap-2">
+            <select id="blockYieldMetric" class="border border-slate-300 rounded-lg p-1.5 text-sm">
+              <option value="kg_ha">Kg / Hectare</option>
+              <option value="kg_tree">Kg / Tree</option>
+            </select>
+            <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="blockYieldChart" data-title="Per-Block Yield" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+          </div>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">Which blocks are over- or under-performing their own history, normalized for block size.</div>
+        <div id="blockYieldChart" class="overflow-x-auto"></div>
+        <div class="overflow-x-auto mt-3">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left border-b">
+              <th class="p-2">Block</th><th class="p-2">Variety</th>
+              <th class="p-2" id="blockYieldCol1">This Season Kg/Ha</th><th class="p-2" id="blockYieldCol2">Historical Avg Kg/Ha</th><th class="p-2">vs Average</th>
+            </tr></thead>
+            <tbody id="blockYieldRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Harvest Volume by Block and Season</div>
+          <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="blockSeasonBubbleChart" data-title="Harvest Volume by Block and Season" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">Bubble size = kg harvested - which blocks and seasons produced the most, at a glance.</div>
+        <div id="blockSeasonBubbleChart" class="overflow-x-auto"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold" id="yieldPerTreeTitle">Yield per Tree by Block and Season</div>
+          <div class="flex items-center gap-2">
+            <select id="yieldPerTreeMetric" class="border border-slate-300 rounded-lg p-1.5 text-sm">
+              <option value="kg_tree">Kg / Tree</option>
+              <option value="kg_ha">Kg / Hectare</option>
+            </select>
+            <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="yieldPerTreeHeatmap" data-title="Yield per Block and Season" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+          </div>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">Every block against every season - scan for blocks or years running consistently high or low.</div>
+        <div id="yieldPerTreeHeatmap" class="overflow-x-auto"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Variety Performance Over Time</div>
+          <div class="flex items-center gap-2">
+            <select id="varietyFilter" class="border border-slate-300 rounded-lg p-1.5 text-sm"></select>
+            <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="varietyYieldExport" data-title="Variety Performance Over Time" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+          </div>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">Average kg per tree per variety, by season - spot varieties trending up or down.</div>
+        <div id="varietyYieldExport">
+          <div id="varietyYieldChart" class="overflow-x-auto"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Harvest Season Length (first pick &rarr; last pick)</div>
+          <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="seasonLengthChart" data-title="Harvest Season Length" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">When picking started and ended each season, and how many of those days actually had picking.</div>
+        <div id="seasonLengthChart" class="overflow-x-auto"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Monthly Harvest Volume</div>
+          <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="monthlyHeatmap" data-title="Monthly Harvest Volume" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">Kg picked by month, every season, with each month's share of that season's total.</div>
+        <div id="monthlyHeatmap" class="overflow-x-auto"></div>
       </div>
     </div>
+
   </div>
 </div>
 

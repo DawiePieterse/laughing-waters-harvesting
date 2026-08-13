@@ -1402,12 +1402,15 @@ A link-only alternative to full Admin access, for an owner or other
 interested party who just wants to check on progress without a
 username/password and without being able to change anything.
 
-The link (`.../owner/?key=...`) opens a stripped-down version of the
-Dashboard tab - the same KPI cards, Harvesting/In Transit/Received
-lists, a per-worker Workers breakdown, and Blocks breakdown, filtered the
-same way - but with **no wage figures** (the Workers list shows
-crates/kg/avg-kg-per-crate, same as full Admin, just without amount due)
-and none of Admin's other tabs.
+The link (`.../owner/?key=...`) opens a two-tab, stripped-down version of
+the Admin app: a **Dashboard** tab with the same KPI cards, Harvesting/In
+Transit/Received lists, a per-worker Workers breakdown, and Blocks
+breakdown, filtered the same way - but with **no wage figures** (the
+Workers list shows crates/kg/avg-kg-per-crate, same as full Admin, just
+without amount due) - and the full **Analysis** tab (see
+[chapter 8](#8-admin---analysis)) exactly as it appears in Admin, PDF
+downloads included. None of Admin's other tabs (Master Data, Payments,
+Reports, Settings) are available.
 
 - **Copy** the link from Settings and send it directly to whoever it's
   for - opening it needs no login at all, just the link itself.

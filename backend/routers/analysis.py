@@ -32,12 +32,20 @@ def _block_sort_key(block_id: str):
 
 @router.get("/summary")
 def analysis_summary(session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Admin-JWT-gated Analysis tab data - see build_analysis_summary()
+    for what it actually computes. The Owner View's token-gated equivalent
+    (routers/owner_view.py) calls that same function directly, so the two
+    screens' Analysis tabs never drift apart."""
+    return build_analysis_summary(session)
+
+
+def build_analysis_summary(session: Session) -> dict:
     """Historical (2020-2025, from HistoricalHarvest) vs current-season
-    (from HarvestRecord) comparisons for the admin Analysis tab: season
-    pace, per-block/variety yield, season length, and monthly totals.
-    Aggregated in Python over the full table, same as dashboard_summary -
-    fine at this farm's data volume, and keeps the split-block/typo
-    handling (baked into HistoricalHarvest at import time) out of SQL."""
+    (from HarvestRecord) comparisons for the Analysis tab: season pace,
+    per-block/variety yield, season length, and monthly totals. Aggregated
+    in Python over the full table, same as dashboard_summary - fine at
+    this farm's data volume, and keeps the split-block/typo handling
+    (baked into HistoricalHarvest at import time) out of SQL."""
     settings = session.exec(select(SystemSetting)).first()
     current_year = settings.current_harvest_year if settings else date.today().year
     blocks = {b.id: b for b in session.exec(select(Block)).all()}

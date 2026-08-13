@@ -21,6 +21,7 @@ from sqlmodel import Session, select
 
 from db import get_own_supplier_id, get_session
 from models import Block, HarvestRecord, OwnerViewToken, Supplier, Worker
+from routers.analysis import build_analysis_summary
 from routers.payments import _supplier_display_name, _worker_ids_for_supplier, _worker_totals
 from security import get_current_admin
 from timeutil import day_bounds
@@ -101,7 +102,7 @@ def owner_view_summary(token: str, period_start: date, period_end: date, supplie
             "supplier_name": _supplier_display_name(w, suppliers_by_id, own_id, own_name),
             "crates": crates,
             "total_kg": round(data["total_kg"], 1),
-            "avg_kg_crate": round(data["total_kg"] / crates, 2) if crates else 0,
+            "avg_kg_crate": round(data["total_kg"] / crates, 1) if crates else 0,
         })
     workers.sort(key=lambda w: w["total_kg"], reverse=True)
 
@@ -122,9 +123,9 @@ def owner_view_summary(token: str, period_start: date, period_end: date, supplie
             "name": b.name if b else block_id,
             "crates": data["crates"],
             "total_kg": total_kg,
-            "avg_kg_crate": round(total_kg / data["crates"], 2) if data["crates"] else 0,
-            "avg_kg_tree": round(total_kg / b.trees, 2) if b and b.trees else None,
-            "avg_kg_hectare": round(total_kg / b.hectares, 2) if b and b.hectares else None,
+            "avg_kg_crate": round(total_kg / data["crates"], 1) if data["crates"] else 0,
+            "avg_kg_tree": round(total_kg / b.trees, 1) if b and b.trees else None,
+            "avg_kg_hectare": round(total_kg / b.hectares, 1) if b and b.hectares else None,
         })
     blocks.sort(key=lambda b: (b["name"] or "").lower())
 
@@ -135,6 +136,15 @@ def owner_view_summary(token: str, period_start: date, period_end: date, supplie
         "workers": workers,
         "blocks": blocks,
     }
+
+
+@router.get("/analysis")
+def owner_view_analysis(token: str, session: Session = Depends(get_session)):
+    """Token-gated equivalent of /api/analysis/summary - identical figures
+    to the admin Analysis tab (nothing wage/payroll-related in there to
+    redact), just reachable without an admin login."""
+    require_owner_token(token, session)
+    return build_analysis_summary(session)
 
 
 # /api/lots/pending, /api/lots/in-transit, /api/lots/received, and

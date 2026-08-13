@@ -45,6 +45,31 @@ function bindCollapsibles() {
   });
 }
 
+function bindTabs() {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.add("hidden"));
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.remove("hidden");
+      if (btn.dataset.tab === "analysis") loadAnalysis();
+    });
+  });
+}
+
+async function loadAnalysis() {
+  await LWAnalysisTab.load(
+    () => LW.api(`/api/owner-view/analysis?token=${encodeURIComponent(OWNER_KEY)}`),
+    { onAuthError: () => showDenied() },
+  );
+}
+
+function refreshActiveTab() {
+  const active = document.querySelector(".tab-btn.active");
+  const tab = active ? active.dataset.tab : "dashboard";
+  return tab === "analysis" ? loadAnalysis() : refreshDashboard();
+}
+
 function bindDashboard() {
   const today = LW.localDateStr();
   document.getElementById("dashStart").value = today;
@@ -304,15 +329,17 @@ async function init() {
 
   bindDashboard();
   bindCollapsibles();
+  bindTabs();
+  LWAnalysisTab.bind();
 
   LW.offlineBanner("Offline - data may be out of date");
   // Refresh in both directions: reconnecting fetches the real figures, and
   // dropping offline re-runs the same path so the banner states the actual
   // age of what is on screen instead of a message left over from earlier.
-  LW.onOfflineChange = () => { refreshDashboard(); };
+  LW.onOfflineChange = () => { refreshActiveTab(); };
   LWPTR.attach(async () => {
     await loadSuppliers();
-    await refreshDashboard();
+    await refreshActiveTab();
   });
 
   document.getElementById("app").classList.remove("hidden");

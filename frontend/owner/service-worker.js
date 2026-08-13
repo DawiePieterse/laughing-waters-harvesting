@@ -2,7 +2,7 @@
 // unavailable, but correctly styled) when the phone has no connection to
 // the farm server. Data always goes over the network when available.
 const CACHE_PREFIX = "lw-owner-";
-const CACHE = "lw-owner-v7";
+const CACHE = "lw-owner-v8";
 const REVALIDATE_TIMEOUT_MS = 10000;
 const SHELL = [
   "./",
@@ -10,10 +10,14 @@ const SHELL = [
   "./owner.js",
   "../shared/styles.css",
   "../shared/api.js",
+  "../shared/charts.js",
+  "../shared/analysis-tab.js",
   "../shared/ptr.js",
   "../shared/tailwind.js",
   "../shared/vendor/fontawesome/css/all.min.css",
   "../shared/vendor/fontawesome/webfonts/fa-solid-900.woff2",
+  "../shared/vendor/html2canvas/html2canvas.min.js",
+  "../shared/vendor/jspdf/jspdf.umd.min.js",
 ];
 
 self.addEventListener("install", (event) => {
