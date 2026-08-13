@@ -53,7 +53,7 @@ def dashboard_summary(period_start: date, period_end: date, supplier_id: Optiona
             "crates": crates,
             "total_kg": round(data["total_kg"], 1),
             "amount_due": round(data["amount"], 2),
-            "avg_kg_crate": round(data["total_kg"] / crates, 2) if crates else 0,
+            "avg_kg_crate": round(data["total_kg"] / crates, 1) if crates else 0,
         })
     workers.sort(key=lambda w: w["total_kg"], reverse=True)
 
@@ -74,9 +74,9 @@ def dashboard_summary(period_start: date, period_end: date, supplier_id: Optiona
             "name": b.name if b else block_id,
             "crates": data["crates"],
             "total_kg": total_kg,
-            "avg_kg_crate": round(total_kg / data["crates"], 2) if data["crates"] else 0,
-            "avg_kg_tree": round(total_kg / b.trees, 2) if b and b.trees else None,
-            "avg_kg_hectare": round(total_kg / b.hectares, 2) if b and b.hectares else None,
+            "avg_kg_crate": round(total_kg / data["crates"], 1) if data["crates"] else 0,
+            "avg_kg_tree": round(total_kg / b.trees, 1) if b and b.trees else None,
+            "avg_kg_hectare": round(total_kg / b.hectares, 1) if b and b.hectares else None,
         })
     blocks.sort(key=lambda b: (b["name"] or "").lower())
 

@@ -224,3 +224,22 @@ class PrePackRecord(SQLModel, table=True):
     dominant_block_id: Optional[str] = Field(default=None, foreign_key="block.id")
     operator: str = ""
     notes: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Historical (pre-app) harvest data, for the admin Analysis tab
+# ---------------------------------------------------------------------------
+
+class HistoricalHarvest(SQLModel, table=True):
+    """Daily per-block kg from seasons before this app existed (2020-2025),
+    imported once from the farm's own record spreadsheet - see
+    scripts/import_historical_harvest.py for provenance, and that script's
+    source workbook's own Notes sheet for the block-split-by-hectare-ratio
+    and column-typo caveats behind a few of these rows. Never written to by
+    the app itself; re-running the import script replaces the table wholesale."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    block_id: Optional[str] = Field(default=None, foreign_key="block.id")
+    harvest_date: date
+    season_year: int
+    kg: float
+    estimated: bool = False  # true where a combined historical block column was split by hectare ratio

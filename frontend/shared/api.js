@@ -8,7 +8,7 @@ const LW = {
   // actually up to date - especially useful given the service workers'
   // cache-first strategy (see field/packhouse/admin service-worker.js).
   // Reset to 1.0 on 2026-08-06 to mark the first stable release.
-  VERSION: "1.14",
+  VERSION: "1.20",
 
   getDeviceId() { return localStorage.getItem("lw_device_id"); },
   setDeviceId(id) { localStorage.setItem("lw_device_id", id); },

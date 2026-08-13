@@ -245,7 +245,7 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
   document.getElementById("dash-harvesting-body").innerHTML = harvesting.map((l) => `
     <div class="p-3 urgency-${l.urgency}">
       <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
-      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - ${l.age_minutes} min ago</div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg.toFixed(1)} kg - ${l.age_minutes} min ago</div>
     </div>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing currently being harvested</div>`;
 
@@ -253,7 +253,7 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
   document.getElementById("dash-intransit-body").innerHTML = inTransit.map((l) => `
     <div class="p-3 urgency-${l.urgency}">
       <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
-      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - ${l.age_minutes} min ago</div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg.toFixed(1)} kg - ${l.age_minutes} min ago</div>
     </div>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing currently in transit</div>`;
 
@@ -261,7 +261,7 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
   document.getElementById("dash-received-body").innerHTML = received.map((l) => `
     <div class="p-3">
       <div class="font-semibold text-sm">${l.slip_number} <span class="text-xs font-normal text-slate-500">${l.supplier_name}</span></div>
-      <div class="text-sm">${l.total_crates} crates / ${l.total_kg} kg - received ${LW.fmtDateTime(l.received_at)}</div>
+      <div class="text-sm">${l.total_crates} crates / ${l.total_kg.toFixed(1)} kg - received ${LW.fmtDateTime(l.received_at)}</div>
     </div>
   `).join("") || `<div class="p-3 text-sm text-slate-400">Nothing received in this period</div>`;
 
@@ -272,8 +272,8 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
       <td class="p-2">${w.name}</td>
       <td class="p-2">${w.supplier_name}</td>
       <td class="p-2">${w.crates}</td>
-      <td class="p-2">${w.total_kg}</td>
-      <td class="p-2">${w.avg_kg_crate}</td>
+      <td class="p-2">${w.total_kg.toFixed(1)}</td>
+      <td class="p-2">${w.avg_kg_crate.toFixed(1)}</td>
     </tr>
   `).join("") || `<tr><td class="p-2 text-slate-400" colspan="6">No harvest activity in this period</td></tr>`;
 
@@ -282,10 +282,10 @@ function renderDashboardLists(harvesting, inTransit, received, summary) {
     <tr class="border-b">
       <td class="p-2">${b.name}</td>
       <td class="p-2">${b.crates}</td>
-      <td class="p-2">${b.total_kg}</td>
-      <td class="p-2">${b.avg_kg_crate}</td>
-      <td class="p-2">${b.avg_kg_tree ?? "-"}</td>
-      <td class="p-2">${b.avg_kg_hectare ?? "-"}</td>
+      <td class="p-2">${b.total_kg.toFixed(1)}</td>
+      <td class="p-2">${b.avg_kg_crate.toFixed(1)}</td>
+      <td class="p-2">${b.avg_kg_tree != null ? b.avg_kg_tree.toFixed(1) : "-"}</td>
+      <td class="p-2">${b.avg_kg_hectare != null ? b.avg_kg_hectare.toFixed(1) : "-"}</td>
     </tr>
   `).join("") || `<tr><td class="p-2 text-slate-400" colspan="6">No harvest activity in this period</td></tr>`;
 }

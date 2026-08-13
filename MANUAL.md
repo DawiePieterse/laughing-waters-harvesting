@@ -22,11 +22,12 @@ This manual is for everyone who touches the app:
 5. [Worker ID Badges](#5-worker-id-badges)
 6. [Pack House Receiving](#6-pack-house-receiving)
 7. [Admin - Dashboard](#7-admin---dashboard)
-8. [Admin - Master Data](#8-admin---master-data)
-9. [Admin - Payments](#9-admin---payments)
-10. [Admin - Reports](#10-admin---reports)
-11. [Admin - Settings](#11-admin---settings)
-12. [Troubleshooting / FAQ](#12-troubleshooting--faq)
+8. [Admin - Analysis](#8-admin---analysis)
+9. [Admin - Master Data](#9-admin---master-data)
+10. [Admin - Payments](#10-admin---payments)
+11. [Admin - Reports](#11-admin---reports)
+12. [Admin - Settings](#12-admin---settings)
+13. [Troubleshooting / FAQ](#13-troubleshooting--faq)
     - [Annexe A: Data Field Reference](#annexe-a-data-field-reference)
 
 ---
@@ -64,7 +65,7 @@ app use the same "traffic light" idea to make that visible at a glance:
 
 - The **pack house's incoming queue** shows the oldest (longest-waiting)
   load first, colored **green → yellow → red** as it ages past the
-  thresholds set in Settings (see [chapter 11](#11-admin---settings)).
+  thresholds set in Settings (see [chapter 12](#12-admin---settings)).
 - The **admin Dashboard's Harvesting and In Transit lists** use the exact
   same coloring, so the office can see at a glance whether fruit is moving
   through fast enough.
@@ -471,7 +472,7 @@ the farm's router or exposing the app to the public internet.
 > **An off-site owner who only wants to check progress** doesn't need
 > Tailscale or a login at all - see
 > [Owner View](#owner-view-read-only-dashboard-link) in
-> [chapter 11](#11-admin---settings) for a link-only read-only Dashboard.
+> [chapter 12](#12-admin---settings) for a link-only read-only Dashboard.
 > Come back to this section if they need the *full* Admin screen remotely
 > instead.
 
@@ -632,7 +633,7 @@ pings, nothing happens. If the server goes down and stays down past the
 However it's started, leave it running continuously during harvest
 season - the app expects to be a long-lived local service, not something
 started and stopped around each use. (The automatic nightly backup,
-[chapter 11](#11-admin---settings), only fires if the server happens to
+[chapter 12](#12-admin---settings), only fires if the server happens to
 be running at 02:00 - see that chapter's note on this limitation.)
 
 ### What happens on first startup
@@ -641,7 +642,7 @@ The very first time the server runs, it automatically creates the
 database and seeds a clean starting baseline:
 
 - Two teams: **Span A** and **Span B** (indunas left blank - fill in via
-  [Master Data](#8-admin---master-data))
+  [Master Data](#9-admin---master-data))
 - The farm's **21 real blocks** (7, 8a, 8b, 9, 10a, 10b, 11, 12, 13, 14,
   15, 16, 17a, 17b, 18, 19a, 19b, 22, 23, 34, 35), each with its real
   name, variety, tree count, and hectares already filled in
@@ -655,7 +656,7 @@ database and seeds a clean starting baseline:
 - A default admin login: **username `admin`, password `ChangeMe123!`**
 
 > **⚠️ Change the default admin password immediately** after first login,
-> via [Settings → Change admin password](#11-admin---settings).
+> via [Settings → Change admin password](#12-admin---settings).
 
 ### ⚠️ Do not run `seed_demo.py` on a real farm database
 
@@ -677,7 +678,7 @@ straight into a role's screen.
 1. Pick this device's **Device ID** from the dropdown. The list comes from
    the server and shows every active device with its station - e.g.
    `device-08 - Field Station 6` - so a device added in
-   [Master Data → Devices](#8-admin---master-data) is available here
+   [Master Data → Devices](#9-admin---master-data) is available here
    straight away, with no change to the app needed.
 2. Tap **Continue**.
 3. The device looks up that ID's role and **automatically routes itself**
@@ -782,7 +783,7 @@ server itself has been updated, until its cache is refreshed.
 
 **After deploying an update:** check the version number on a few devices.
 If one is behind, do a normal open-close-reopen of the app icon (see
-[chapter 12](#12-troubleshooting--faq) - same fix as a stuck "Camera
+[chapter 13](#13-troubleshooting--faq) - same fix as a stuck "Camera
 unavailable" screen); a full close and reopen is what lets the app notice
 and install the new cached version in the background, then show it on the
 next open.
@@ -798,7 +799,7 @@ continue. This is mainly reachable by typing an ID by hand (the dropdown
 only ever offers IDs that exist), or if the device was deleted from Master
 Data after being set up. **Devices are never auto-registered** - an admin
 must create the device first, in
-[Master Data → Devices](#8-admin---master-data), before it can be used. This is intentional: it stops a stray or
+[Master Data → Devices](#9-admin---master-data), before it can be used. This is intentional: it stops a stray or
 mistyped device ID from silently attaching itself to the wrong team or
 role.
 
@@ -809,7 +810,7 @@ tablet), either:
 - Clear the device's browser data/cache so it forgets its saved ID and
   shows the setup screen again, or
 - Simply change that device ID's role/station in
-  [Master Data → Devices](#8-admin---master-data) - the physical device
+  [Master Data → Devices](#9-admin---master-data) - the physical device
   keeps using the same ID, but the server now treats it differently on its
   next check-in.
 
@@ -949,7 +950,7 @@ prints them from **Master Data → Workers**:
 - **Print Badges (all)** - every active worker
 
 Each badge shows the farm name, the worker's photo (if one's been
-captured - see [chapter 8](#8-admin---master-data)), a QR code encoding
+captured - see [chapter 9](#9-admin---master-data)), a QR code encoding
 their employee number, their name, and their employee number printed in
 large text. Badges print at roughly 9cm × 7cm, several to a page, ready to
 laminate.
@@ -966,7 +967,7 @@ Every load currently on its way (dispatched from a field station, or
 logged as an external delivery - see below) appears here, **oldest
 first**, colored green/yellow/red by how long it's been in transit (the
 same thresholds as [chapter 1](#1-overview--concepts), configurable in
-[Settings](#11-admin---settings)). Each card shows the slip number, farm/
+[Settings](#12-admin---settings)). Each card shows the slip number, farm/
 supplier, team, driver, crate count, and total kg.
 
 If a load is part of a **split** (see [chapter 4](#4-field-app---capturing-the-harvest)),
@@ -995,7 +996,7 @@ For fruit arriving from another farmer (not via this farm's own field
 devices), tap **+ Log External Delivery** and fill in:
 
 - **Supplier** - the external farm this fruit belongs to (must already
-  exist in [Master Data → Suppliers](#8-admin---master-data))
+  exist in [Master Data → Suppliers](#9-admin---master-data))
 - **Crates**
 - **Total Kg**
 - **Driver**
@@ -1035,7 +1036,7 @@ what's happening right now, all scoped to a shared filter bar at the top.
   leave on "All farms / suppliers"
 - **Period start / Period end**, plus quick-fill buttons **Today**,
   **This Week**, **Season** (season = 1 Jan - 31 Dec of the harvest year
-  set in [Settings](#11-admin---settings)) - or set custom dates directly.
+  set in [Settings](#12-admin---settings)) - or set custom dates directly.
   Whichever preset matches the dates currently selected is highlighted, so
   it's clear at a glance whether "Today" or a custom range is showing.
 - Changing any filter - a preset button, a typed date, or the Farm/Supplier
@@ -1095,7 +1096,7 @@ picked stay exactly as captured). Saving:
 - Shows a warning if **wages were already calculated** for the affected
   worker(s) and period - correcting a crate doesn't retroactively update a
   wage sheet that was already run, so re-run **Calculate Wages** in
-  [Payments](#9-admin---payments) for that period afterward. If the crate
+  [Payments](#10-admin---payments) for that period afterward. If the crate
   was reassigned to a different worker, both the old and new worker's
   periods are checked, since the correction changes both their totals.
 
@@ -1106,7 +1107,124 @@ picked stay exactly as captured). Saving:
 
 ---
 
-## 8. Admin - Master Data
+## 8. Admin - Analysis
+
+The Analysis tab compares the **current season** against **2020-2025
+historical records**, so a farmer can see at a glance whether the season is
+running ahead or behind, which blocks are over- or under-performing their
+own history, and how varieties and season timing are trending over the
+years - not just what happened today (that's what the Dashboard is for).
+
+Historical data was imported once from the farm's own pre-app record
+spreadsheets, covering the six seasons 2020 through 2025. It's a fixed,
+read-only reference - the app never writes to it - while "current season"
+always means whatever's actually been captured this year through the Field
+app, compared against the harvest year set in
+[Settings](#12-admin---settings).
+
+### A note on the historical numbers
+
+A handful of today's blocks (**8a/8b**, **10a/10b**, **17a/17b**, **19a/19b**)
+didn't exist as separate blocks before the app - the original spreadsheets
+recorded one combined daily total for each pair. Those combined totals have
+been split between the two sub-blocks in proportion to their hectares (e.g.
+a day's picking on the old "block 8" is split roughly 58%/42% between 8a and
+8b, matching their relative size). This is a reasonable **estimate**, not
+what was actually picked from each sub-block on that day - every figure
+built from an estimated split carries a small info icon next to its block
+name in the Per-Block Yield table so it's never mistaken for an exact
+historical record.
+
+### KPI cards
+
+**Season to Date** (cumulative kg picked so far this season), **vs 5-Yr
+Average Pace** (how that compares to where the 5-year historical average
+stood at the same point in the season - green when ahead, red when behind),
+**Current Season** (the harvest year being compared), and **Years of
+History** available.
+
+### Downloading a chart as PDF
+
+Every chart card has a small <i class="fa-solid fa-file-pdf"></i> button in
+its top-right corner - tap it to download that chart as a one-page PDF,
+titled and ready to print, email, or drop into a report. Charts still
+under-populated (e.g. the current season before picking starts) download
+just as they appear on screen.
+
+### Season Pace
+
+A line chart of cumulative kg picked, day by day through the season -
+starting from **1 August**, since that's when picking actually begins each
+year, not 1 January. Each historical year gets its own color (see the
+legend below the chart), plus a dashed black **5-Yr Average** line and the
+current season highlighted in navy. The current season always appears in
+the legend, even before any picking has happened, so the color/position
+doesn't shift once it starts. Shows at a glance whether this season is
+tracking ahead of, behind, or in line with history - and where in the
+season that gap opened up.
+
+### Per-Block Yield
+
+A bar chart plus table comparing this season's yield per block against that
+block's own historical average, normalized by size so blocks of different
+hectares/tree counts compare fairly. Switch between **Kg / Hectare** and
+**Kg / Tree** with the dropdown - both the chart and the table (including
+its column headers) switch to match. A dashed red **Farm Avg** line marks
+this season's farm-wide average for the selected metric, so blocks above
+or below the whole farm's own average stand out, not just their own
+history; the table's **vs Average** column is colored green (above its own
+historical average) or red (below) so under-performing blocks stand out
+immediately.
+
+### Harvest Volume by Block and Season
+
+A bubble chart - one bubble per block per season, sized by kg harvested,
+blocks ordered top-to-bottom by total volume across all seasons - for
+seeing at a glance which blocks and which seasons produced the most. A
+**Total Harvest** bar alongside each block's row shows its all-seasons
+total, in the same ranked order as the bubbles.
+
+### Yield per Tree/Hectare by Block and Season
+
+A heatmap (light = low, dark red = high) of yield for every block against
+every season, in block number order - switch between **Kg / Tree** and
+**Kg / Hectare** with the dropdown (the title updates to match). Scan a
+row to see a block's own history, or a column to see how a whole season
+compared across blocks.
+
+### Variety Performance Over Time
+
+A stacked bar chart of **average kg per tree** per variety (Mauritius,
+Early Delight, Hung Long, Third Month Red, Mix) - one bar per season, its
+varieties stacked within it by color - for spotting which varieties are
+trending up or down year over year. Use the dropdown to switch to a single
+variety, which redraws the chart as a plain bar-per-season for just that
+variety; it starts on **All Varieties**.
+
+### Harvest Season Length (first pick → last pick)
+
+One horizontal bar per season, spanning from that season's first day of
+picking to its last, labelled with the span in days and how many of those
+days actually had picking (e.g. "118d span, 46 pick days"). The current
+season always gets a row - shown as "No picking yet" until the first crate
+is captured, rather than the chart only gaining a row once picking starts.
+Shows whether the season is starting, ending, or lasting longer than it
+used to, and how much of the span was actually worked versus idle gaps.
+
+### Monthly Harvest Volume
+
+A heatmap of total kg picked by month (August through December) for every
+season, latest season at the top, each cell also showing that month's
+share of the season's total kg - making it easy to see which months carry
+the bulk of the harvest and whether that's shifting year to year. A
+**Total Kg (100%)** column after December shows each season's grand total,
+shaded on its own blue scale (separate from the month cells' scale) so the
+biggest season stands out at a glance. The current season always has a
+row, shown blank until picking begins.
+
+---
+
+## 9. Admin - Master Data
 
 Master Data has five subtabs for the farm's reference data.
 
@@ -1156,7 +1274,7 @@ for fruit actually received (not still in transit) in that period.
 
 ---
 
-## 9. Admin - Payments
+## 10. Admin - Payments
 
 Calculates and exports wages for a filtered period.
 
@@ -1176,7 +1294,7 @@ Calculates and exports wages for a filtered period.
 
 ---
 
-## 10. Admin - Reports
+## 11. Admin - Reports
 
 Downloadable `.xlsx` reports, all sharing the same filter bar as Payments/
 Dashboard (Farm/Supplier + date range):
@@ -1194,6 +1312,7 @@ Dashboard (Farm/Supplier + date range):
 | Worker Harvest Report | Per-worker crates/kg/amount-due/avg-kg-per-crate |
 | Lietsjie Lone / Litchi Wages | One row per worker, with crates harvested vs. crates actually received at the pack house broken out per day (plus deductions and the difference) - the gap flags fruit that never made it off the lot it was picked into before wages get paid out on it |
 | Block Harvest Report | Per-block crates/kg/avg-kg-per-crate/avg-kg-per-tree |
+| Historical Harvest Data | The full multi-year block x date pivot, 2020 through the current season - the farm's own "Daaglikse Oesdata" workbook, kept live. Ignores the date range filter above (there's only ever one of these); download it any time to get every season to date in one file. |
 
 Every generated report is also saved on the server itself, in
 `data\reports\` (same filename as the download, e.g.
@@ -1206,7 +1325,7 @@ back up anything else in `data\`.
 
 ---
 
-## 11. Admin - Settings
+## 12. Admin - Settings
 
 ### Data Backup
 
@@ -1270,7 +1389,7 @@ enables automatic weather capture on every dispatched load.
 
 ### Harvest rate
 
-The per-kg wage rate used by [Payments](#9-admin---payments).
+The per-kg wage rate used by [Payments](#10-admin---payments).
 
 ### Change admin password
 
@@ -1350,11 +1469,11 @@ check of conditions without leaving the app.
 
 ---
 
-## 12. Troubleshooting / FAQ
+## 13. Troubleshooting / FAQ
 
 **"Unknown device id" on a device's first setup**
 The device ID hasn't been created yet. An admin must add it in
-[Master Data → Devices](#8-admin---master-data) first - see
+[Master Data → Devices](#9-admin---master-data) first - see
 [chapter 3](#3-device-setup).
 
 **"Camera unavailable" when tapping Scan Worker QR**
@@ -1378,7 +1497,7 @@ doesn't clear it, clear the site's data in the browser and reopen.
 
 **A device newly added in Master Data doesn't appear on the setup screen**
 The setup screen reads the list from the server each time it loads, so a
-device added in [Master Data → Devices](#8-admin---master-data) should
+device added in [Master Data → Devices](#9-admin---master-data) should
 appear as soon as the page is reloaded. If it doesn't: check the device
 is marked **active** (inactive devices are deliberately not offered), and
 that the setup screen can actually reach the server - if it can't, it
@@ -1386,7 +1505,7 @@ falls back to a type-in box and shows no list at all. Typing the ID by
 hand always works as long as the ID exists in Master Data.
 
 **"QR code doesn't match a known worker" when scanning a badge**
-Either the worker doesn't exist in [Master Data → Workers](#8-admin---master-data)
+Either the worker doesn't exist in [Master Data → Workers](#9-admin---master-data)
 yet, or their badge is stale/misprinted. Reprint the badge from Workers
 after confirming the worker record exists (see
 [chapter 5](#5-worker-id-badges)).
@@ -1533,7 +1652,7 @@ keys below match `backend/models.py` exactly.
 | `period_start` / `period_end` | date | `2026-07-01` / `2026-07-31` | |
 | `total_kg` | decimal | `318.6` | Sum of that worker's net crate weights in the period. |
 | `rate_applied` | decimal | `3.00` | The per-kg rate in effect when calculated. |
-| `amount_due` | decimal | `955.80` | Calculated - not directly editable. There is intentionally no "paid" flag or status field on this record (chapter 9); payment status is tracked outside this app. |
+| `amount_due` | decimal | `955.80` | Calculated - not directly editable. There is intentionally no "paid" flag or status field on this record (chapter 10); payment status is tracked outside this app. |
 
 ### RateSetting
 

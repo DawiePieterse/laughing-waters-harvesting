@@ -1,15 +1,21 @@
+import io
 import os
 from collections import Counter
 from datetime import date
 from typing import Optional
 
+import openpyxl
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 from sqlmodel import Session, select
 
 from db import DATA_DIR, get_session
 from excel_io import rows_to_xlsx_bytes
-from models import Block, Device, HarvestRecord, Lot, LotStatus, ReceivingRecord, Supplier, Team, Worker
+from models import Block, Device, HarvestRecord, HistoricalHarvest, Lot, LotStatus, ReceivingRecord, Supplier, \
+    SystemSetting, Team, Worker
+from routers.analysis import _block_sort_key
 from routers.dashboard import dashboard_summary
 from routers.lots import list_in_transit, list_pending, list_received
 from routers.payments import _worker_ids_for_supplier
@@ -194,7 +200,7 @@ def lot_receiving_report(date_from: date, date_to: date, supplier_id: Optional[i
             lot.total_crates, round(lot.total_kg, 1), lot.status.value,
             local_str(lot.received_at),
             rec.actual_crates if rec else "", rec.discrepancy if rec else "",
-            rec.condition if rec else "", rec.waste_kg if rec else "",
+            rec.condition if rec else "", round(rec.waste_kg, 1) if rec else "",
             lot.weather_temp if lot.weather_temp is not None else "",
             lot.weather_humidity if lot.weather_humidity is not None else "",
             lot.weather_condition or "",
@@ -387,7 +393,7 @@ def received_list_report(period_start: date, period_end: date, supplier_id: Opti
             local_ts.strftime("%H:%M") if local_ts else "",
             ", ".join(sorted(blocks_by_lot.get(l["id"], []))),
             l["supplier_name"], l["team_id"] or "", l["driver"], l["total_crates"], l["total_kg"],
-            rec.waste_kg if rec else "",
+            round(rec.waste_kg, 1) if rec else "",
         ])
     return _xlsx_response(headers, rows, "Received", f"Received_{period_start}_{period_end}.xlsx")
 
@@ -476,3 +482,138 @@ def block_harvest_report(period_start: date, period_end: date, supplier_id: Opti
         b["avg_kg_hectare"] if b["avg_kg_hectare"] is not None else "",
     ] for b in summary["blocks"]]
     return _xlsx_response(headers, rows, "Block Harvest", f"Block_Harvest_{period_start}_{period_end}.xlsx")
+
+
+def _style_header_cell(cell):
+    cell.font = Font(bold=True, color="FFFFFF")
+    cell.fill = PatternFill("solid", fgColor="2E7D32")
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+
+@router.get("/historical-harvest-data")
+def historical_harvest_data_report(session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Historical Harvest Data: the full multi-year block x date pivot,
+    2020 through the current season - the farm's own "Daaglikse Oesdata"
+    workbook, kept live. Years before this app existed come from
+    HistoricalHarvest (imported once - see scripts/import_historical_harvest.py
+    for provenance and the block-split-by-hectare-ratio caveat below); the
+    current season's sheet is built fresh from HarvestRecord on every
+    download, so it's always up to date without a re-import. Not date-range
+    filtered like the other reports - there's only ever one of these."""
+    settings = session.exec(select(SystemSetting)).first()
+    current_year = settings.current_harvest_year if settings else date.today().year
+    blocks = {b.id: b for b in session.exec(select(Block)).all()}
+
+    day_kg: dict = {}  # (year, block_id, date) -> kg
+    estimated_blocks: set = set()
+    for h in session.exec(select(HistoricalHarvest)).all():
+        key = (h.season_year, h.block_id, h.harvest_date)
+        day_kg[key] = day_kg.get(key, 0.0) + h.kg
+        if h.estimated:
+            estimated_blocks.add(h.block_id)
+    for r in session.exec(select(HarvestRecord)).all():
+        local_ts = to_local(r.timestamp)
+        if local_ts is None or local_ts.year != current_year:
+            continue
+        key = (current_year, r.block_id, local_ts.date())
+        day_kg[key] = day_kg.get(key, 0.0) + (r.weight_kg - r.deduction_kg)
+
+    years = sorted({k[0] for k in day_kg})
+
+    def block_label(bid):
+        b = blocks.get(bid)
+        name = b.name if b else (bid or "")
+        return f"{name}*" if bid in estimated_blocks else name
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    # --- Blocks reference sheet ---
+    bs = wb.create_sheet("Blocks")
+    bs.append(["Id", "Name", "Variety", "Trees", "Hectares", "Active"])
+    for c in bs[1]:
+        _style_header_cell(c)
+    for block_id in sorted(blocks, key=_block_sort_key):
+        b = blocks[block_id]
+        bs.append([b.id, b.name, b.variety, b.trees, b.hectares, "Active" if b.active else "Inactive"])
+    bs.freeze_panes = "A2"
+    bs.column_dimensions["B"].width = 16
+
+    # --- Notes sheet ---
+    ns = wb.create_sheet("Notes")
+    ns.column_dimensions["A"].width = 100
+    notes = [
+        "Notes on this report",
+        "",
+        f"Generated {date.today().isoformat()}. Historical seasons ({years[0] if years else '-'}-"
+        f"{current_year - 1}) are a fixed, one-time import from the farm's pre-app records. The current "
+        f"season ({current_year}) sheet is generated fresh from live harvest data every time this report "
+        "is downloaded.",
+        "",
+        "Block splits: a handful of today's blocks (8a/8b, 10a/10b, 17a/17b, 19a/19b) didn't exist "
+        "separately before this app - the original records had one combined daily total for each pair. "
+        "Those historical totals were split between the two sub-blocks in proportion to their hectares. "
+        "This is an ESTIMATE, not an actually recorded per-sub-block figure - affected block names are "
+        "marked with an asterisk (*) in each year's sheet.",
+        "",
+        "Figures are in kg per block per day.",
+    ]
+    for i, line in enumerate(notes, start=1):
+        cell = ns.cell(row=i, column=1, value=line)
+        if i == 1:
+            cell.font = Font(bold=True, size=14)
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    # --- Per-year sheets ---
+    for year in years:
+        year_days: dict = {}  # date -> {block_id: kg}
+        year_blocks: set = set()
+        for (y, block_id, d), kg in day_kg.items():
+            if y != year:
+                continue
+            bucket = year_days.setdefault(d, {})
+            bucket[block_id] = bucket.get(block_id, 0.0) + kg
+            year_blocks.add(block_id)
+        block_ids = sorted(year_blocks, key=_block_sort_key)
+
+        ws = wb.create_sheet(str(year))
+        header = ["Date", "Weekday"] + [block_label(bid) for bid in block_ids] + ["Total"]
+        ws.append(header)
+        for c in ws[1]:
+            _style_header_cell(c)
+
+        for d in sorted(year_days):
+            row_kg = year_days[d]
+            total = sum(row_kg.get(bid, 0.0) for bid in block_ids)
+            ws.append([d, d.strftime("%A")] + [round(row_kg.get(bid, 0.0), 1) for bid in block_ids] +
+                      [round(total, 1)])
+
+        first_data_row = 2
+        last_data_row = ws.max_row
+        ws.append(["", "TOTAL"])
+        footer_row = ws.max_row
+        for i in range(len(block_ids) + 1):
+            col_idx = 3 + i
+            col_letter = get_column_letter(col_idx)
+            cell = ws.cell(row=footer_row, column=col_idx,
+                            value=f"=SUM({col_letter}{first_data_row}:{col_letter}{last_data_row})")
+            cell.font = Font(bold=True)
+        ws.cell(row=footer_row, column=2).font = Font(bold=True)
+
+        for r in range(2, last_data_row + 1):
+            ws.cell(row=r, column=1).number_format = "dd/mm/yyyy"
+
+        ws.freeze_panes = "C2"
+        for col in range(1, len(header) + 1):
+            ws.column_dimensions[get_column_letter(col)].width = 11
+        ws.column_dimensions["A"].width = 12
+        ws.column_dimensions["B"].width = 11
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    data = buf.getvalue()
+    filename = f"Historical_Harvest_Data_{years[0]}_{years[-1]}.xlsx" if years else "Historical_Harvest_Data.xlsx"
+    with open(os.path.join(REPORTS_DIR, filename), "wb") as f:
+        f.write(data)
+    return Response(content=data, media_type=XLSX_MEDIA,
+                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})

@@ -88,7 +88,7 @@ def supplier_billing(supplier_id: int, period_start: date, period_end: date,
         "amount_due": data["amount_due"],
         "lots": [
             {"slip_number": l.slip_number, "received_at": l.received_at,
-             "crates": l.total_crates, "kg": l.total_kg}
+             "crates": l.total_crates, "kg": round(l.total_kg, 1)}
             for l in data["lots"]
         ],
     }

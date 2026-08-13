@@ -97,7 +97,7 @@ def calculate_payments(period_start: date, period_end: date, supplier_id: Option
                                    Payment.period_end == period_end)
         ).first()
         payment = existing or Payment(worker_id=worker_id, period_start=period_start, period_end=period_end)
-        payment.total_kg = round(data["total_kg"], 2)
+        payment.total_kg = round(data["total_kg"], 1)
         payment.rate_applied = rate_applied
         payment.amount_due = round(data["amount"], 2)
         session.add(payment)

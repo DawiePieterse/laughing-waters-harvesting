@@ -6,8 +6,8 @@ from fastapi.staticfiles import StaticFiles
 
 from backup import start_backup_scheduler
 from db import PHOTOS_DIR, create_db_and_tables, seed_defaults
-from routers import (auth, backups, dashboard, devices, harvest_records, master_data, lots, owner_view, payments,
-                      processing, receiving, reports, suppliers, sync, weather)
+from routers import (analysis, auth, backups, dashboard, devices, harvest_records, master_data, lots, owner_view,
+                      payments, processing, receiving, reports, suppliers, sync, weather)
 
 app = FastAPI(title="Laughing Waters Harvest & Receiving")
 
@@ -30,6 +30,7 @@ app.include_router(reports.router)
 app.include_router(sync.router)
 app.include_router(processing.router)
 app.include_router(dashboard.router)
+app.include_router(analysis.router)
 app.include_router(weather.router)
 app.include_router(backups.router)
 app.include_router(owner_view.router)

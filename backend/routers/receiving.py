@@ -26,8 +26,10 @@ def confirm_receipt(record_in: ReceivingRecordIn, session: Session = Depends(get
     if not lot:
         raise HTTPException(404, "Lot not found")
 
+    data = record_in.model_dump()
+    data["waste_kg"] = round(data.get("waste_kg", 0.0), 1)
     record = ReceivingRecord(
-        **record_in.model_dump(),
+        **data,
         discrepancy=record_in.actual_crates - record_in.expected_crates,
     )
     session.add(record)

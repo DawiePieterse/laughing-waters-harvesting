@@ -300,7 +300,7 @@ async function renderLot() {
 
   const recentCrates = [...crates].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 5);
   document.getElementById("recentList").innerHTML = recentCrates
-    .map((r) => `<div class="flex justify-between border-b py-1"><span>${r.block_id}</span><span>${r.weight_kg} kg</span><span>${r.synced ? "✓ synced" : "⏳ pending"}</span></div>`)
+    .map((r) => `<div class="flex justify-between border-b py-1"><span>${r.block_id}</span><span>${Number(r.weight_kg).toFixed(1)} kg</span><span>${r.synced ? "✓ synced" : "⏳ pending"}</span></div>`)
     .join("") || `<div class="text-slate-400">No crates yet</div>`;
 }
 

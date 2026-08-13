@@ -60,6 +60,7 @@ def _with_urgency(lot: Lot, settings: SystemSetting, suppliers: dict) -> dict:
     supplier = suppliers.get(lot.supplier_id)
     return {
         **lot.model_dump(),
+        "total_kg": round(lot.total_kg, 1),
         "age_minutes": round(age_minutes),
         "urgency": _urgency(age_minutes, settings),
         "supplier_name": supplier.name if supplier else "",
@@ -123,7 +124,7 @@ def _related_lots(session: Session, lot: Lot, parents_by_slip: dict, children_by
             total_kg = round(sum(c.weight_kg - c.deduction_kg for c in crates), 1)
         else:
             total_crates = r.total_crates
-            total_kg = r.total_kg
+            total_kg = round(r.total_kg, 1)
         result.append({
             "slip_number": r.slip_number,
             "status": r.status,
@@ -252,6 +253,7 @@ def upsert_lot(lot_in: LotIn, session: Session = Depends(get_session)):
     it's always own-farm fruit, so it's assigned automatically here."""
     existing = session.exec(select(Lot).where(Lot.slip_number == lot_in.slip_number)).first()
     data = lot_in.model_dump()
+    data["total_kg"] = round(data.get("total_kg", 0.0), 1)
     if data.get("supplier_id") is None:
         data["supplier_id"] = get_own_supplier_id(session)
     lot = Lot(**data, id=existing.id if existing else None)
@@ -367,7 +369,7 @@ def create_external_lot(lot_in: ExternalLotIn, session: Session = Depends(get_se
         supplier_id=lot_in.supplier_id,
         driver=lot_in.driver,
         total_crates=lot_in.total_crates,
-        total_kg=lot_in.total_kg,
+        total_kg=round(lot_in.total_kg, 1),
         status=LotStatus.in_transit,
         notes=lot_in.notes,
     )
