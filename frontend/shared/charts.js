@@ -211,13 +211,12 @@ const LWCharts = (() => {
   // values: values[rowIdx][colIdx] = number|null, used for both shading and
   // (unless `text` is given) the displayed label. `text` lets the displayed
   // label differ from what's being shaded on - e.g. "108,215 (30%)" while
-  // still shading by the raw kg. scaleLabel (optional) adds a vertical
-  // color-scale legend to the right, labelled with that text.
+  // still shading by the raw kg.
   // totalColumn (optional): {label, values:[num,...], valueFormat} - an
   // extra trailing column shaded on its OWN min/max scale in a different
   // hue (blue, not the main grid's yellow-red) so a row total reads as a
   // distinct figure, not just another cell in the same scale.
-  function heatmap(container, { rowLabels, colLabels, values, text: cellText, valueFormat = (v) => v, cellMinWidth = 64, scaleLabel, totalColumn }) {
+  function heatmap(container, { rowLabels, colLabels, values, text: cellText, valueFormat = (v) => v, cellMinWidth = 64, totalColumn }) {
     const flat = values.flat().filter((v) => v != null);
     if (!rowLabels.length || !flat.length) return emptyState(container);
     const min = Math.min(...flat), max = Math.max(...flat);
@@ -259,20 +258,7 @@ const LWCharts = (() => {
     });
     table += "</table>";
 
-    let scale = "";
-    if (scaleLabel) {
-      const steps = 20;
-      const stops = Array.from({ length: steps + 1 }, (_, i) =>
-        `rgb(${heatColorRGB(1 - i / steps).join(",")}) ${((i / steps) * 100).toFixed(0)}%`).join(", ");
-      scale = `<div style="display:flex;flex-direction:column;align-items:center;margin-left:20px;padding-top:26px">
-        <div style="font-size:10px;color:#64748b;margin-bottom:4px">${valueFormat(max)}</div>
-        <div style="width:16px;height:${Math.max(120, rowLabels.length * 40)}px;border-radius:3px;background:linear-gradient(to bottom, ${stops})"></div>
-        <div style="font-size:10px;color:#64748b;margin-top:4px">${valueFormat(min)}</div>
-        <div style="font-size:10px;color:#94a3b8;margin-top:8px;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap">${scaleLabel}</div>
-      </div>`;
-    }
-
-    container.innerHTML = `<div style="display:flex;align-items:flex-start"><div style="overflow-x:auto">${table}</div>${scale}</div>`;
+    container.innerHTML = `<div style="overflow-x:auto">${table}</div>`;
   }
 
   // rowLabels x colLabels grid of circles, area proportional to value (not

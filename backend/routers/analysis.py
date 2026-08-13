@@ -62,6 +62,17 @@ def build_analysis_summary(session: Session) -> dict:
         local_ts = to_local(r.timestamp)
         if local_ts is None or local_ts.year != current_year:
             continue
+        # Every chart here is anchored to 1 August (see _season_day), so a
+        # record dated Jan-Jul of the harvest year has no place on this
+        # season's axis - it's the tail of the previous season or a mis-keyed
+        # date. Skipping it here keeps every panel consistent: including it
+        # would leave a negative season_day, which the cumulative loop below
+        # silently drops (it starts at day 1) while the monthly heatmap still
+        # counted it, so Season-to-Date and the monthly grand total disagreed
+        # on the same screen. Such records still appear in the date-range
+        # Dashboard and reports, so nothing is lost from the app.
+        if _season_day(local_ts.date(), current_year) < 1:
+            continue
         day_kg[(current_year, r.block_id, local_ts.date())] += (r.weight_kg - r.deduction_kg)
 
     years = sorted({k[0] for k in day_kg})
@@ -92,19 +103,30 @@ def build_analysis_summary(session: Session) -> dict:
                 points.append({"season_day": sd, "cumulative_kg": round(cum, 1)})
         season_pace.append({"year": year, "is_current": year == current_year, "points": points})
 
-    # 5-year historical average curve, aligned by season_day
+    # 5-year historical average curve, aligned by season_day.
+    #
+    # A season that has already finished keeps contributing its FINAL
+    # cumulative total for the rest of the axis, rather than dropping out of
+    # the average once it runs out of days. Averaging only the still-running
+    # seasons makes a cumulative curve fall as the shorter ones end - e.g.
+    # with seasons ending on days 142-145, the average plunged from 302,328 kg
+    # at day 142 to 237,846 at day 145, the latter being simply whichever
+    # single season ran longest rather than an average at all. That also fed
+    # pct_vs_average below, understating the baseline the current season is
+    # judged against.
     avg_curve = []
-    hist_series = [s for s in season_pace if not s["is_current"]]
+    hist_series = [s for s in season_pace if not s["is_current"] and s["points"]]
     if hist_series:
-        all_days = sorted({p["season_day"] for s in hist_series for p in s["points"]})
-        for sd in all_days:
-            vals = []
-            for s in hist_series:
-                pts = {p["season_day"]: p["cumulative_kg"] for p in s["points"]}
-                if sd in pts:
-                    vals.append(pts[sd])
-            if vals:
-                avg_curve.append({"season_day": sd, "cumulative_kg": round(sum(vals) / len(vals), 1)})
+        # Built once per series instead of once per (series, day) - the old
+        # shape rebuilt every series' lookup dict inside the per-day loop.
+        hist_pts = [{p["season_day"]: p["cumulative_kg"] for p in s["points"]} for s in hist_series]
+        hist_finals = [s["points"][-1]["cumulative_kg"] for s in hist_series]
+        last_day = max(s["points"][-1]["season_day"] for s in hist_series)
+        for sd in range(1, last_day + 1):
+            # Every series runs from day 1, so a miss here only ever means
+            # "this season had already finished" - hence the final total.
+            vals = [pts.get(sd, final) for pts, final in zip(hist_pts, hist_finals)]
+            avg_curve.append({"season_day": sd, "cumulative_kg": round(sum(vals) / len(vals), 1)})
 
     current_series = next((s for s in season_pace if s["is_current"]), None)
     season_to_date_kg = current_series["points"][-1]["cumulative_kg"] if current_series and current_series["points"] else 0.0

@@ -6,8 +6,17 @@
 // both rather than the two screens carrying their own copies to drift.
 const LWAnalysisTab = (() => {
   let _data = null;
+  let _bound = false;
 
   function bind() {
+    // The admin app calls its bind* helpers from showApp(), which re-runs on
+    // every sign-in without reloading the page (logout() just swaps the
+    // visible div). Without this guard a sign-out/sign-in cycle would stack a
+    // second delegated listener on #tab-analysis, and one click on a chart's
+    // PDF button would rasterize and download the same file twice.
+    if (_bound) return;
+    _bound = true;
+
     document.getElementById("blockYieldMetric").addEventListener("change", () => {
       if (_data) renderBlockYield(_data);
     });
@@ -43,15 +52,20 @@ const LWAnalysisTab = (() => {
 
   // fetchSummary: () => Promise<data> - each screen supplies its own call
   // (admin: LW.api with a bearer token; owner: LW.api with the link's key).
-  // onAuthError: called on a real rejection (not a network blip) - admin
-  // signs out, owner shows the "link isn't valid" screen.
+  // onAuthError: called ONLY on a genuine 401/403 - admin signs out, owner
+  // shows the "link isn't valid" screen. Anything else (a 500, a malformed
+  // response) must fall through to the toast: signing an admin out or
+  // telling an owner their link is dead because the server hit a bug would
+  // be both wrong and, for the owner, a direct contradiction of the manual's
+  // promise that that message never means a server problem.
   async function load(fetchSummary, { onAuthError } = {}) {
     let data;
     try {
       data = await fetchSummary();
     } catch (e) {
       if (LW.isNetworkError(e)) { LW.setOffline(true); return; }
-      if (onAuthError) { onAuthError(e); return; }
+      if (LW.isAuthError(e) && onAuthError) { onAuthError(e); return; }
+      console.error("Analysis load failed:", e);
       LW.toast("Could not load analysis data");
       return;
     }
@@ -215,12 +229,22 @@ const LWAnalysisTab = (() => {
     const categories = years.map(String);
 
     const select = document.getElementById("varietyFilter");
-    if (!select.dataset.populated) {
+    // Rebuilt whenever the set of varieties actually changes (rather than
+    // once ever), so a newly planted variety shows up without a page reload
+    // and - more importantly - a variety that has disappeared from the data
+    // can't leave a dangling selection behind. The user's current choice is
+    // preserved across the rebuild when it still exists.
+    const names = varieties.map((v) => v.variety);
+    const signature = names.join("|");
+    if (select.dataset.varieties !== signature) {
+      const previous = select.value;
       select.innerHTML = `<option value="">All Varieties</option>` +
-        varieties.map((v) => `<option value="${v.variety}">${v.variety}</option>`).join("");
-      select.dataset.populated = "1";
+        names.map((n) => `<option value="${n}">${n}</option>`).join("");
+      select.dataset.varieties = signature;
+      select.value = names.includes(previous) ? previous : "";
     }
-    const selected = select.value;
+    const idx = varieties.findIndex((v) => v.variety === select.value);
+    const selected = idx >= 0 ? varieties[idx] : null;  // null => "All Varieties"
 
     const chartEl = document.getElementById("varietyYieldChart");
     const exportEl = document.getElementById("varietyYieldExport");
@@ -238,13 +262,11 @@ const LWAnalysisTab = (() => {
       LWCharts.legend(legendHost, series.map((s) => ({ label: s.label, color: s.color })));
       exportEl.appendChild(legendHost);
     } else {
-      const idx = varieties.findIndex((v) => v.variety === selected);
-      const v = varieties[idx];
       LWCharts.barChart(chartEl, {
         categories,
         series: [{
-          label: selected, color: LWCharts.PALETTE[idx % LWCharts.PALETTE.length],
-          values: years.map((y) => (v.by_year[y] ? v.by_year[y].kg_tree : null)),
+          label: selected.variety, color: LWCharts.PALETTE[idx % LWCharts.PALETTE.length],
+          values: years.map((y) => (selected.by_year[y] ? selected.by_year[y].kg_tree : null)),
         }],
         yLabel: (y) => y.toFixed(1),
       });
