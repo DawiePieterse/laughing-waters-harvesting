@@ -110,7 +110,13 @@ def calculate_payments(period_start: date, period_end: date, supplier_id: Option
 
 @router.get("")
 def list_payments(period_start: Optional[date] = None, period_end: Optional[date] = None,
-                   session: Session = Depends(get_session)):
+                   session: Session = Depends(get_session), admin=Depends(get_current_admin)):
+    """Admin-only, like every other endpoint in this router. It was the one
+    that lacked the dependency, so anyone who could reach the server could
+    read every worker's amount_due without credentials - the exact payroll
+    figures the Owner View goes out of its way to withhold. No frontend code
+    calls this (the admin screen uses /calculate and /export), so requiring
+    a token here changes nothing for the app."""
     query = select(Payment)
     if period_start:
         query = query.where(Payment.period_start == period_start)

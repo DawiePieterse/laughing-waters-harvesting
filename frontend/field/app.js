@@ -403,6 +403,26 @@ async function sendPickingSlip() {
   syncLoop();
 }
 
+// Housekeeping after a successful upload: drop long-since-synced crates so
+// the local store stays small. Throttled to once a day because it walks the
+// store, and it must never take the sync loop down with it - a device that
+// can't prune is merely slower, whereas a thrown error here would surface as
+// "sync failed" on a sync that actually worked.
+const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let _lastPrune = 0;
+
+async function pruneOldCrates() {
+  if (Date.now() - _lastPrune < PRUNE_INTERVAL_MS) return;
+  _lastPrune = Date.now();
+  try {
+    // Read the key directly rather than getCurrentSlip(), which mints a new
+    // slip as a side effect - housekeeping must not start a picking slip.
+    await IDB.pruneSynced(localStorage.getItem(CURRENT_SLIP_KEY));
+  } catch (e) {
+    console.warn("Could not prune old crates:", e);
+  }
+}
+
 // Header pill: text + color so the state is readable at arm's length in the
 // orchard. green = all synced, amber = pushing/pending, red = offline.
 function setSyncStatus(state, text) {
@@ -479,6 +499,7 @@ async function syncLoop() {
       await LW.api("/api/sync/harvest", { method: "POST", body: { records } });
       await IDB.markSynced(unsynced.map((r) => r.uuid));
       reachedServer = true;
+      await pruneOldCrates();
     } else if (stillPending.length === 0 && Date.now() - _lastProbe >= PROBE_INTERVAL_MS) {
       // Nothing to push - but "nothing to push" must not be mistaken for
       // "server reachable". Probe cheaply so an idle device still shows the

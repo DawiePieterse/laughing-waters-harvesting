@@ -620,7 +620,10 @@ async function loadAllMasterData() {
 
 // Workers
 async function loadWorkers() {
-  const workers = await LW.api("/api/workers");
+  // auth: true so the server returns the full records - the Edit modal needs
+  // id_number/bank/account, which /api/workers only serves to a signed-in
+  // admin (unauthenticated callers get a reduced projection).
+  const workers = await LW.api("/api/workers", { auth: true });
   window._workersCache = workers;
   renderWorkersTable();
 }
@@ -1246,7 +1249,17 @@ async function saveRateSettings() {
 async function changePassword() {
   const newPassword = document.getElementById("newPassword").value;
   if (!newPassword) return;
-  await LW.api(`/api/auth/change-password?new_password=${encodeURIComponent(newPassword)}`, { method: "POST", auth: true });
+  if (newPassword.length < 8) { LW.toast("Password must be at least 8 characters"); return; }
+  try {
+    // Sent in the request BODY, never the query string - a password in the
+    // URL ends up in the server's access log, browser history and any proxy.
+    await LW.api("/api/auth/change-password", {
+      method: "POST", auth: true, body: { new_password: newPassword },
+    });
+  } catch (e) {
+    LW.toast(_apiErrorDetail(e) || "Could not change password");
+    return;
+  }
   document.getElementById("newPassword").value = "";
   LW.toast("Password changed");
 }

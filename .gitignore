@@ -3,6 +3,7 @@ backend/__pycache__/
 backend/**/__pycache__/
 data/*.db
 data/*.db-journal
+data/.secret_key
 data/photos/
 data/backups/
 data/reports/

@@ -8,7 +8,7 @@ from sqlmodel import Session, SQLModel, select
 from db import PHOTOS_DIR, get_session
 from excel_io import parse_uploaded_table, rows_to_csv_bytes, rows_to_xlsx_bytes
 from models import Block, RateSetting, RateType, Supplier, SystemSetting, Team, Worker
-from security import get_current_admin
+from security import get_current_admin, get_optional_admin
 
 router = APIRouter(prefix="/api", tags=["master-data"])
 
@@ -132,9 +132,23 @@ async def import_blocks(file: UploadFile, replace: bool = Query(False),
 
 # --- Workers ---------------------------------------------------------------
 
+# What an unauthenticated caller gets back for each worker. The Field app
+# (renderWorkerOptions) and the badge printer both read this endpoint without
+# a token and need only these; everything else on Worker - id_number (SA ID),
+# bank, account, whatsapp_number - is personal data that used to go out to
+# anyone who could reach the server, including whoever an Owner View link had
+# been forwarded to.
+_PUBLIC_WORKER_FIELDS = ("id", "first_name", "last_name", "name", "supplier_id", "photo_filename", "active")
+
+
 @router.get("/workers")
-def list_workers(session: Session = Depends(get_session)):
-    return session.exec(select(Worker)).all()
+def list_workers(session: Session = Depends(get_session), admin=Depends(get_optional_admin)):
+    """Full records for a signed-in admin (the Master Data edit modal needs
+    the bank/ID fields); a reduced projection for everyone else."""
+    workers = session.exec(select(Worker)).all()
+    if admin:
+        return workers
+    return [{f: getattr(w, f) for f in _PUBLIC_WORKER_FIELDS} for w in workers]
 
 
 @router.post("/workers")
