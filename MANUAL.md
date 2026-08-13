@@ -1147,9 +1147,9 @@ History** available.
 
 Every chart card has a small <i class="fa-solid fa-file-pdf"></i> button in
 its top-right corner - tap it to download that chart as a one-page PDF,
-titled and ready to print, email, or drop into a report. Charts still
-under-populated (e.g. the current season before picking starts) download
-just as they appear on screen.
+headed with the farm name and the chart's title, ready to print, email,
+or drop into a report. Charts still under-populated (e.g. the current
+season before picking starts) download just as they appear on screen.
 
 ### Season Pace
 

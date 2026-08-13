@@ -91,7 +91,8 @@ covers the full history plus whatever's been picked so far this season):
   season's grand total alongside.
 
 Every chart has a small <i class="fa-solid fa-file-pdf"></i> button in its
-top-right corner to download it as a one-page PDF.
+top-right corner to download it as a one-page PDF, headed with the farm
+name and the chart's title.
 
 ---
 

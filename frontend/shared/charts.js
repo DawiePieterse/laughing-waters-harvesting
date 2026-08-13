@@ -385,36 +385,70 @@ const LWCharts = (() => {
 
   // Renders a chart container (an <svg>, or an inline-styled HTML table
   // like heatmap()/bubbleMatrix() produce) to a canvas via html2canvas, then
-  // embeds that image in a one-page PDF and downloads it. html2canvas draws
-  // the DOM manually rather than rasterizing an image, which is what an
-  // SVG+foreignObject+<img> approach would need - and browsers refuse to
-  // read pixels back out of a canvas that was drawn from a foreignObject
-  // image ("tainted canvas"), so that simpler approach doesn't work here.
+  // embeds that image (below a farm-name + chart-title header) in a
+  // one-page PDF and downloads it. html2canvas draws the DOM manually
+  // rather than rasterizing an image, which is what an SVG+foreignObject+
+  // <img> approach would need - and browsers refuse to read pixels back
+  // out of a canvas that was drawn from a foreignObject image ("tainted
+  // canvas"), so that simpler approach doesn't work here.
   async function exportPDF(el, { title = "", filename = "chart.pdf" } = {}) {
     if (!window.jspdf || !window.jspdf.jsPDF || !window.html2canvas) {
       alert("PDF export isn't available offline until this page has loaded online at least once.");
       return;
     }
-    const canvas = await window.html2canvas(el, { backgroundColor: "#ffffff", scale: 2 });
+    const canvas = await window.html2canvas(el, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      // html2canvas otherwise captures relative to the page's current
+      // scroll position, not the element itself - since the button is
+      // usually clicked after scrolling down to the chart, that silently
+      // clips or shifts the bottom of the image off the canvas without
+      // these. Negating the current scroll and pinning the capture
+      // viewport to the full document forces it to grab the whole element.
+      scrollX: -window.scrollX,
+      scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+    });
     const width = canvas.width / 2, height = canvas.height / 2;
     // JPEG, not PNG: these charts are flat colors/text on white, which PNG
     // handles losslessly but at many MB per page at 2x scale - JPEG at high
     // quality is visually indistinguishable here and a fraction of the size.
     const imgData = canvas.toDataURL("image/jpeg", 0.85);
 
+    const farmNameEl = document.getElementById("headerFarmName");
+    const farmName = farmNameEl ? farmNameEl.textContent.trim() : "";
+
     const { jsPDF } = window.jspdf;
-    const marginX = 24, titleH = title ? 34 : 12;
+    const marginX = 24, marginTop = 20, marginBottom = 24, lineHeight = 18;
+    const headerLines = [];
+    if (farmName) headerLines.push({ text: farmName, size: 14, color: [10, 47, 107], bold: true });
+    if (title) headerLines.push({ text: title, size: 11, color: [71, 85, 105], bold: false });
+    const headerH = headerLines.length ? headerLines.length * lineHeight + 8 : 0;
+
+    // Orientation must be derived from the FINAL page dimensions (after
+    // margins/header), not the raw chart's width/height - jsPDF silently
+    // swaps a custom format array to match whichever orientation you
+    // declare, so if the padding pushes the page from landscape-shaped to
+    // portrait-shaped (or vice versa) and "orientation" still reflects the
+    // pre-padding shape, jsPDF swaps the page dimensions out from under the
+    // addImage() call below, clipping the bottom of the image.
+    const pageW = width + marginX * 2;
+    const pageH = marginTop + headerH + height + marginBottom;
     const pdf = new jsPDF({
-      orientation: width > height ? "landscape" : "portrait",
+      orientation: pageW > pageH ? "landscape" : "portrait",
       unit: "pt",
-      format: [width + marginX * 2, height + titleH + 24],
+      format: [pageW, pageH],
     });
-    if (title) {
-      pdf.setFontSize(13);
-      pdf.setTextColor(10, 47, 107);
-      pdf.text(title, marginX, 24);
-    }
-    pdf.addImage(imgData, "JPEG", marginX, titleH, width, height);
+    let y = marginTop;
+    headerLines.forEach((line) => {
+      pdf.setFontSize(line.size);
+      pdf.setTextColor(line.color[0], line.color[1], line.color[2]);
+      pdf.setFont(undefined, line.bold ? "bold" : "normal");
+      pdf.text(line.text, marginX, y);
+      y += lineHeight;
+    });
+    pdf.addImage(imgData, "JPEG", marginX, marginTop + headerH, width, height);
     pdf.save(filename);
   }
 

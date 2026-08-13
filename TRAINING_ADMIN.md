@@ -98,7 +98,8 @@ historical records, not just today.
    biggest season stands out.
 
 Every chart has a small <i class="fa-solid fa-file-pdf"></i> button in its
-top-right corner to download it as a one-page PDF.
+top-right corner to download it as a one-page PDF, headed with the farm
+name and the chart's title.
 
 A few blocks (8a/8b, 10a/10b, 17a/17b, 19a/19b) didn't exist separately
 before this app — their historical figures are split from one combined
