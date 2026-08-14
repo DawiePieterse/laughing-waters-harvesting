@@ -198,11 +198,12 @@ Once new commits are pushed to GitHub, update an already-running server.
 
 The easy way: double-click **`update_server.bat`** at the top of the
 project folder. It pulls the latest code, installs any new dependencies,
-and restarts the server (via the Scheduled Task) all in one step - this
-is the recommended way to deploy an update, since it's easy to forget the
-restart step if done by hand (a `git pull` alone does not restart
-anything, so the running server keeps serving the old code until it's
-explicitly restarted).
+refreshes the historical weather data (see below), and restarts the
+server (via the Scheduled Task) all in one step - this is the recommended
+way to deploy an update, since it's easy to forget the restart step if
+done by hand (a `git pull` alone does not restart anything, so the
+running server keeps serving the old code until it's explicitly
+restarted).
 
 The manual way, if you'd rather do each step yourself: open Command
 Prompt in `C:\LaughingWaters` and run:
@@ -213,9 +214,30 @@ This only touches the app's code - the database, worker photos, and
 backups all live in the gitignored `data/` folder and are never affected
 by a pull. If `backend/requirements.txt` changed, re-run the installer
 (`install.bat`) or `pip install -r requirements.txt` to pick up any new
-dependencies, then restart the server (see
+dependencies. Optionally refresh historical weather too (`update_server.bat`
+does this automatically - see below for why it matters):
+```bat
+backend\.venv\Scripts\python.exe scripts\import_historical_weather.py
+```
+Then restart the server (see
 [Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)
 below).
+
+**Why `update_server.bat` refreshes weather on every update.** Open-Meteo's
+recent days start out as provisional forecast-model estimates and firm up
+into finalized reanalysis figures over the following days/weeks - the
+Weather tab's own automatic sync (`weather.sync_recent_weather()`, run as a
+side effect of opening that tab) only ever *appends* new hours, so it never
+goes back and corrects an earlier provisional value once the real one is
+available. `update_server.bat` re-runs the full historical import (a
+wholesale replace, same script as the one-off backfill above) between
+stopping and starting the server, so the [Risk tab](#8-admin---analysis)'s
+score and Harvest Forecast - both sensitive to exactly how accurate recent
+weather is, not just whether it's present - are working from the best data
+available each time the server restarts. If that step fails (no internet,
+Open-Meteo unreachable), the update still completes and the server still
+restarts - it just keeps whatever weather history it already had until the
+next successful refresh.
 
 Either way, remember that each phone/tablet's installed app also needs a
 full close-and-reopen afterward to pick up the update - see

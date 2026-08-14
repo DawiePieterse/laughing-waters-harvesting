@@ -1,8 +1,9 @@
 @echo off
 :: Laughing Waters Harvesting - double-click this file to pull the latest
-:: code from GitHub, install any new dependencies, and restart the server
-:: so the update actually takes effect. See MANUAL.md chapter 2
-:: ("Pulling future updates") for what this automates and does manually.
+:: code from GitHub, install any new dependencies, refresh historical
+:: weather data, and restart the server so the update actually takes
+:: effect. See MANUAL.md chapter 2 ("Pulling future updates") for what
+:: this automates and does manually.
 
 net session >nul 2>&1
 if %errorLevel% neq 0 (
@@ -42,6 +43,22 @@ schtasks /query /tn "Laughing Waters Server" >nul 2>&1
 if %errorLevel% equ 0 (
     schtasks /end /tn "Laughing Waters Server" >nul 2>&1
     timeout /t 2 /nobreak >nul
+
+    echo.
+    echo ==> Refreshing historical weather ^(2020-present^)...
+    echo     This replaces recent days with Open-Meteo's finalized figures
+    echo     ^(early readings start as provisional forecast-model values and
+    echo     firm up over the following days/weeks^) - the Risk and Harvest
+    echo     Forecast tabs depend on this being accurate, not just present.
+    python "%~dp0scripts\import_historical_weather.py"
+    if errorlevel 1 (
+        echo Warning: weather refresh failed - check the error above ^(no
+        echo internet, or Open-Meteo unreachable^). Starting the server
+        echo anyway with whatever weather history it already had; it'll
+        echo catch up on its own next time someone opens the Weather or
+        echo Risk tab, or next time this script runs successfully.
+    )
+
     schtasks /run /tn "Laughing Waters Server" >nul 2>&1
     echo Server restarted.
 ) else (
