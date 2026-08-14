@@ -102,6 +102,67 @@ const LWCharts = (() => {
     container.appendChild(root);
   }
 
+  // Like lineChart(), but each series is scaled independently to fill
+  // 0%(its own min)-100%(its own max) of the chart height, rather than
+  // sharing one literal y-axis - lets wildly different-scale metrics (e.g.
+  // temp in °C vs. sunshine duration in seconds) overlay for shape/timing
+  // comparison without one metric flattening the others. There is
+  // therefore no single "correct" unit for a y-axis label once several
+  // series are combined, so this draws no gridline value labels - only the
+  // x-axis. Real per-point values surface on hover instead: a <path> can
+  // only carry one <title> for its whole length (see lineChart()), so
+  // real values live on small circle markers plotted every `pointEvery`-th
+  // point (plus always the last point), each with its own <title>.
+  // series: [{label, color, unit, decimals, points:[{x,y}], emphasize, muted}]
+  function normalizedLineChart(container, { series, xLabel = (x) => x, height = 260, minWidthPerPoint = 3,
+                                              xMin: xMinOverride, xMax: xMaxOverride, pointEvery = 1 }) {
+    const withPoints = series.filter((s) => s.points && s.points.length);
+    if (!withPoints.length) return emptyState(container);
+    const allX = withPoints.flatMap((s) => s.points.map((p) => p.x));
+    const xMin = xMinOverride != null ? Math.min(xMinOverride, ...allX) : Math.min(...allX);
+    const xMax = xMaxOverride != null ? Math.max(xMaxOverride, ...allX) : Math.max(...allX);
+    const padL = 20, padB = 26, padT = 12, padR = 16;
+    const width = Math.max(420, Math.min(1600, (xMax - xMin + 1) * minWidthPerPoint + padL + padR));
+    const w = width - padL - padR, h = height - padT - padB;
+    const sx = (x) => padL + (xMax > xMin ? ((x - xMin) / (xMax - xMin)) * w : w / 2);
+
+    withPoints.forEach((s) => {
+      const ys = s.points.map((p) => p.y);
+      s._min = Math.min(...ys);
+      s._max = Math.max(...ys);
+    });
+    const sy = (s, y) => padT + h - (s._max > s._min ? (y - s._min) / (s._max - s._min) : 0.5) * h;
+
+    const children = [];
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (h / 4) * i;
+      children.push(svg("line", { x1: padL, x2: padL + w, y1: y, y2: y, stroke: "#e2e8f0", "stroke-width": 1 }));
+    }
+    const labelCount = Math.min(8, Math.max(1, xMax - xMin));
+    for (let i = 0; i <= labelCount; i++) {
+      const x = xMin + Math.round(((xMax - xMin) * i) / labelCount);
+      children.push(text(sx(x), padT + h + 18, xLabel(x), { "text-anchor": "middle", fill: "#94a3b8", style: "font-size:10px" }));
+    }
+
+    withPoints.forEach((s) => {
+      const d = s.points.map((p, i) => `${i === 0 ? "M" : "L"}${sx(p.x).toFixed(1)},${sy(s, p.y).toFixed(1)}`).join(" ");
+      children.push(svg("path", { d, fill: "none", stroke: s.color, "stroke-width": s.emphasize ? 3 : 1.5,
+                                   opacity: s.muted ? 0.5 : 1 }));
+      s.points.forEach((p, i) => {
+        if (i % pointEvery !== 0 && i !== s.points.length - 1) return;
+        const titleEl = svg("title");
+        titleEl.textContent = `${s.label}: ${p.y.toFixed(s.decimals ?? 1)}${s.unit || ""} (${xLabel(p.x)})`;
+        children.push(svg("circle", { cx: sx(p.x), cy: sy(s, p.y), r: 2.5, fill: s.color,
+                                       opacity: s.muted ? 0.5 : 0.9 }, [titleEl]));
+      });
+    });
+
+    const root = svg("svg", { viewBox: `0 0 ${width} ${height}`, width: "100%", height,
+                               preserveAspectRatio: "xMinYMin meet" }, children);
+    container.innerHTML = "";
+    container.appendChild(root);
+  }
+
   // categories: [str,...]; series: [{label, color, values:[num|null,...], colors:[str,...]}]
   // A series' optional `colors` array overrides `color` per-bar (e.g. to
   // highlight one category, like the current season, within a single series).
@@ -438,5 +499,5 @@ const LWCharts = (() => {
     pdf.save(filename);
   }
 
-  return { lineChart, barChart, stackedBarChart, heatmap, bubbleMatrix, rangeBarChart, legend, exportPDF, PALETTE };
+  return { lineChart, normalizedLineChart, barChart, stackedBarChart, heatmap, bubbleMatrix, rangeBarChart, legend, exportPDF, PALETTE };
 })();

@@ -243,3 +243,33 @@ class HistoricalHarvest(SQLModel, table=True):
     season_year: int
     kg: float
     estimated: bool = False  # true where a combined historical block column was split by hectare ratio
+
+
+# ---------------------------------------------------------------------------
+# Historical weather backfill, for correlating conditions with harvest data
+# ---------------------------------------------------------------------------
+
+class WeatherHistory(SQLModel, table=True):
+    """Hourly weather for the farm's location, back to 2020, pulled from
+    Open-Meteo's historical-forecast API - see backend/weather.py's
+    fetch_historical_hourly()/parse_hourly_rows(). Filled by
+    scripts/import_historical_weather.py (wholesale replace, run by hand)
+    and kept current by weather.sync_recent_weather() (append-only, run as
+    a side effect of opening the admin/owner Weather tab)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Unlike every other datetime column in this app (naive UTC - see
+    # timeutil.py), this is naive LOCAL farm time: Open-Meteo was queried
+    # with timezone=auto, so its "time" strings are already in the farm's
+    # own timezone. Never pass this through timeutil.to_local() - use
+    # timestamp.date() directly, or it'll be shifted a second time.
+    timestamp: datetime = Field(index=True, unique=True)
+    temp_c: Optional[float] = None
+    humidity_pct: Optional[float] = None
+    dew_point_c: Optional[float] = None
+    precipitation_mm: Optional[float] = None
+    weather_code: Optional[int] = None
+    condition: str = ""
+    wind_speed_kmh: Optional[float] = None
+    soil_temp_6cm_c: Optional[float] = None
+    uv_index: Optional[float] = None
+    sunshine_duration_s: Optional[float] = None

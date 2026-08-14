@@ -23,8 +23,10 @@ from db import get_own_supplier_id, get_session
 from models import Block, HarvestRecord, OwnerViewToken, Supplier, Worker
 from routers.analysis import build_analysis_summary
 from routers.payments import _supplier_display_name, _worker_ids_for_supplier, _worker_totals
+from routers.weather import build_weather_history
 from security import get_current_admin
 from timeutil import day_bounds
+from weather import sync_recent_weather
 
 router = APIRouter(prefix="/api/owner-view", tags=["owner-view"])
 
@@ -145,6 +147,15 @@ def owner_view_analysis(token: str, session: Session = Depends(get_session)):
     redact), just reachable without an admin login."""
     require_owner_token(token, session)
     return build_analysis_summary(session)
+
+
+@router.get("/weather")
+def owner_view_weather(token: str, session: Session = Depends(get_session)):
+    """Token-gated equivalent of /api/weather/history - identical figures
+    to the admin Weather tab, reachable without an admin login."""
+    require_owner_token(token, session)
+    sync_recent_weather(session)
+    return build_weather_history(session)
 
 
 # /api/lots/pending, /api/lots/in-transit, /api/lots/received, and

@@ -70,6 +70,7 @@ async function showApp() {
   bindCollapsibles();
   bindDashboard();
   bindAnalysis();
+  bindWeather();
   bindMasterData();
   bindPayments();
   bindReports();
@@ -84,6 +85,7 @@ async function showApp() {
     const tab = active ? active.dataset.tab : "dashboard";
     if (tab === "dashboard") await refreshDashboard();
     else if (tab === "analysis") await loadAnalysis();
+    else if (tab === "weather") await loadWeather();
     else if (tab === "masterdata") await loadAllMasterData();
   });
 
@@ -1318,6 +1320,21 @@ function bindAnalysis() {
 
 async function loadAnalysis() {
   await LWAnalysisTab.load(() => LW.api("/api/analysis/summary", { auth: true }), {
+    onAuthError: () => sessionExpired(),
+  });
+}
+
+// ---------------------------------------------------------------------
+// Weather (historical, 2020-present) - chart rendering lives in
+// shared/weather-tab.js (also used by the Owner View).
+// ---------------------------------------------------------------------
+function bindWeather() {
+  document.querySelector('.tab-btn[data-tab="weather"]').addEventListener("click", loadWeather);
+  LWWeatherTab.bind();
+}
+
+async function loadWeather() {
+  await LWWeatherTab.load(() => LW.api("/api/weather/history", { auth: true }), {
     onAuthError: () => sessionExpired(),
   });
 }

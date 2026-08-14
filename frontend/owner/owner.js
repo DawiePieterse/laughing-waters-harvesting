@@ -53,6 +53,7 @@ function bindTabs() {
       document.querySelectorAll(".tab-content").forEach((c) => c.classList.add("hidden"));
       document.getElementById(`tab-${btn.dataset.tab}`).classList.remove("hidden");
       if (btn.dataset.tab === "analysis") loadAnalysis();
+      else if (btn.dataset.tab === "weather") loadWeather();
     });
   });
 }
@@ -64,10 +65,19 @@ async function loadAnalysis() {
   );
 }
 
+async function loadWeather() {
+  await LWWeatherTab.load(
+    () => LW.api(`/api/owner-view/weather?token=${encodeURIComponent(OWNER_KEY)}`),
+    { onAuthError: () => showDenied() },
+  );
+}
+
 function refreshActiveTab() {
   const active = document.querySelector(".tab-btn.active");
   const tab = active ? active.dataset.tab : "dashboard";
-  return tab === "analysis" ? loadAnalysis() : refreshDashboard();
+  if (tab === "analysis") return loadAnalysis();
+  if (tab === "weather") return loadWeather();
+  return refreshDashboard();
 }
 
 function bindDashboard() {
@@ -331,6 +341,7 @@ async function init() {
   bindCollapsibles();
   bindTabs();
   LWAnalysisTab.bind();
+  LWWeatherTab.bind();
 
   LW.offlineBanner("Offline - data may be out of date");
   // Refresh in both directions: reconnecting fetches the real figures, and

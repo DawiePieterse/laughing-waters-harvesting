@@ -12,6 +12,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/charts.js"></script>
 <script src="../shared/analysis-tab.js"></script>
+<script src="../shared/weather-tab.js"></script>
 <script src="../shared/ptr.js"></script>
 <script src="../shared/vendor/html2canvas/html2canvas.min.js"></script>
 <script src="../shared/vendor/jspdf/jspdf.umd.min.js"></script>
@@ -48,6 +49,7 @@
   <div class="flex overflow-x-auto bg-white shadow sticky top-0 z-10">
     <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
     <button class="tab-btn" data-tab="analysis">Analysis</button>
+    <button class="tab-btn" data-tab="weather">Weather</button>
   </div>
 
   <div class="p-4 max-w-7xl mx-auto">
@@ -214,6 +216,32 @@
         </div>
         <div class="text-xs text-slate-500 mb-2">Kg picked by month, every season, with each month's share of that season's total.</div>
         <div id="monthlyHeatmap" class="overflow-x-auto"></div>
+      </div>
+    </div>
+
+    <div id="tab-weather" class="tab-content hidden space-y-4">
+      <div class="text-xs text-slate-500">
+        Historical weather at the farm's location, 2020 to today. Opening this tab pulls any hours
+        since the last update from the weather service and adds them to the stored history.
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div class="font-semibold">Historical Weather</div>
+          <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="weatherChartExport" data-title="Historical Weather" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
+        </div>
+        <div class="text-xs text-slate-500 mb-2" id="weatherLastSynced"></div>
+
+        <div class="flex flex-wrap gap-x-6 gap-y-2 mb-3 pb-3 border-b">
+          <div id="weatherModeFilter" class="flex items-center"></div>
+          <div id="weatherMetricFilter" class="flex flex-wrap items-center"></div>
+        </div>
+        <div id="weatherYearFilter" class="flex flex-wrap gap-x-3 gap-y-1 mb-3 hidden"></div>
+
+        <div id="weatherChartExport">
+          <div id="weatherChart" class="overflow-x-auto"></div>
+          <div id="weatherLegend" class="mt-2"></div>
+        </div>
       </div>
     </div>
 
