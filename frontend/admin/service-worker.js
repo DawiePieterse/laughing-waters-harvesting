@@ -2,7 +2,7 @@
 // loads if the connection briefly drops. Data (dashboard, reports, etc.)
 // always goes over the network when available.
 const CACHE_PREFIX = "lw-admin-";
-const CACHE = "lw-admin-v31";
+const CACHE = "lw-admin-v33";
 const REVALIDATE_TIMEOUT_MS = 10000;
 const SHELL = [
   "./",
@@ -14,6 +14,7 @@ const SHELL = [
   "../shared/charts.js",
   "../shared/analysis-tab.js",
   "../shared/weather-tab.js",
+  "../shared/risk-tab.js",
   "../shared/ptr.js",
   "../shared/tailwind.js",
   "../shared/qrcode.min.js",

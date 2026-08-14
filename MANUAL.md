@@ -1243,6 +1243,88 @@ shaded on its own blue scale (separate from the month cells' scale) so the
 biggest season stands out at a glance. The current season always has a
 row, shown blank until picking begins.
 
+### Risk tab (Critical Season Risk Indicator)
+
+A separate nav tab next to Analysis and Weather (`/api/risk/summary`,
+served by `backend/routers/risk.py`) - a transparent 0-100 score of how
+risky a season's weather looks for a poor harvest, built from the four
+weather factors that best explained this farm's own 2020-2025 harvest
+variation. This is a one-off correlation study behind the score, not a
+generic agronomy model and not recalculated live - the driver list only
+changes if the study is redone with more seasons of data.
+
+**The four drivers**, each scored 0-25 and summed to the 0-100 score:
+- **Winter Chill Accumulation** (1 May - 31 Jul) - hours below 10°C. Lychee
+  flowering is induced by sustained winter cold; a mild winter has meant
+  fewer, weaker flowers here.
+- **Flowering-Period Rain Days** (1 Aug - 15 Sep) - days with >1mm rain.
+  Seasons with more rain days in this window produced bigger harvests here.
+- **Fruit Development Heat Stress** (16 Sep - 15 Nov) - hours above 35°C.
+  Extreme heat while fruit is sizing causes fruit drop and sunburn.
+- **Fruit Development Humidity** (16 Sep - 15 Nov) - mean relative
+  humidity. Low humidity while fruit is sizing coincided with smaller
+  harvests here.
+
+Each driver is scaled between the best and worst value seen across the six
+2020-2025 seasons, so 25/25 on one factor means "as bad as the worst of
+the last six years for that factor," not an absolute agronomic threshold.
+A calendar window that hasn't closed yet for the season being viewed is
+left out of the sum entirely (never assumed to be zero risk) - which is
+why the current season shows a partial **"score so far"**, with a count of
+how many of the four factors are known, until its last window closes.
+
+Use the **Season** dropdown to inspect any season 2020-2025 or the current
+one - each shows its own score, band (Low/Moderate/Elevated/High), and the
+per-driver breakdown with that season's actual value against the six-year
+range. Below that, **Risk Score by Season** and **Actual Harvest by
+Season** bar charts sit stacked so a higher score can be checked by eye
+against that year's actual outcome - both downloadable as PDF the same way
+as Analysis tab charts (see [above](#downloading-a-chart-as-pdf)).
+
+#### Harvest Forecast
+
+At the top of the Risk tab, above the season inspector, the **Harvest
+Forecast** card (`/api/risk/forecast`) turns the same four drivers into
+three current-season kg predictions - **Favorable**, **Expected**, and
+**Unfavorable** - rather than one falsely-precise number, since most of a
+season's outcome still depends on weather that hasn't happened yet.
+
+For whichever part of a driver's calendar window is still ahead, the
+forecast blends a real short-range weather forecast (up to 16 days out,
+via Open-Meteo) with a historical-scenario assumption for whatever's
+beyond that - each driver's own best/average/worst of the six 2020-2025
+seasons for the Favorable/Expected/Unfavorable scenario respectively. The
+**Basis** column in the table under the three scenario cards shows exactly
+how many days of each driver came from actual data, a real forecast, or a
+historical assumption (e.g. "14d actual + 16d forecast + 16d assumed"). A
+driver whose real data has a genuine gap (a down sensor, or the forecast
+service itself unreachable) falls back to the historical range alone for
+its whole window rather than silently treating missing data as "no risk" -
+flagged in that row.
+
+Each scenario's projected score converts to a kg figure via a straight
+line fitted through the six historical (risk score, harvest total) pairs -
+its own strength (r-value) is disclosed in the methodology panel below,
+alongside a note that the Unfavorable scenario in particular extrapolates
+past those six points rather than reading a value off them directly (it
+combines each driver's own worst *year*, not one real season that was
+worst on everything at once). If Open-Meteo's forecast is unreachable when
+the tab loads, the card still renders - with a note that every driver has
+fallen back to the historical range alone for its whole remaining window.
+
+The collapsible **"How this score is calculated"** panel at the bottom
+spells out the score's method and, deliberately, its limits: six seasons
+is too few for any of these correlations to be statistically significant
+(they're the best signal available from this farm's own history, not
+proven causes), and this farm's yields also show a visible alternate-
+bearing pattern (a heavy crop tends to follow a light one) that the score
+can't separate from weather with only six seasons of data. A second list
+in the same panel covers the Harvest Forecast card specifically: the
+regression's own r-value and sample size, the forecast/historical-range
+blending method, the Unfavorable scenario's extrapolation caveat, and that
+the whole card is a description of what the six-year pattern implies about
+this season's weather, not a guarantee of what will be harvested.
+
 ---
 
 ## 9. Admin - Master Data

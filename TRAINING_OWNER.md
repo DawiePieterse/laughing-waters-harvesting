@@ -38,8 +38,12 @@ If the link ever stops working, ask the farm office for a new one — see
 ## What you're looking at
 
 At the top: the farm name, the current date/time, and today's weather.
-Below that, two tabs — **Dashboard** (today's activity) and **Analysis**
-(this season vs. 2020-2025 history) — covered in turn below.
+Below that, four tabs — **Dashboard** (today's activity), **Analysis**
+(this season vs. 2020-2025 history), **Weather** (historical weather at
+the farm, 2020 to today), and **Risk** (a 0-100 score of how risky the
+season's weather looks for a poor harvest) — the first two and Risk are
+covered in turn below; Weather is the same historical weather chart the
+farm office sees in Admin, filterable by measurement and by year.
 
 ### Dashboard tab
 
@@ -93,6 +97,40 @@ covers the full history plus whatever's been picked so far this season):
 Every chart has a small <i class="fa-solid fa-file-pdf"></i> button in its
 top-right corner to download it as a one-page PDF, headed with the farm
 name and the chart's title.
+
+### Risk tab
+
+A 0-100 score of how risky a season's weather looks for a poor harvest,
+built from the four weather factors that best explained this farm's own
+2020-2025 harvest variation. Pick any season 2020-2025, or the current
+one, from the dropdown to see its score, risk band (Low/Moderate/Elevated/
+High), and a breakdown of each factor: what this season measured, how it
+compares to the 2020-2025 range, and how many risk points it contributed.
+The current season shows a partial "score so far" with a count of how many
+factors are known yet, since a factor's own time-of-year window has to
+close before it can be scored.
+
+Below that, two bar charts — **Risk Score by Season** and **Actual
+Harvest by Season** — sit stacked so you can check by eye whether a higher
+score actually lined up with a smaller harvest that year. A collapsible
+**"How this score is calculated"** panel at the bottom explains the method
+and is upfront about its limits: six seasons is too few for statistical
+proof, and this farm's yields also show a heavy-year-follows-light-year
+pattern the score can't fully separate from weather.
+
+**Harvest Forecast card.** Above the score, three scenarios — Favorable,
+Expected, Unfavorable — turn that same scoring into a predicted kg figure
+for the current season, since most of the season's outcome still depends
+on weather that hasn't happened yet. Wherever a factor's window still has
+days ahead, the forecast blends a real short-range weather forecast (up to
+16 days out) with a historical best/average/worst-case assumption for
+whatever's further out than that — the "Basis" column under the three
+scenario cards shows exactly how many days of each factor were actual,
+forecast, or assumed. The same "How this score is calculated" panel covers
+this card too, including that the Unfavorable scenario in particular
+stretches past what any single real season has actually shown — it's a
+description of what the six-year pattern implies, not a promise of what
+will be harvested.
 
 ---
 

@@ -71,6 +71,7 @@ async function showApp() {
   bindDashboard();
   bindAnalysis();
   bindWeather();
+  bindRisk();
   bindMasterData();
   bindPayments();
   bindReports();
@@ -86,6 +87,7 @@ async function showApp() {
     if (tab === "dashboard") await refreshDashboard();
     else if (tab === "analysis") await loadAnalysis();
     else if (tab === "weather") await loadWeather();
+    else if (tab === "risk") await loadRisk();
     else if (tab === "masterdata") await loadAllMasterData();
   });
 
@@ -1337,6 +1339,23 @@ async function loadWeather() {
   await LWWeatherTab.load(() => LW.api("/api/weather/history", { auth: true }), {
     onAuthError: () => sessionExpired(),
   });
+}
+
+// ---------------------------------------------------------------------
+// Critical Season Risk Indicator - chart rendering lives in
+// shared/risk-tab.js (also used by the Owner View).
+// ---------------------------------------------------------------------
+function bindRisk() {
+  document.querySelector('.tab-btn[data-tab="risk"]').addEventListener("click", loadRisk);
+  LWRiskTab.bind();
+}
+
+async function loadRisk() {
+  await LWRiskTab.load(
+    () => LW.api("/api/risk/summary", { auth: true }),
+    () => LW.api("/api/risk/forecast", { auth: true }),
+    { onAuthError: () => sessionExpired() },
+  );
 }
 
 if ("serviceWorker" in navigator) {

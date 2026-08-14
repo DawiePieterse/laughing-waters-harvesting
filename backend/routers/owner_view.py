@@ -23,6 +23,7 @@ from db import get_own_supplier_id, get_session
 from models import Block, HarvestRecord, OwnerViewToken, Supplier, Worker
 from routers.analysis import build_analysis_summary
 from routers.payments import _supplier_display_name, _worker_ids_for_supplier, _worker_totals
+from routers.risk import build_harvest_forecast, build_risk_summary
 from routers.weather import build_weather_history
 from security import get_current_admin
 from timeutil import day_bounds
@@ -156,6 +157,22 @@ def owner_view_weather(token: str, session: Session = Depends(get_session)):
     require_owner_token(token, session)
     sync_recent_weather(session)
     return build_weather_history(session)
+
+
+@router.get("/risk")
+def owner_view_risk(token: str, session: Session = Depends(get_session)):
+    """Token-gated equivalent of /api/risk/summary - identical figures to
+    the admin Risk tab, reachable without an admin login."""
+    require_owner_token(token, session)
+    return build_risk_summary(session)
+
+
+@router.get("/risk-forecast")
+def owner_view_risk_forecast(token: str, session: Session = Depends(get_session)):
+    """Token-gated equivalent of /api/risk/forecast - identical figures to
+    the admin Harvest Forecast card, reachable without an admin login."""
+    require_owner_token(token, session)
+    return build_harvest_forecast(session)
 
 
 # /api/lots/pending, /api/lots/in-transit, /api/lots/received, and
