@@ -1312,7 +1312,7 @@ three current-season kg predictions - **Favorable**, **Expected**, and
 season's outcome still depends on weather that hasn't happened yet.
 
 For whichever part of a driver's calendar window is still ahead, the
-forecast blends a real short-range weather forecast (up to 16 days out,
+forecast blends a real short-range weather forecast (up to 15 days out,
 via Open-Meteo) with a historical-scenario assumption for whatever's
 beyond that - each driver's own best/average/worst of the six 2020-2025
 seasons for the Favorable/Expected/Unfavorable scenario respectively. The

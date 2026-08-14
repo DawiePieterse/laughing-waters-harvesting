@@ -123,7 +123,7 @@ Expected, Unfavorable — turn that same scoring into a predicted kg figure
 for the current season, since most of the season's outcome still depends
 on weather that hasn't happened yet. Wherever a factor's window still has
 days ahead, the forecast blends a real short-range weather forecast (up to
-16 days out) with a historical best/average/worst-case assumption for
+15 days out) with a historical best/average/worst-case assumption for
 whatever's further out than that — the "Basis" column under the three
 scenario cards shows exactly how many days of each factor were actual,
 forecast, or assumed. The same "How this score is calculated" panel covers

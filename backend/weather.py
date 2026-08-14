@@ -107,11 +107,16 @@ def fetch_historical_hourly(lat: float, lon: float, start_date: str, end_date: s
 
 # Sibling of fetch_historical_hourly() above, for routers/risk.py's Harvest
 # Forecast - but hits the REAL forecast host (not the historical-forecast
-# one) for up to `days` ahead, Open-Meteo's own cap on the free forecast
-# API. Raises on failure rather than swallowing it, like
+# one). Raises on failure rather than swallowing it, like
 # fetch_historical_hourly() and unlike fetch_weather() below - the caller
 # (build_harvest_forecast) decides the fallback, same split
 # sync_recent_weather() already keeps around fetch_historical_hourly().
+#
+# `days` is Open-Meteo's forecast_days, capped at 16 and COUNTING TODAY -
+# so days=16 returns today plus only 15 future days. Callers wanting N
+# days ahead must ask for N+1 and must not assume the last requested day
+# came back; routers/risk.py keeps that distinction explicit as
+# FORECAST_API_DAYS vs FORECAST_HORIZON_DAYS.
 def fetch_forecast_hourly(lat: float, lon: float, days: int = 16, timeout: int = 30) -> dict:
     url = (
         "https://api.open-meteo.com/v1/forecast"

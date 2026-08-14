@@ -67,11 +67,16 @@ DRIVERS = [
 
 _BANDS = [(25, "Low"), (50, "Moderate"), (75, "Elevated"), (101, "High")]
 
-# How far ahead a real Open-Meteo forecast reaches - the free forecast API
-# tops out at 16 days. Anything in a driver's window beyond this still gets
-# blended into the harvest forecast, just from the historical scenario
-# range rather than an actual forecast - see _segment_days().
-FORECAST_HORIZON_DAYS = 16
+# Open-Meteo's forecast API tops out at forecast_days=16, and that count
+# INCLUDES today - so asking for the maximum yields only 15 usable *future*
+# days. These are deliberately two separate numbers: conflating them makes
+# the last day of the forecast window silently contribute no data (it falls
+# past the end of what the API actually returned) while still being counted
+# as a forecast day. Anything in a driver's window beyond the horizon is
+# blended in from the historical scenario range instead - see
+# _segment_days().
+FORECAST_API_DAYS = 16       # what we request (API maximum, counts today)
+FORECAST_HORIZON_DAYS = 15   # usable future days that actually come back
 
 
 def _band(score: float) -> str:
@@ -333,19 +338,22 @@ def _scenario_raw_value(hist_values: list, direction: str, scenario: str):
     return best if scenario == "favorable" else worst
 
 
-def _project_driver(d: dict, state: dict, forecast_by_date: dict, forecast_unavailable: bool) -> dict:
+def _project_driver(d: dict, state: dict, forecast_by_date: dict, horizon: int) -> dict:
     """One still-open driver's actual/forecast/assumed day-split and its
     three scenario-projected raw values (not yet converted to risk
-    points). If either the actual or forecast segment has days but no
-    usable data (a genuine gap - a down sensor or an unreachable forecast
-    provider), the whole driver falls back to the pure historical-scenario
-    value for its entire window instead of blending a partial gap in as if
-    it meant "no risk" - flagged via "data_gap" so the caller can tell."""
+    points). `horizon` is how many days past today the forecast segment may
+    claim - the caller derives it from what the forecast provider actually
+    returned (0 when unavailable), so this never counts a forecast day the
+    data doesn't cover. If either the actual or forecast segment has days
+    but no usable data (a genuine gap - a down sensor or an unreachable
+    forecast provider), the whole driver falls back to the pure
+    historical-scenario value for its entire window instead of blending a
+    partial gap in as if it meant "no risk" - flagged via "data_gap" so the
+    caller can tell."""
     year = state["current_year"]
     today = state["today"]
     window_start, window_end = _window_dates(year, d["window_md"])
     window_total_days = (window_end - window_start).days + 1
-    horizon = 0 if forecast_unavailable else FORECAST_HORIZON_DAYS
     segs = _segment_days(window_start, window_end, today, horizon)
 
     actual_days = _segment_day_count(segs["actual"])
@@ -405,7 +413,7 @@ def build_harvest_forecast(session: Session) -> dict:
 
     Each of the four DRIVERS' still-open window is projected forward (see
     _project_driver()): actual data where it exists, a real Open-Meteo
-    forecast for up to the next 16 days, and a historical-scenario
+    forecast for the next 15 days, and a historical-scenario
     assumption (this driver's best/mean/worst of the six 2020-2025 seasons)
     for whatever's beyond that. Projected values are scored with the exact
     same _risk_points() used by the real Risk tab, so a scenario's 0-100
@@ -432,13 +440,21 @@ def build_harvest_forecast(session: Session) -> dict:
     forecast_by_date = defaultdict(list)
     try:
         lat, lon = farm_coords(session)
-        raw = fetch_forecast_hourly(lat, lon, days=FORECAST_HORIZON_DAYS)
+        raw = fetch_forecast_hourly(lat, lon, days=FORECAST_API_DAYS)
         for row in parse_hourly_rows(raw):
             forecast_by_date[row["timestamp"].date()].append(SimpleNamespace(**row))
     except Exception:
         forecast_unavailable = True
 
-    horizon = 0 if forecast_unavailable else FORECAST_HORIZON_DAYS
+    # Trust what actually came back, not what we asked for: the horizon is
+    # the last future day the provider really covered, capped at
+    # FORECAST_HORIZON_DAYS. A short response (or a provider that changes
+    # how forecast_days counts) then just shortens the forecast segment
+    # rather than silently counting days that carry no data.
+    horizon = 0
+    if not forecast_unavailable:
+        future = [d for d in forecast_by_date if d > state["today"]]
+        horizon = min(FORECAST_HORIZON_DAYS, (max(future) - state["today"]).days) if future else 0
     forecast_horizon_end = state["today"] + timedelta(days=horizon) if horizon else None
 
     driver_data = []
@@ -459,7 +475,7 @@ def build_harvest_forecast(session: Session) -> dict:
                 raw_vals = {s: value for s in scenario_points}
                 data_gap, actual_days, forecast_days, assumed_days = False, window_total_days, 0, 0
         else:
-            proj = _project_driver(d, state, forecast_by_date, forecast_unavailable)
+            proj = _project_driver(d, state, forecast_by_date, horizon)
             raw_vals, data_gap = proj["scenarios"], proj["data_gap"]
             actual_days, forecast_days, assumed_days = proj["actual_days"], proj["forecast_days"], proj["assumed_days"]
 

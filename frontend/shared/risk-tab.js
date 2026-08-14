@@ -81,6 +81,16 @@ const LWRiskTab = (() => {
     _renderSeason();
     _renderBackTest(data);
 
+    // The forecast endpoint does real work (a live call out to the weather
+    // service, plus a full history scan) and can take several seconds on a
+    // slow link - say so, rather than leaving an empty card that reads as
+    // broken while it's simply still loading.
+    const cardEl = document.getElementById("harvestForecastCard");
+    if (cardEl && !cardEl.innerHTML.trim()) {
+      cardEl.innerHTML = `<div class="text-sm text-slate-400 p-4 text-center">
+        <i class="fa-solid fa-spinner fa-spin"></i> Working out this season's forecast...</div>`;
+    }
+
     const forecast = await forecastPromise;
     _renderForecast(forecast);
     _renderMethodology(data, forecast);
@@ -282,12 +292,18 @@ const LWRiskTab = (() => {
         </div>`).join("");
     }
 
+    // The forecast bullets and their heading are shown together or not at
+    // all - without hiding the heading too, a failed forecast fetch leaves
+    // "About the Harvest Forecast card above:" sitting over an empty list.
     const forecastEl = document.getElementById("riskMethodologyForecast");
+    const headingEl = document.getElementById("riskMethodologyForecastHeading");
     if (!forecastEl) return;
     if (!forecast || !forecast.regression) {
       forecastEl.innerHTML = "";
+      if (headingEl) headingEl.classList.add("hidden");
       return;
     }
+    if (headingEl) headingEl.classList.remove("hidden");
     const reg = forecast.regression;
     forecastEl.innerHTML = `
       <li>The Harvest Forecast card converts each scenario's risk score to a predicted kg figure
@@ -295,7 +311,7 @@ const LWRiskTab = (() => {
         (r = ${reg.r}, n = ${reg.n_seasons}) - the same "too few seasons for proof" limit above
         applies to this line just as much as to the score itself.</li>
       <li>For whatever part of a factor's time window is still ahead, the forecast uses a real
-        weather forecast (up to 16 days out) where available, and the 2020-2025 historical range
+        weather forecast (up to 15 days out) where available, and the 2020-2025 historical range
         beyond that - see each factor's "Basis" column for exactly how much of each is actual,
         forecast, or assumed.</li>
       <li>The Unfavorable scenario combines each factor's own worst historical year - four

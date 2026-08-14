@@ -50,7 +50,7 @@ if %errorLevel% equ 0 (
     echo     ^(early readings start as provisional forecast-model values and
     echo     firm up over the following days/weeks^) - the Risk and Harvest
     echo     Forecast tabs depend on this being accurate, not just present.
-    python "%~dp0scripts\import_historical_weather.py"
+    "%~dp0backend\.venv\Scripts\python.exe" "%~dp0scripts\import_historical_weather.py"
     if errorlevel 1 (
         echo Warning: weather refresh failed - check the error above ^(no
         echo internet, or Open-Meteo unreachable^). Starting the server
