@@ -427,7 +427,6 @@ def build_harvest_forecast(session: Session) -> dict:
     """
     sync_recent_weather(session)  # keep "actual" as fresh as the Weather tab would
     state = _compute_driver_state(session)
-    summary = build_risk_summary(session)  # single source of truth for historical (score, kg) pairs
 
     forecast_unavailable = False
     forecast_by_date = defaultdict(list)
@@ -477,8 +476,21 @@ def build_harvest_forecast(session: Session) -> dict:
                                "risk_points": rp[s]} for s in scenario_points},
         })
 
-    hist_pairs = [(s["risk_score"], s["total_kg"]) for s in summary["seasons"]
-                  if not s["is_current"] and s["risk_score"] is not None]
+    # Historical (risk_score, total_kg) pairs for the regression - computed
+    # directly from `state` rather than by calling build_risk_summary()
+    # (which would reload and re-group the entire WeatherHistory table a
+    # second time via its own _compute_driver_state() call). Every
+    # historical year is always "final" on every driver by definition
+    # (they're all in the past), so this reproduces exactly what
+    # build_risk_summary() would report as that season's risk_score.
+    hist_pairs = []
+    for year in state["historical_years"]:
+        comp_scores = [
+            _risk_points(state["value_by_year"][d["key"]][year], state["hist_range"][d["key"]], d["direction"])
+            for d in DRIVERS
+        ]
+        if all(p is not None for p in comp_scores):
+            hist_pairs.append((round(sum(comp_scores), 1), state["kg_by_year"].get(year, 0.0)))
     regression = _ols_fit([p[0] for p in hist_pairs], [p[1] for p in hist_pairs])
     six_season_avg_kg = sum(p[1] for p in hist_pairs) / len(hist_pairs) if hist_pairs else None
 

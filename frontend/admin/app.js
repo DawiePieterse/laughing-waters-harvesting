@@ -1353,7 +1353,12 @@ function bindRisk() {
 async function loadRisk() {
   await LWRiskTab.load(
     () => LW.api("/api/risk/summary", { auth: true }),
-    () => LW.api("/api/risk/forecast", { auth: true }),
+    // Forecast does real work the default 8s network timeout isn't built
+    // for: a live Open-Meteo forecast call, occasionally a weather-sync
+    // catch-up call, plus a full WeatherHistory scan - all on top of
+    // whatever a Tailscale hop or a modest server PC adds. A slow-but-
+    // working answer here shouldn't read as "unavailable".
+    () => LW.api("/api/risk/forecast", { auth: true, timeoutMs: 45000 }),
     { onAuthError: () => sessionExpired() },
   );
 }

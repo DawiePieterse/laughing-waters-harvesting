@@ -76,7 +76,9 @@ async function loadWeather() {
 async function loadRisk() {
   await LWRiskTab.load(
     () => LW.api(`/api/owner-view/risk?token=${encodeURIComponent(OWNER_KEY)}`),
-    () => LW.api(`/api/owner-view/risk-forecast?token=${encodeURIComponent(OWNER_KEY)}`),
+    // See the matching comment in admin/app.js's loadRisk() - this call does
+    // real work the default 8s network timeout isn't built for.
+    () => LW.api(`/api/owner-view/risk-forecast?token=${encodeURIComponent(OWNER_KEY)}`, { timeoutMs: 45000 }),
     { onAuthError: () => showDenied() },
   );
 }
