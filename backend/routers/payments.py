@@ -66,6 +66,9 @@ def _worker_totals(session: Session, period_start: date, period_end: date, suppl
     if worker_ids is not None:
         query = query.where(HarvestRecord.worker_id.in_(worker_ids))
     records = session.exec(query).all()
+    # Deliberately the newest RateSetting regardless of period_start/period_end,
+    # not the rate in effect during the period being calculated - confirmed
+    # farm policy: wages are always recalculated using the latest rate.
     setting = session.exec(
         select(RateSetting).order_by(RateSetting.effective_date.desc(), RateSetting.id.desc())
     ).first()
