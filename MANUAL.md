@@ -1122,6 +1122,27 @@ always means whatever's actually been captured this year through the Field
 app, compared against the harvest year set in
 [Settings](#12-admin---settings).
 
+### Re-importing historical data on a server
+
+The historical import is a one-off script, not something a `git pull`
+carries over - the source workbook and the script that reads it are both
+in the repo, but running the script is a separate manual step against
+*that server's own database*. This means a fresh install, or a server
+whose database was reset, needs the import run on it directly - a pull
+alone leaves the Analysis tab showing only the current season, with
+**vs 5-Yr Average Pace** reading "-", until this is done.
+
+From Command Prompt in `C:\LaughingWaters`, after confirming `git pull`
+(or `update_server.bat` - see
+[Getting the code onto the server](#getting-the-code-onto-the-server-github-recommended-or-usbzip))
+has already brought in the latest code:
+```bat
+backend\.venv\Scripts\python.exe scripts\import_historical_harvest.py
+```
+Safe to re-run any time (e.g. after regenerating the source workbook) -
+it replaces the whole historical table each time rather than appending.
+No server restart needed; the next Analysis tab load picks it up.
+
 ### A note on the historical numbers
 
 A handful of today's blocks (**8a/8b**, **10a/10b**, **17a/17b**, **19a/19b**)
@@ -1533,6 +1554,13 @@ sending a picking slip**
 You tried to split a load (send fewer crates than captured) while offline.
 Splitting needs a connection because the server decides the split; either
 wait for a connection or send the full load instead.
+
+**Analysis tab only shows the current season, no historical lines**
+The server's database hasn't had the historical import run against it yet
+- a `git pull`/update brings in the app code and the source workbook, but
+loading that data into the database is a separate manual step per server.
+See [Re-importing historical data on a server](#re-importing-historical-data-on-a-server)
+in chapter 8.
 
 **Forgotten admin password**
 There's currently no self-service "forgot password" flow in the app - a
