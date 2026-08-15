@@ -1724,12 +1724,19 @@ When even the server PC's own browser shows the amber bar, work down this
 list in order - each step rules out a whole layer, and skipping to the
 end wastes the most time:
 
-1. **Is the server actually running?** Open Task Manager (Ctrl+Shift+Esc)
-   → Details and look for `python.exe`. A Windows restart (power cut,
-   update) leaves the server down unless the Task Scheduler auto-start in
-   [chapter 2](#2-initial-server-setup) Step 12 was set up - that step is
-   optional, and without it nothing brings the server back by itself.
-   Start it with `start_server.bat`.
+1. **Is the server actually running - exactly once?** Open Task Manager
+   (Ctrl+Shift+Esc) → Details and look for `python.exe`. A Windows restart
+   (power cut, update) leaves the server down unless the Task Scheduler
+   auto-start in [chapter 2](#2-initial-server-setup) Step 12 was set up -
+   that step is optional, and without it nothing brings the server back by
+   itself. Start it with `start_server.bat`.
+
+   Seeing **more than one** `python.exe` group matters just as much as
+   seeing none: a second server started while the first was still running
+   binds a different port, so `tailscale serve` may be forwarding to one
+   instance while you are reading the other, and the two disagree about
+   what has been saved. End every `python.exe` task, confirm none remain,
+   then start exactly one.
 2. **Try `http://localhost:8000/admin/` on the server PC.** This bypasses
    the network entirely. If this works but the `.ts.net` address doesn't,
    the app and its data are fine and the problem is purely Tailscale -
