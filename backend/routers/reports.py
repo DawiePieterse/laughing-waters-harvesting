@@ -492,17 +492,26 @@ def _style_header_cell(cell):
 
 @router.get("/historical-harvest-data")
 def historical_harvest_data_report(session: Session = Depends(get_session), admin=Depends(get_current_admin)):
-    """Historical Harvest Data: the full multi-year block x date pivot,
-    2020 through the current season - the farm's own "Daaglikse Oesdata"
-    workbook, kept live. Years before this app existed come from
-    HistoricalHarvest (imported once - see scripts/import_historical_harvest.py
-    for provenance and the block-split-by-hectare-ratio caveat below); the
-    current season's sheet is built fresh from HarvestRecord on every
-    download, so it's always up to date without a re-import. Also includes an
-    "Annual Totals" sheet for 2012-2019 from HistoricalAnnualYield - even
-    older records the farm only kept per-season, not per-day (see
-    scripts/import_historical_annual_yield.py). Not date-range filtered like
-    the other reports - there's only ever one of these."""
+    """Historical Harvest Data: every harvest figure this farm has on file,
+    1987 through the current season, in one workbook. Not date-range
+    filtered like the other reports - there's only ever one of these.
+
+    Three different grains of record sit side by side here, which is why
+    there are several sheets rather than one big grid:
+      - Per-year sheets (2020 on): the full block x date pivot - the farm's
+        own "Daaglikse Oesdata" workbook, kept live. Pre-app seasons come
+        from HistoricalHarvest (imported once - see
+        scripts/import_historical_harvest.py for provenance and the
+        block-split-by-hectare-ratio caveat); the current season is built
+        fresh from HarvestRecord on every download, so it's always up to
+        date without a re-import.
+      - Annual Totals (1987-2019): season totals only, no daily breakdown -
+        per block back to 2012, whole-farm-only before that (see
+        scripts/import_historical_annual_yield.py).
+      - Season Summary and Block by Year: cross-era views built from
+        whichever of the above covers each season, so the whole record can
+        be read at once. Season Summary names each season's grain in its
+        own column so the two are never silently mixed."""
     settings = session.exec(select(SystemSetting)).first()
     current_year = settings.current_harvest_year if settings else date.today().year
     blocks = {b.id: b for b in session.exec(select(Block)).all()}
@@ -537,6 +546,31 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
         name = b.name if b else (bid or "")
         return f"{name}*" if bid in estimated_set else name
 
+    # One per-block annual figure per (year, block), however that year was
+    # recorded: summed from the daily sheets where those exist (2020 on),
+    # taken straight from the annual-only import before that. The 1987-2009
+    # rows carry block_id None - a whole-farm total with no block breakdown
+    # (see HistoricalAnnualYield) - so they're deliberately excluded here
+    # and appear only in the Season Summary's total.
+    block_year_kg: dict = {}  # (year, block_id) -> kg
+    for (year, block_id, _), kg in day_kg.items():
+        block_year_kg[(year, block_id)] = block_year_kg.get((year, block_id), 0.0) + kg
+    for (year, block_id), kg in annual_kg.items():
+        if block_id is not None:
+            block_year_kg[(year, block_id)] = block_year_kg.get((year, block_id), 0.0) + kg
+
+    all_years = sorted({y for y, _ in block_year_kg} | set(annual_years) | set(years))
+    all_estimated = estimated_blocks | annual_estimated_blocks
+
+    # How each season was recorded, so a reader can tell a real daily record
+    # from a single hand-written season total - they are not equally solid.
+    def granularity(year):
+        if year in years:
+            return "Daily, per block" if year != current_year else "Daily, per block (in progress)"
+        if any((year, bid) in annual_kg for bid in blocks):
+            return "Season total, per block"
+        return "Season total, whole farm only"
+
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
@@ -569,6 +603,13 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
         "marked with an asterisk (*) in each year's sheet.",
         "",
         "Figures are in kg per block per day.",
+        "",
+        "Season Summary lists every season on file with its total and how it was recorded - a real "
+        "day-by-day record and a single hand-written season total are both here, and the "
+        "\"How It Was Recorded\" column says which is which. Block by Year puts every block-level "
+        "season total in one grid, whichever way that year was recorded, so blocks can be compared "
+        "across the years side by side; seasons with no block breakdown at all (1987-2009) are "
+        "counted in Season Summary but can't appear there.",
     ]
     if annual_years:
         notes += [
@@ -590,6 +631,67 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
         if i == 1:
             cell.font = Font(bold=True, size=14)
         cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    # --- Season Summary: one row per season, every year on file ---
+    if all_years:
+        ss = wb.create_sheet("Season Summary")
+        ss.append(["Year", "Total Kg", "Change vs Previous", "Blocks Recorded", "How It Was Recorded"])
+        for c in ss[1]:
+            _style_header_cell(c)
+        season_total = {}
+        for year in all_years:
+            if year in years:
+                season_total[year] = sum(kg for (y, _, _), kg in day_kg.items() if y == year)
+            elif (year, None) in annual_kg:
+                season_total[year] = annual_kg[(year, None)]
+            else:
+                season_total[year] = sum(kg for (y, bid), kg in annual_kg.items()
+                                          if y == year and bid is not None)
+        for year in all_years:
+            total = season_total[year]
+            block_count = len({bid for (y, bid) in block_year_kg if y == year and bid is not None})
+            # Only against the season immediately before - the record has
+            # gaps (nothing for 2010-2011), and calling a three-year jump a
+            # year-on-year change would read as a collapse or a boom that
+            # never happened.
+            prev = season_total.get(year - 1)
+            change = (total - prev) / prev if prev else None
+            ss.append([year, round(total, 1), change, block_count or None, granularity(year)])
+        for r in range(2, ss.max_row + 1):
+            ss.cell(row=r, column=3).number_format = "+0.0%;-0.0%"
+        ss.freeze_panes = "A2"
+        for col, width in zip("ABCDE", (8, 14, 18, 16, 30)):
+            ss.column_dimensions[col].width = width
+
+    # --- Block by Year: every block-level season total in one grid ---
+    if block_year_kg:
+        by_years = sorted({y for y, _ in block_year_kg})
+        by_blocks = sorted({bid for _, bid in block_year_kg if bid is not None}, key=_block_sort_key)
+        bys = wb.create_sheet("Block by Year")
+        bys.append(["Block", "Variety", "Trees", "Hectares"] + [str(y) for y in by_years] + ["Total"])
+        for c in bys[1]:
+            _style_header_cell(c)
+        for bid in by_blocks:
+            b = blocks.get(bid)
+            row = [block_label(bid, all_estimated), b.variety if b else "",
+                   b.trees if b else None, b.hectares if b else None]
+            vals = [block_year_kg.get((y, bid)) for y in by_years]
+            row += [round(v, 1) if v is not None else None for v in vals]
+            row.append(round(sum(v for v in vals if v is not None), 1))
+            bys.append(row)
+        totals_row = ["TOTAL", "", None, None]
+        for y in by_years:
+            totals_row.append(round(sum(kg for (yy, bid), kg in block_year_kg.items()
+                                         if yy == y and bid is not None), 1))
+        totals_row.append(round(sum(kg for (_, bid), kg in block_year_kg.items() if bid is not None), 1))
+        bys.append(totals_row)
+        for c in bys[bys.max_row]:
+            c.font = Font(bold=True)
+        bys.freeze_panes = "E2"
+        bys.column_dimensions["A"].width = 16
+        bys.column_dimensions["B"].width = 12
+        for col in range(3, len(by_years) + 6):
+            bys.column_dimensions[get_column_letter(col)].width = 10
 
     # --- Annual Totals sheet (even older, season-only figures) ---
     if annual_years:
@@ -665,7 +767,10 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
     buf = io.BytesIO()
     wb.save(buf)
     data = buf.getvalue()
-    filename = f"Historical_Harvest_Data_{years[0]}_{years[-1]}.xlsx" if years else "Historical_Harvest_Data.xlsx"
+    # Span the whole workbook, not just the daily sheets - it reaches back
+    # to the earliest season-total year, well before the first daily one.
+    filename = (f"Historical_Harvest_Data_{all_years[0]}_{all_years[-1]}.xlsx"
+                if all_years else "Historical_Harvest_Data.xlsx")
     with open(os.path.join(REPORTS_DIR, filename), "wb") as f:
         f.write(data)
     return Response(content=data, media_type=XLSX_MEDIA,
