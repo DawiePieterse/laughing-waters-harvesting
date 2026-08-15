@@ -26,19 +26,26 @@ Only ever deletes/reinserts its own range (ARCHIVE_START_DATE up to the
 day before HISTORY_START_DATE), so it composes safely with
 scripts/import_historical_weather.py regardless of run order.
 
-Safe to re-run any time.
+Safe to re-run any time - and cheap to, since this range is finalized and
+never changes: if the DB already has an hour at each end of the range
+(the first hour of ARCHIVE_START_DATE and the last hour of the day before
+HISTORY_START_DATE), the whole fetch is skipped rather than re-running
+all 7 chunked API calls on every server update for data that can't have
+changed. Pass --force to re-fetch anyway (e.g. after correcting the farm's
+GPS coordinates in Settings, since this table doesn't track which
+coordinates each row was fetched for).
 
 Usage (run with the backend's own venv so sqlmodel etc. are on the path):
-    backend/.venv/bin/python3 scripts/import_historical_weather_archive.py
+    backend/.venv/bin/python3 scripts/import_historical_weather_archive.py [--force]
 """
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 BACKEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backend")
 sys.path.insert(0, BACKEND_DIR)
 
-from sqlmodel import Session, delete  # noqa: E402
+from sqlmodel import Session, delete, select  # noqa: E402
 
 from db import create_db_and_tables, engine  # noqa: E402
 from models import WeatherHistory  # noqa: E402
@@ -46,6 +53,16 @@ from weather import HISTORY_START_DATE, farm_coords, fetch_archive_hourly, parse
 
 ARCHIVE_START_DATE = "1987-01-01"
 CHUNK_YEARS = 5
+
+
+def already_imported(session) -> bool:
+    range_start = date.fromisoformat(ARCHIVE_START_DATE)
+    range_end = date.fromisoformat(HISTORY_START_DATE) - timedelta(days=1)
+    first_hour = datetime(range_start.year, range_start.month, range_start.day, 0)
+    last_hour = datetime(range_end.year, range_end.month, range_end.day, 23)
+    has_start = session.exec(select(WeatherHistory.id).where(WeatherHistory.timestamp == first_hour).limit(1)).first()
+    has_end = session.exec(select(WeatherHistory.id).where(WeatherHistory.timestamp == last_hour).limit(1)).first()
+    return bool(has_start and has_end)
 
 
 def _chunks(start: date, end: date, years: int):
@@ -69,7 +86,13 @@ def load_rows(lat, lon):
 
 def main():
     create_db_and_tables()
+    force = "--force" in sys.argv
     with Session(engine) as session:
+        if not force and already_imported(session):
+            print(f"Archive weather already covers {ARCHIVE_START_DATE} to "
+                  f"{(date.fromisoformat(HISTORY_START_DATE) - timedelta(days=1)).isoformat()} - skipping "
+                  f"(pass --force to re-fetch).")
+            return
         lat, lon = farm_coords(session)
     rows = load_rows(lat, lon)
     with Session(engine) as session:
