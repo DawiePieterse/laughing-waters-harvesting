@@ -1719,6 +1719,41 @@ off-site) that **Tailscale** shows Connected. Field capture is unaffected
 either way: crates keep saving to the device and go up automatically when
 the connection returns.
 
+**Every screen says "Offline", including on the server PC itself**
+When even the server PC's own browser shows the amber bar, work down this
+list in order - each step rules out a whole layer, and skipping to the
+end wastes the most time:
+
+1. **Is the server actually running?** Open Task Manager (Ctrl+Shift+Esc)
+   → Details and look for `python.exe`. A Windows restart (power cut,
+   update) leaves the server down unless the Task Scheduler auto-start in
+   [chapter 2](#2-initial-server-setup) Step 12 was set up - that step is
+   optional, and without it nothing brings the server back by itself.
+   Start it with `start_server.bat`.
+2. **Try `http://localhost:8000/admin/` on the server PC.** This bypasses
+   the network entirely. If this works but the `.ts.net` address doesn't,
+   the app and its data are fine and the problem is purely Tailscale -
+   continue to step 3. If this *also* fails, go back to step 1.
+3. **Check Tailscale.** Its tray icon should read Connected. If the
+   browser shows `ERR_NAME_NOT_RESOLVED` on the `.ts.net` address, the
+   name isn't resolving at all: those names exist only in Tailscale's own
+   MagicDNS, never in ordinary public DNS, which is why an unrelated site
+   still loads fine while the farm's own address doesn't. Reconnect
+   Tailscale, run `ipconfig /flushdns`, and confirm **MagicDNS** is still
+   enabled at `login.tailscale.com/admin/dns`.
+
+> **A working internet connection tells you nothing here.** The farm
+> server is reached over Tailscale, not the public internet, so an
+> ordinary web page loading normally is not evidence the app should be
+> reachable - the two use different DNS and different routes. Test the
+> app's own address, not a search engine.
+
+> The Risk and Weather tabs additionally call out to the weather service
+> while loading. If those two are offline but Dashboard and Analysis work,
+> the server is fine and it's that outbound call failing - both tabs fall
+> back to stored data on their own, so this shows up as slowness or stale
+> figures rather than an empty screen.
+
 **"Reconnect to send a partial load, or dispatch everything now" when
 sending a picking slip**
 You tried to split a load (send fewer crates than captured) while offline.
