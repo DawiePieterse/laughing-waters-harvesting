@@ -202,7 +202,14 @@ def sync_recent_weather(session: Session) -> dict:
 
     Data is hourly, so once the latest stored row already falls in the
     current hour there is nothing new to fetch - that's the whole throttle,
-    no extra cache/state needed to stop repeat tab-opens hammering the API."""
+    no extra cache/state needed to stop repeat tab-opens hammering the API.
+
+    Uses a short timeout, not fetch_historical_hourly()'s 120s default: this
+    runs synchronously inside the Weather/Risk tab's request, which the
+    frontend abandons after LW.NETWORK_TIMEOUT_MS (8s, see shared/api.js) -
+    a slow/dead connection must fail fast enough here that the endpoint can
+    still return the already-stored data within that budget, rather than
+    the tab hanging past it and reading as fully offline."""
     try:
         latest = session.exec(
             select(WeatherHistory.timestamp).order_by(WeatherHistory.timestamp.desc())
@@ -213,7 +220,7 @@ def sync_recent_weather(session: Session) -> dict:
 
         start_date = latest.date().isoformat() if latest else HISTORY_START_DATE
         lat, lon = farm_coords(session)
-        data = fetch_historical_hourly(lat, lon, start_date, now.date().isoformat())
+        data = fetch_historical_hourly(lat, lon, start_date, now.date().isoformat(), timeout=3)
         rows = parse_hourly_rows(data)
         new_rows = [WeatherHistory(**r) for r in rows if latest is None or r["timestamp"] > latest]
         if new_rows:

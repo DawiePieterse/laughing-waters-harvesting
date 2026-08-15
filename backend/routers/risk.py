@@ -555,7 +555,12 @@ def build_harvest_forecast(session: Session) -> dict:
     forecast_by_date = defaultdict(list)
     try:
         lat, lon = farm_coords(session)
-        raw = fetch_forecast_hourly(lat, lon, days=FORECAST_API_DAYS)
+        # Short timeout (not the 30s default): this runs inside the same
+        # request the frontend gives up on after 8s (LW.NETWORK_TIMEOUT_MS),
+        # and a slow forecast call already degrades gracefully below via
+        # forecast_unavailable - it should do so quickly, not hang the whole
+        # Risk tab offline while it waits.
+        raw = fetch_forecast_hourly(lat, lon, days=FORECAST_API_DAYS, timeout=3)
         for row in parse_hourly_rows(raw):
             forecast_by_date[row["timestamp"].date()].append(SimpleNamespace(**row))
     except Exception:
