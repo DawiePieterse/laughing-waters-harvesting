@@ -235,6 +235,20 @@ Then restart the server (see
 [Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)
 below).
 
+**Checking an install is sound.** After a fresh install, a database
+restore, or any update that worries you, run the self-test:
+```bat
+backend\.venv\Scripts\python.exe scripts\selftest.py
+```
+It checks the parts of the app that do real arithmetic - the Risk
+indicator's scoring, the Harvest Forecast's projections, and whether every
+sheet of the Historical Harvest Data report reconciles against the
+database - and prints a line per check, ending in PASSED or FAILED. It
+reads only; it never writes to the database and needs no internet, so it
+is safe to run on the live server at any time, including while people are
+using the app. If anything reports FAILED, the message names what
+disagreed - send that text on rather than acting on the app's figures.
+
 **Why `update_server.bat` refreshes weather on every update.** Open-Meteo's
 recent days start out as provisional forecast-model estimates and firm up
 into finalized reanalysis figures over the following days/weeks - the

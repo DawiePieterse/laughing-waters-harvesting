@@ -230,11 +230,14 @@ def _compute_driver_state(session: Session) -> dict:
 
     analysis = build_analysis_summary(session)
     kg_by_year = {m["year"]: m["total_kg"] for m in analysis["monthly"]}
+    annual_totals: dict = defaultdict(float)
     for a in session.exec(select(HistoricalAnnualYield)).all():
-        if a.season_year not in kg_by_year:  # never override a daily-tracked season
-            kg_by_year[a.season_year] = 0.0
-        if a.season_year not in analysis["historical_years"] and a.season_year != current_year:
-            kg_by_year[a.season_year] += a.kg
+        annual_totals[a.season_year] += a.kg
+    for year, kg in annual_totals.items():
+        # setdefault, not +=: a season tracked day-by-day is already whole
+        # in kg_by_year, and the annual table's own row for it (if one is
+        # ever imported) would be the same harvest counted twice.
+        kg_by_year.setdefault(year, kg)
 
     # Reference seasons: everything from REFERENCE_START_YEAR up to (not
     # including) the current one that we actually have a season total for.
@@ -612,9 +615,11 @@ def build_harvest_forecast(session: Session) -> dict:
     # (they're all in the past), so this reproduces exactly what
     # build_risk_summary() would report as that season's risk_score.
     hist_pairs = []
+    regression_years = []
     for year in state["historical_years"]:
         if year < REGRESSION_START_YEAR:
             continue  # immature orchard - see REGRESSION_START_YEAR
+        regression_years.append(year)
         comp_scores = [
             _risk_points(state["value_by_year"][d["key"]][year], state["hist_range"][d["key"]], d["direction"])
             for d in DRIVERS
@@ -654,6 +659,12 @@ def build_harvest_forecast(session: Session) -> dict:
         "forecast_horizon_end": forecast_horizon_end.isoformat() if forecast_horizon_end else None,
         "reference_avg_kg": round(reference_avg_kg, 1) if reference_avg_kg is not None else None,
         "reference_label": _reference_label(state["historical_years"]),
+        # Distinct from reference_label above, and deliberately so: the
+        # scenarios' historical range spans every reference season, but the
+        # kg line (and reference_avg_kg with it) is fitted only from
+        # REGRESSION_START_YEAR. Labelling the average with the wider range
+        # would credit it to seasons it was never computed over.
+        "regression_label": _reference_label(regression_years),
         "reference_season_count": len(hist_pairs),
         "regression": regression,
         "scenarios": scenarios_out,

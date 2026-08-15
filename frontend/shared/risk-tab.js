@@ -245,7 +245,8 @@ const LWRiskTab = (() => {
         return `<div class="border border-slate-200 rounded-lg p-3 text-center text-slate-400 text-sm">${SCENARIO_LABELS[key]}<br>Not available</div>`;
       }
       const color = BAND_COLORS[s.band] || "#64748b";
-      const pctText = s.vs_avg_pct == null ? "" : `${s.vs_avg_pct > 0 ? "+" : ""}${s.vs_avg_pct}% vs 6-season avg`;
+      const avgLabel = forecast.regression_label ? `${forecast.regression_label} avg` : "historical avg";
+      const pctText = s.vs_avg_pct == null ? "" : `${s.vs_avg_pct > 0 ? "+" : ""}${s.vs_avg_pct}% vs ${avgLabel}`;
       return `
         <div class="border border-slate-200 rounded-lg p-3 text-center">
           <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">${SCENARIO_LABELS[key]}</div>

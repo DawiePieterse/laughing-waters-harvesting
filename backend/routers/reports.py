@@ -564,10 +564,16 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
 
     # How each season was recorded, so a reader can tell a real daily record
     # from a single hand-written season total - they are not equally solid.
+    annual_per_block_years = {y for (y, bid) in annual_kg if bid is not None}
+
     def granularity(year):
         if year in years:
             return "Daily, per block" if year != current_year else "Daily, per block (in progress)"
-        if any((year, bid) in annual_kg for bid in blocks):
+        # Keyed off the data itself rather than today's block register, so a
+        # historical block that's since been removed from the register still
+        # counts as a per-block season rather than silently reading as
+        # whole-farm-only.
+        if year in annual_per_block_years:
             return "Season total, per block"
         return "Season total, whole farm only"
 
