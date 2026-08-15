@@ -1,9 +1,11 @@
 // Critical Season Risk Indicator (Risk tab): a transparent 0-100 score of
 // how risky a season's weather looks for a poor harvest, built from the
-// four weather factors that best explained this farm's own 2020-2025
-// harvest variation (see backend/routers/risk.py's build_risk_summary()
-// docstring for the correlation study and its honest caveats - small
-// sample, alternate bearing - which this tab surfaces rather than hides).
+// four weather factors that best explained this farm's own harvest
+// variation across its full 1987-2025 record (see backend/routers/risk.py's
+// build_risk_summary() docstring for the correlation study and its honest
+// caveats, which this tab surfaces rather than hides). Prose here never
+// hardcodes the reference range - it comes from the API's reference_label,
+// so widening it on the backend can't leave this quoting a stale range.
 // Also renders the Harvest Forecast card (build_harvest_forecast()): three
 // current-season kg scenarios - Favorable/Expected/Unfavorable - built by
 // blending real short-range weather forecast with historical-scenario
@@ -163,7 +165,7 @@ const LWRiskTab = (() => {
       const barColor = known ? _riskColor(c.risk_points) : "#cbd5e1";
       const barPct = known ? Math.round((c.risk_points / 25) * 100) : 100;
       const valueText = c.value != null ? `${c.value} ${d.unit}` : "no data yet";
-      const rangeText = d.historical_min != null ? `2020-2025 range: ${d.historical_min}-${d.historical_max} ${d.unit}` : "";
+      const rangeText = d.historical_min != null ? `${_data.reference_label} range: ${d.historical_min}-${d.historical_max} ${d.unit}` : "";
       return `
         <div class="border border-slate-200 rounded-lg p-3">
           <div class="flex justify-between items-start gap-2">
@@ -265,7 +267,7 @@ const LWRiskTab = (() => {
     const horizonNote = forecast.forecast_unavailable
       ? `<div class="text-xs text-amber-700 mb-3"><i class="fa-solid fa-triangle-exclamation"></i> Live weather forecast temporarily unavailable - showing historical-scenario estimates only for the near term too.</div>`
       : forecast.forecast_horizon_end
-        ? `<div class="text-xs text-slate-500 mb-3">Real forecast data through ${forecast.forecast_horizon_end}; beyond that, scenarios use the 2020-2025 historical range.</div>`
+        ? `<div class="text-xs text-slate-500 mb-3">Real forecast data through ${forecast.forecast_horizon_end}; beyond that, scenarios use the ${forecast.reference_label} historical range.</div>`
         : "";
 
     cardEl.innerHTML = `
@@ -307,18 +309,20 @@ const LWRiskTab = (() => {
     const reg = forecast.regression;
     forecastEl.innerHTML = `
       <li>The Harvest Forecast card converts each scenario's risk score to a predicted kg figure
-        via a straight line fit through the six 2020-2025 (risk score, harvest total) pairs
-        (r = ${reg.r}, n = ${reg.n_seasons}) - the same "too few seasons for proof" limit above
-        applies to this line just as much as to the score itself.</li>
+        via a straight line fit through the (risk score, harvest total) pairs from ${reg.n_seasons}
+        seasons (r = ${reg.r}). Those start at 2016, when the replanted blocks first bore fruit -
+        before that only block 7 was cropping, so earlier totals reflect a young orchard rather
+        than its weather.</li>
       <li>For whatever part of a factor's time window is still ahead, the forecast uses a real
-        weather forecast (up to 15 days out) where available, and the 2020-2025 historical range
-        beyond that - see each factor's "Basis" column for exactly how much of each is actual,
-        forecast, or assumed.</li>
+        weather forecast (up to 15 days out) where available, and the ${forecast.reference_label}
+        historical range beyond that - see each factor's "Basis" column for exactly how much of
+        each is actual, forecast, or assumed.</li>
       <li>The Unfavorable scenario combines each factor's own worst historical year - four
         different real years, not one real season that was worst on everything at once - so its
-        score can fall outside any season 2020-2025 actually reached, meaning that line is
-        extrapolated past its six fitted points rather than read off them directly.</li>
-      <li>This is a description of what the six-year pattern implies about this season's specific
+        score can land outside anything a real season reached. Predictions are held to the best and
+        worst harvests actually on record rather than running the line off past them, so the two
+        extremes read as "about as good/bad as it has ever gone", not exact figures.</li>
+      <li>This is a description of what the historical pattern implies about this season's specific
         weather, not a guarantee of what will be harvested.</li>`;
   }
 

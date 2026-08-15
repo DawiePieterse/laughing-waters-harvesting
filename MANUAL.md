@@ -1300,34 +1300,46 @@ row, shown blank until picking begins.
 A separate nav tab next to Analysis and Weather (`/api/risk/summary`,
 served by `backend/routers/risk.py`) - a transparent 0-100 score of how
 risky a season's weather looks for a poor harvest, built from the four
-weather factors that best explained this farm's own 2020-2025 harvest
-variation. This is a one-off correlation study behind the score, not a
-generic agronomy model and not recalculated live - the driver list only
-changes if the study is redone with more seasons of data.
+weather factors that best explained this farm's own harvest variation.
+This is a one-off correlation study behind the score, not a generic
+agronomy model and not recalculated live - the driver list only changes if
+the study is redone.
+
+The study was last re-run once the farm's full 1987-2025 harvest and
+weather history was imported, replacing an earlier version fitted on 2020-
+2025 alone. Two of those original four factors (winter chill hours, and
+rain days during flowering) turned out to have no relationship with this
+farm's yields at all once there was enough history to test them properly -
+winter chill correlated at r = -0.02 across 37 seasons, essentially zero -
+and were replaced. The four below were also checked against each other, so
+the score doesn't count one underlying signal four times over.
 
 **The four drivers**, each scored 0-25 and summed to the 0-100 score:
-- **Winter Chill Accumulation** (1 May - 31 Jul) - hours below 10°C. Lychee
-  flowering is induced by sustained winter cold; a mild winter has meant
-  fewer, weaker flowers here.
-- **Flowering-Period Rain Days** (1 Aug - 15 Sep) - days with >1mm rain.
-  Seasons with more rain days in this window produced bigger harvests here.
-- **Fruit Development Heat Stress** (16 Sep - 15 Nov) - hours above 35°C.
-  Extreme heat while fruit is sizing causes fruit drop and sunburn.
-- **Fruit Development Humidity** (16 Sep - 15 Nov) - mean relative
-  humidity. Low humidity while fruit is sizing coincided with smaller
-  harvests here.
+- **Fruit Development Air Dryness** (16 Sep - 31 Oct) - mean dew point.
+  The strongest single signal in the whole record: dry air while fruit is
+  sizing means the crop loses water faster than it can take it up.
+- **Fruit Development Warmth** (16 Sep - 15 Nov) - mean daily maximum
+  temperature. Persistently warm afternoons line up with smaller crops -
+  a steadier measure than counting rare extreme days.
+- **Flowering-Period Sunshine** (1 Aug - 15 Sep) - total hours of sunshine.
+  Bright flowering weather produced the bigger crops; dull, overcast spells
+  during flowering mean poorer pollination and fruit set.
+- **Fruit-Sizing Rainfall** (1 Oct - 30 Nov) - total mm. Rain while the
+  fruit fills out fed the bigger harvests; dry Octobers and Novembers line
+  up with the smaller ones.
 
-Each driver is scaled between the best and worst value seen across the six
-2020-2025 seasons, so 25/25 on one factor means "as bad as the worst of
-the last six years for that factor," not an absolute agronomic threshold.
-A calendar window that hasn't closed yet for the season being viewed is
-left out of the sum entirely (never assumed to be zero risk) - which is
-why the current season shows a partial **"score so far"**, with a count of
-how many of the four factors are known, until its last window closes.
+Each driver is scaled between the best and worst value seen across the
+reference seasons (2012 onward - when the replanted orchard came into
+bearing), so 25/25 on one factor means "as bad as the worst season on
+file for that factor," not an absolute agronomic threshold. A calendar
+window that hasn't closed yet for the season being viewed is left out of
+the sum entirely (never assumed to be zero risk) - which is why the
+current season shows a partial **"score so far"**, with a count of how
+many of the four factors are known, until its last window closes.
 
-Use the **Season** dropdown to inspect any season 2020-2025 or the current
+Use the **Season** dropdown to inspect any reference season or the current
 one - each shows its own score, band (Low/Moderate/Elevated/High), and the
-per-driver breakdown with that season's actual value against the six-year
+per-driver breakdown with that season's actual value against the reference
 range. Below that, **Risk Score by Season** and **Actual Harvest by
 Season** bar charts sit stacked so a higher score can be checked by eye
 against that year's actual outcome - both downloadable as PDF the same way
@@ -1355,26 +1367,36 @@ its whole window rather than silently treating missing data as "no risk" -
 flagged in that row.
 
 Each scenario's projected score converts to a kg figure via a straight
-line fitted through the six historical (risk score, harvest total) pairs -
-its own strength (r-value) is disclosed in the methodology panel below,
-alongside a note that the Unfavorable scenario in particular extrapolates
-past those six points rather than reading a value off them directly (it
-combines each driver's own worst *year*, not one real season that was
-worst on everything at once). If Open-Meteo's forecast is unreachable when
-the tab loads, the card still renders - with a note that every driver has
-fallen back to the historical range alone for its whole remaining window.
+line fitted through the historical (risk score, harvest total) pairs from
+2016 onward - the first season the replanted blocks bore any fruit, since
+before that only block 7 was cropping and earlier totals reflect a young
+orchard rather than its weather. The line's own strength (r-value) and
+sample size are disclosed in the methodology panel below. The Favorable
+and Unfavorable ends are held to the best and worst harvests actually on
+record rather than running the line out past them, so those two read as
+"about as good or bad as it has ever gone" rather than exact figures -
+each combines every driver's own best or worst *year*, not one real season
+that went that way on everything at once. If Open-Meteo's forecast is
+unreachable when the tab loads, the card still renders - with a note that
+every driver has fallen back to the historical range alone for its whole
+remaining window.
 
 The collapsible **"How this score is calculated"** panel at the bottom
-spells out the score's method and, deliberately, its limits: six seasons
-is too few for any of these correlations to be statistically significant
-(they're the best signal available from this farm's own history, not
-proven causes), and this farm's yields also show a visible alternate-
-bearing pattern (a heavy crop tends to follow a light one) that the score
-can't separate from weather with only six seasons of data. A second list
-in the same panel covers the Harvest Forecast card specifically: the
-regression's own r-value and sample size, the forecast/historical-range
-blending method, the Unfavorable scenario's extrapolation caveat, and that
-the whole card is a description of what the six-year pattern implies about
+spells out the score's method and, deliberately, its limits: weather
+explains roughly a quarter to a half of this farm's swing from season to
+season (real signal, but most of what makes a season good or bad is
+something the score can't see), and many factor-and-window combinations
+were tested to arrive at these four, so they were kept only because they
+held up across separate stretches of the farm's history. The panel also
+notes something growers often assume but this farm's record does not
+support: there is **no alternate-bearing pattern** here - across 35
+back-to-back season pairs, last season's crop predicts this one at
+r = 0.07, statistically nothing. (An earlier version of this manual and
+of the app claimed the opposite; the longer record disproved it.) A second
+list in the same panel covers the Harvest Forecast card specifically: the
+regression's r-value and sample size, the forecast/historical-range
+blending method, the clamping of the two extreme scenarios, and that the
+whole card is a description of what the historical pattern implies about
 this season's weather, not a guarantee of what will be harvested.
 
 ---

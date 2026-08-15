@@ -250,8 +250,8 @@
     <div id="tab-risk" class="tab-content hidden space-y-4">
       <div class="text-xs text-slate-500">
         A transparent 0-100 score of how risky a season's weather looks for a poor harvest, built from
-        the four weather factors that best explained this farm's own 2020-2025 harvest variation - not
-        a generic forecast. See "How this score is calculated" below for the full method and its limits.
+        the four weather factors that best explained this farm's own harvest variation across its full
+        record - not a generic forecast. See "How this score is calculated" below for the method and its limits.
       </div>
 
       <div class="bg-white rounded-xl shadow p-4">
@@ -279,7 +279,7 @@
           <div class="font-semibold">Risk Score by Season</div>
           <button class="chart-pdf-btn text-slate-400 hover:text-slate-600" data-target="riskScoreChartExport" data-title="Risk Score by Season" title="Download as PDF"><i class="fa-solid fa-file-pdf"></i></button>
         </div>
-        <div class="text-xs text-slate-500 mb-2">Back-tested against 2020-2025: does a higher score line up with a poorer harvest that year? (* = current season, may still be partial)</div>
+        <div class="text-xs text-slate-500 mb-2">Back-tested against every season on file: does a higher score line up with a poorer harvest that year? (* = current season, may still be partial)</div>
         <div id="riskScoreChartExport">
           <div id="riskScoreChart" class="overflow-x-auto"></div>
         </div>
@@ -302,28 +302,36 @@
         </button>
         <div id="risk-methodology-body" class="collapsible-body hidden border-t p-4 text-sm text-slate-600 space-y-3">
           <p>
-            This score is built from a one-off correlation study of this farm's own 2020-2025 harvest
-            totals against its weather history: the four factors below were the ones that lined up best
-            with a bigger or smaller harvest over those six seasons. It is <em>not</em> a generic
-            agronomy model, and it isn't recalculated live - the driver list itself only changes if this
-            study is redone with more seasons of data.
+            This score is built from a one-off correlation study of this farm's own harvest records
+            against its weather history, reaching back to 1987: the four factors below were the ones
+            that lined up best with a bigger or smaller harvest <em>and</em> that measure genuinely
+            different things, rather than four ways of restating the same one. It is <em>not</em> a
+            generic agronomy model, and it isn't recalculated live - the driver list itself only
+            changes if this study is redone.
           </p>
           <div id="riskMethodologyDrivers" class="space-y-2"></div>
           <p>
             Each factor contributes up to 25 risk points, scaled between the best and worst value seen
-            across the six 2020-2025 seasons - so 25/25 means "as bad as the worst of the last six years
-            for that factor", not an absolute threshold. Points are summed to a 0-100 score once every
-            factor's calendar window has closed for that season; a window still open just isn't counted
-            yet (never assumed to be zero risk), which is why the current season shows a partial "score
-            so far" until its last window closes.
+            across the reference seasons (2012 onward, once the replanted orchard was bearing) - so
+            25/25 means "as bad as the worst season on file for that factor", not an absolute
+            threshold. Points are summed to a 0-100 score once every factor's calendar window has
+            closed for that season; a window still open just isn't counted yet (never assumed to be
+            zero risk), which is why the current season shows a partial "score so far" until its last
+            window closes.
           </p>
-          <p class="font-medium text-slate-700">Two honest limits:</p>
+          <p class="font-medium text-slate-700">Honest limits:</p>
           <ul class="list-disc pl-5 space-y-1">
-            <li>Six seasons is too few for any of these correlations to be statistically significant -
-              they're the best signal available from this farm's own history, not proven causes.</li>
-            <li>This farm's yields also show a visible alternate-bearing pattern (a heavy crop tends to
-              follow a light one), a well-known lychee phenomenon this score can't separate from weather
-              with only six seasons of data.</li>
+            <li>Weather explains roughly a quarter to a half of this farm's swing from season to
+              season. That is real signal, but most of what makes a season good or bad is something
+              this score cannot see - treat it as one input among several, not a verdict.</li>
+            <li>Many factor-and-window combinations were tested to arrive at these four, and in any
+              such search some of what looks like signal is chance. These four were kept because they
+              held up across separate stretches of the farm's history, not because they scored well
+              once.</li>
+            <li>Contrary to what is often expected of lychees, this farm's own record shows no
+              alternate-bearing pattern: across 35 back-to-back season pairs, last season's crop tells
+              you essentially nothing about this one. An earlier version of this note claimed the
+              opposite - the longer record does not support it.</li>
           </ul>
           <p id="riskMethodologyForecastHeading" class="font-medium text-slate-700 hidden">About the Harvest Forecast card above:</p>
           <ul id="riskMethodologyForecast" class="list-disc pl-5 space-y-1"></ul>
