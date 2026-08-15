@@ -219,6 +219,17 @@ does this automatically - see below for why it matters):
 ```bat
 backend\.venv\Scripts\python.exe scripts\import_historical_weather.py
 ```
+There's also a separate, one-off backfill reaching back to 1987 (matching
+the Historical Harvest Data report's Annual Totals sheet) - not part of
+`update_server.bat`'s automatic refresh, since it's finalized historical
+data with nothing to firm up over time the way recent days do:
+```bat
+backend\.venv\Scripts\python.exe scripts\import_historical_weather_archive.py
+```
+Only 2020-2025 actually drives the Risk indicator or Harvest Forecast
+(both fixed to that reference range); 1987-2019 is reference-only, for
+the Weather tab's own chart.
+
 Then restart the server (see
 [Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)
 below).
@@ -1165,6 +1176,17 @@ Safe to re-run any time (e.g. after regenerating the source workbook) -
 it replaces the whole historical table each time rather than appending.
 No server restart needed; the next Analysis tab load picks it up.
 
+There's a second, separate one-off import for the even-older 1987-2019
+seasons (annual totals only, no daily breakdown - these don't feed the
+Analysis tab, only the Historical Harvest Data report's Annual Totals
+sheet). 2012-2019 has a per-block breakdown; 1987-2009 only has a
+whole-farm total per year, since those records predate today's block
+register and use an incompatible numbering scheme:
+```bat
+backend\.venv\Scripts\python.exe scripts\import_historical_annual_yield.py
+```
+Also safe to re-run any time; also replaces its table wholesale.
+
 ### A note on the historical numbers
 
 A handful of today's blocks (**8a/8b**, **10a/10b**, **17a/17b**, **19a/19b**)
@@ -1437,7 +1459,7 @@ Dashboard (Farm/Supplier + date range):
 | Worker Harvest Report | Per-worker crates/kg/amount-due/avg-kg-per-crate |
 | Lietsjie Lone / Litchi Wages | One row per worker, with crates harvested vs. crates actually received at the pack house broken out per day (plus deductions and the difference) - the gap flags fruit that never made it off the lot it was picked into before wages get paid out on it |
 | Block Harvest Report | Per-block crates/kg/avg-kg-per-crate/avg-kg-per-tree |
-| Historical Harvest Data | The full multi-year block x date pivot, 2020 through the current season - the farm's own "Daaglikse Oesdata" workbook, kept live. Ignores the date range filter above (there's only ever one of these); download it any time to get every season to date in one file. |
+| Historical Harvest Data | The full multi-year block x date pivot, 2020 through the current season - the farm's own "Daaglikse Oesdata" workbook, kept live. Also includes an Annual Totals sheet reaching back to 1987, back when the farm only kept one total per season rather than per day (per-block from 2012, whole-farm only before that). Ignores the date range filter above (there's only ever one of these); download it any time to get every season to date in one file. |
 
 Every generated report is also saved on the server itself, in
 `data\reports\` (same filename as the download, e.g.

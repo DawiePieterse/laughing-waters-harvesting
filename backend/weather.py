@@ -105,6 +105,32 @@ def fetch_historical_hourly(lat: float, lon: float, start_date: str, end_date: s
         return _json.loads(resp.read())
 
 
+# Sibling of fetch_historical_hourly() above, for dates before that API's own
+# 2016-01-01 floor (HISTORY_START_DATE / scripts/import_historical_weather.py
+# only ever asks it for 2020 onward, so that floor has never mattered until
+# now). Hits Open-Meteo's separate reanalysis-based archive instead, which
+# reaches back to 1940 - but doesn't carry soil_temperature_6cm or uv_index
+# at any date (confirmed by hand: both come back all-null even for recent
+# dates), so ARCHIVE_HOURLY_FIELDS omits them rather than requesting fields
+# that can never be filled. Those two columns are simply NULL for any row
+# this fetches - parse_hourly_rows() already pads missing hourly series with
+# None, so no other change was needed to reuse it here.
+ARCHIVE_HOURLY_FIELDS = ",".join([
+    "temperature_2m", "relative_humidity_2m", "dew_point_2m", "precipitation",
+    "weather_code", "wind_speed_10m", "sunshine_duration",
+])
+
+
+def fetch_archive_hourly(lat: float, lon: float, start_date: str, end_date: str, timeout: int = 120) -> dict:
+    url = (
+        "https://archive-api.open-meteo.com/v1/archive"
+        f"?latitude={lat}&longitude={lon}&start_date={start_date}&end_date={end_date}"
+        f"&hourly={ARCHIVE_HOURLY_FIELDS}&timezone=auto"
+    )
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return _json.loads(resp.read())
+
+
 # Sibling of fetch_historical_hourly() above, for routers/risk.py's Harvest
 # Forecast - but hits the REAL forecast host (not the historical-forecast
 # one). Raises on failure rather than swallowing it, like

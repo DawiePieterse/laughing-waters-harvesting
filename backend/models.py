@@ -245,17 +245,47 @@ class HistoricalHarvest(SQLModel, table=True):
     estimated: bool = False  # true where a combined historical block column was split by hectare ratio
 
 
+class HistoricalAnnualYield(SQLModel, table=True):
+    """ANNUAL kg totals for seasons even further back (1987-2019) than
+    HistoricalHarvest's daily records - the farm's older bookkeeping only
+    tracked totals per season, not per day, that far back. See
+    scripts/import_historical_annual_yield.py for provenance. Two different
+    grains, both from the same source workbook: 2012-2019 is PER-BLOCK
+    (block_id set, same block-split-by-hectare-ratio caveat as
+    HistoricalHarvest); 1987-2009 is a single WHOLE-FARM row per year
+    (block_id NULL) - those years' own block numbering predates today's
+    block register with no reliable mapping, so only the farm-wide total
+    is kept. Reference-only: with no daily breakdown to align by
+    season-day, and no weather data before 2020 to drive it, this doesn't
+    feed the Analysis tab or Risk indicator - it only appears as an extra
+    sheet on the Historical Harvest Data export. Never written to by the
+    app itself; re-running the import script replaces the table wholesale."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    block_id: Optional[str] = Field(default=None, foreign_key="block.id")  # NULL = whole-farm total, no block breakdown
+    season_year: int
+    kg: float
+    estimated: bool = False  # true where a combined historical block column was split by hectare ratio
+
+
 # ---------------------------------------------------------------------------
 # Historical weather backfill, for correlating conditions with harvest data
 # ---------------------------------------------------------------------------
 
 class WeatherHistory(SQLModel, table=True):
-    """Hourly weather for the farm's location, back to 2020, pulled from
-    Open-Meteo's historical-forecast API - see backend/weather.py's
-    fetch_historical_hourly()/parse_hourly_rows(). Filled by
-    scripts/import_historical_weather.py (wholesale replace, run by hand)
-    and kept current by weather.sync_recent_weather() (append-only, run as
-    a side effect of opening the admin/owner Weather tab)."""
+    """Hourly weather for the farm's location, back to 1987, pulled from
+    two different Open-Meteo APIs depending on era - see backend/weather.py's
+    fetch_historical_hourly() (2020 onward) / fetch_archive_hourly()
+    (1987-2019 - soil_temp_6cm_c and uv_index are always NULL that far
+    back, that API never carries them) and shared parse_hourly_rows().
+    Filled by scripts/import_historical_weather.py (2020 onward) and
+    scripts/import_historical_weather_archive.py (1987-2019) - each only
+    replaces its own date range, so they compose safely in either order -
+    and kept current day-to-day by weather.sync_recent_weather()
+    (append-only, run as a side effect of opening the admin/owner Weather
+    tab). Only 2020-2025 actually drives anything (the Risk indicator and
+    Harvest Forecast are fixed to that reference range - see
+    routers/risk.py); 1987-2019 is reference-only, for the Weather tab's
+    own chart."""
     id: Optional[int] = Field(default=None, primary_key=True)
     # Unlike every other datetime column in this app (naive UTC - see
     # timeutil.py), this is naive LOCAL farm time: Open-Meteo was queried

@@ -164,7 +164,15 @@ def _compute_driver_state(session: Session) -> dict:
     kg_by_year = {m["year"]: m["total_kg"] for m in analysis["monthly"]}
     all_years = sorted(set(historical_years) | {current_year})
 
-    rows = session.exec(select(WeatherHistory)).all()
+    # Every DRIVERS window_md falls entirely within its own calendar year (no
+    # Dec-into-Jan spillover), so a plain min(all_years) floor is exact - no
+    # buffer needed. Bounding this matters now that WeatherHistory reaches
+    # back to 1987 (see scripts/import_historical_weather_archive.py):
+    # without it, this table-scans 30+ extra years this function never
+    # actually looks up (all_years is always just the fixed 2020-2025
+    # reference range plus the current season).
+    rows = session.exec(select(WeatherHistory).where(
+        WeatherHistory.timestamp >= date(min(all_years), 1, 1))).all()
     by_date = defaultdict(list)
     for r in rows:
         by_date[r.timestamp.date()].append(r)

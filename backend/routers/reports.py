@@ -13,8 +13,8 @@ from sqlmodel import Session, select
 
 from db import DATA_DIR, get_session
 from excel_io import rows_to_xlsx_bytes
-from models import Block, Device, HarvestRecord, HistoricalHarvest, Lot, LotStatus, ReceivingRecord, Supplier, \
-    SystemSetting, Team, Worker
+from models import Block, Device, HarvestRecord, HistoricalAnnualYield, HistoricalHarvest, Lot, LotStatus, \
+    ReceivingRecord, Supplier, SystemSetting, Team, Worker
 from routers.analysis import _block_sort_key
 from routers.dashboard import dashboard_summary
 from routers.lots import list_in_transit, list_pending, list_received
@@ -498,8 +498,11 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
     HistoricalHarvest (imported once - see scripts/import_historical_harvest.py
     for provenance and the block-split-by-hectare-ratio caveat below); the
     current season's sheet is built fresh from HarvestRecord on every
-    download, so it's always up to date without a re-import. Not date-range
-    filtered like the other reports - there's only ever one of these."""
+    download, so it's always up to date without a re-import. Also includes an
+    "Annual Totals" sheet for 2012-2019 from HistoricalAnnualYield - even
+    older records the farm only kept per-season, not per-day (see
+    scripts/import_historical_annual_yield.py). Not date-range filtered like
+    the other reports - there's only ever one of these."""
     settings = session.exec(select(SystemSetting)).first()
     current_year = settings.current_harvest_year if settings else date.today().year
     blocks = {b.id: b for b in session.exec(select(Block)).all()}
@@ -520,10 +523,19 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
 
     years = sorted({k[0] for k in day_kg})
 
-    def block_label(bid):
+    annual_kg: dict = {}  # (year, block_id) -> kg
+    annual_estimated_blocks: set = set()
+    for a in session.exec(select(HistoricalAnnualYield)).all():
+        key = (a.season_year, a.block_id)
+        annual_kg[key] = annual_kg.get(key, 0.0) + a.kg
+        if a.estimated:
+            annual_estimated_blocks.add(a.block_id)
+    annual_years = sorted({k[0] for k in annual_kg})
+
+    def block_label(bid, estimated_set=estimated_blocks):
         b = blocks.get(bid)
         name = b.name if b else (bid or "")
-        return f"{name}*" if bid in estimated_blocks else name
+        return f"{name}*" if bid in estimated_set else name
 
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -558,11 +570,52 @@ def historical_harvest_data_report(session: Session = Depends(get_session), admi
         "",
         "Figures are in kg per block per day.",
     ]
+    if annual_years:
+        notes += [
+            "",
+            f"Annual Totals sheet ({annual_years[0]}-{annual_years[-1]}): the farm's older records only "
+            "kept totals per SEASON, not per day, so these years have no daily breakdown and aren't part "
+            "of the Analysis tab or Risk indicator (which need day-by-day figures, and weather data only "
+            "goes back to 2020 anyway). The same block-split estimate and asterisk convention above "
+            "applies to the per-block years here too.",
+            "",
+            "Rows marked \"whole-farm total only\" in that sheet's Notes column go back further still "
+            "(1987-2009) to records that predate today's block register entirely, under a completely "
+            "different, incompatible block-numbering scheme. Rather than guess at a mapping between old "
+            "and new block numbers, only each year's whole-farm total was kept for those rows - no "
+            "per-block breakdown is available.",
+        ]
     for i, line in enumerate(notes, start=1):
         cell = ns.cell(row=i, column=1, value=line)
         if i == 1:
             cell.font = Font(bold=True, size=14)
         cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    # --- Annual Totals sheet (even older, season-only figures) ---
+    if annual_years:
+        # block_id None marks a whole-farm-only year (no block breakdown available that far back)
+        annual_blocks = sorted({bid for (_, bid) in annual_kg if bid is not None}, key=_block_sort_key)
+        farm_total_years = {y for (y, bid) in annual_kg if bid is None}
+        as_ = wb.create_sheet("Annual Totals")
+        header = (["Year"] + [block_label(bid, annual_estimated_blocks) for bid in annual_blocks] +
+                   ["Total", "Notes"])
+        as_.append(header)
+        for c in as_[1]:
+            _style_header_cell(c)
+        for year in annual_years:
+            if year in farm_total_years:
+                total = annual_kg[(year, None)]
+                as_.append([year] + [None] * len(annual_blocks) + [round(total, 1), "whole-farm total only"])
+            else:
+                row_kg = {bid: annual_kg.get((year, bid), 0.0) for bid in annual_blocks}
+                total = sum(row_kg.values())
+                as_.append([year] + [round(row_kg[bid], 1) if (year, bid) in annual_kg else None
+                                      for bid in annual_blocks] + [round(total, 1), ""])
+        as_.freeze_panes = "B2"
+        as_.column_dimensions["A"].width = 8
+        for col in range(2, len(header)):
+            as_.column_dimensions[get_column_letter(col)].width = 11
+        as_.column_dimensions[get_column_letter(len(header))].width = 20
 
     # --- Per-year sheets ---
     for year in years:
