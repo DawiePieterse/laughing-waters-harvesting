@@ -1,9 +1,9 @@
 @echo off
 :: Laughing Waters Harvesting - double-click this file to pull the latest
 :: code from GitHub, install any new dependencies, refresh historical
-:: weather data, and restart the server so the update actually takes
-:: effect. See MANUAL.md chapter 2 ("Pulling future updates") for what
-:: this automates and does manually.
+:: weather and harvest data, and restart the server so the update actually
+:: takes effect. See MANUAL.md chapter 2 ("Pulling future updates") for
+:: what this automates and does manually.
 
 net session >nul 2>&1
 if %errorLevel% neq 0 (
@@ -57,6 +57,29 @@ if %errorLevel% equ 0 (
         echo anyway with whatever weather history it already had; it'll
         echo catch up on its own next time someone opens the Weather or
         echo Risk tab, or next time this script runs successfully.
+    )
+
+    echo.
+    echo ==> Refreshing older historical data ^(1987-2019^)...
+    echo     Annual harvest totals ^(reads the farm's own OES workbook,
+    echo     already in this checkout - no internet needed^) and older
+    echo     weather ^(from Open-Meteo's archive API^). Both are finalized,
+    echo     unchanging records, so re-running this every update is mostly
+    echo     a no-op - it's here so a fresh/rebuilt server picks them up
+    echo     automatically instead of needing the manual steps in
+    echo     MANUAL.md chapter 2. Neither feeds the Risk indicator or
+    echo     Harvest Forecast ^(both fixed to 2020-2025^) - only the
+    echo     Historical Harvest Data report and Weather tab.
+    "%~dp0backend\.venv\Scripts\python.exe" "%~dp0scripts\import_historical_annual_yield.py"
+    if errorlevel 1 (
+        echo Warning: older harvest data refresh failed - check the error
+        echo above. Starting the server anyway with whatever it already had.
+    )
+    "%~dp0backend\.venv\Scripts\python.exe" "%~dp0scripts\import_historical_weather_archive.py"
+    if errorlevel 1 (
+        echo Warning: older weather refresh failed - check the error above
+        echo ^(no internet, or Open-Meteo unreachable^). Starting the server
+        echo anyway with whatever it already had.
     )
 
     schtasks /run /tn "Laughing Waters Server" >nul 2>&1

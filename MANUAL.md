@@ -198,12 +198,12 @@ Once new commits are pushed to GitHub, update an already-running server.
 
 The easy way: double-click **`update_server.bat`** at the top of the
 project folder. It pulls the latest code, installs any new dependencies,
-refreshes the historical weather data (see below), and restarts the
-server (via the Scheduled Task) all in one step - this is the recommended
-way to deploy an update, since it's easy to forget the restart step if
-done by hand (a `git pull` alone does not restart anything, so the
-running server keeps serving the old code until it's explicitly
-restarted).
+refreshes historical weather and harvest data (see below), and restarts
+the server (via the Scheduled Task) all in one step - this is the
+recommended way to deploy an update, since it's easy to forget the
+restart step if done by hand (a `git pull` alone does not restart
+anything, so the running server keeps serving the old code until it's
+explicitly restarted).
 
 The manual way, if you'd rather do each step yourself: open Command
 Prompt in `C:\LaughingWaters` and run:
@@ -214,21 +214,22 @@ This only touches the app's code - the database, worker photos, and
 backups all live in the gitignored `data/` folder and are never affected
 by a pull. If `backend/requirements.txt` changed, re-run the installer
 (`install.bat`) or `pip install -r requirements.txt` to pick up any new
-dependencies. Optionally refresh historical weather too (`update_server.bat`
-does this automatically - see below for why it matters):
+dependencies. Optionally refresh historical data too (`update_server.bat`
+does all three of these automatically - see below for why it matters):
 ```bat
 backend\.venv\Scripts\python.exe scripts\import_historical_weather.py
-```
-There's also a separate, one-off backfill reaching back to 1987 (matching
-the Historical Harvest Data report's Annual Totals sheet) - not part of
-`update_server.bat`'s automatic refresh, since it's finalized historical
-data with nothing to firm up over time the way recent days do:
-```bat
 backend\.venv\Scripts\python.exe scripts\import_historical_weather_archive.py
+backend\.venv\Scripts\python.exe scripts\import_historical_annual_yield.py
 ```
-Only 2020-2025 actually drives the Risk indicator or Harvest Forecast
-(both fixed to that reference range); 1987-2019 is reference-only, for
-the Weather tab's own chart.
+(`import_historical_harvest.py`, the 2020-2025 daily harvest import, is
+NOT one of these three - it's a true one-off against a fixed source
+workbook, so it isn't part of `update_server.bat`'s automatic refresh; see
+[Re-importing historical data on a server](#re-importing-historical-data-on-a-server)
+in the Analysis chapter if it's ever needed by hand, e.g. after
+regenerating that workbook.) Only 2020-2025 actually drives the Risk
+indicator or Harvest Forecast (both fixed to that reference range);
+1987-2019 is reference-only, for the Weather tab and the Historical
+Harvest Data report's Annual Totals sheet.
 
 Then restart the server (see
 [Stopping, starting, and restarting the server](#stopping-starting-and-restarting-the-server-task-scheduler)
@@ -245,8 +246,12 @@ wholesale replace, same script as the one-off backfill above) between
 stopping and starting the server, so the [Risk tab](#8-admin---analysis)'s
 score and Harvest Forecast - both sensitive to exactly how accurate recent
 weather is, not just whether it's present - are working from the best data
-available each time the server restarts. If that step fails (no internet,
-Open-Meteo unreachable), the update still completes and the server still
+available each time the server restarts. The 1987-2019 weather and harvest
+scripts run there too, mostly as a no-op once already populated (that data
+is finalized and doesn't change) - they're there so a fresh or rebuilt
+server picks them up automatically instead of needing the manual steps
+above. If any of these steps fail (no internet, Open-Meteo unreachable),
+the update still completes and the server still
 restarts - it just keeps whatever weather history it already had until the
 next successful refresh.
 
@@ -1176,16 +1181,19 @@ Safe to re-run any time (e.g. after regenerating the source workbook) -
 it replaces the whole historical table each time rather than appending.
 No server restart needed; the next Analysis tab load picks it up.
 
-There's a second, separate one-off import for the even-older 1987-2019
-seasons (annual totals only, no daily breakdown - these don't feed the
-Analysis tab, only the Historical Harvest Data report's Annual Totals
-sheet). 2012-2019 has a per-block breakdown; 1987-2009 only has a
-whole-farm total per year, since those records predate today's block
-register and use an incompatible numbering scheme:
+There's a second, separate import for the even-older 1987-2019 seasons
+(annual totals only, no daily breakdown - these don't feed the Analysis
+tab, only the Historical Harvest Data report's Annual Totals sheet).
+2012-2019 has a per-block breakdown; 1987-2009 only has a whole-farm
+total per year, since those records predate today's block register and
+use an incompatible numbering scheme. `update_server.bat` runs this
+automatically on every update (see "Pulling future updates" above), so
+it's rarely needed by hand - but for a fresh install, or to run it in
+isolation:
 ```bat
 backend\.venv\Scripts\python.exe scripts\import_historical_annual_yield.py
 ```
-Also safe to re-run any time; also replaces its table wholesale.
+Safe to re-run any time; replaces its table wholesale.
 
 ### A note on the historical numbers
 
