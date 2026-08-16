@@ -470,17 +470,52 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 Then set Windows to run it automatically on startup:
 
-1. Open **Task Scheduler** (search for it in the Start menu).
-2. Click **Create Basic Task…**, name it "Laughing Waters Server", Next.
-3. Trigger: choose **"When the computer starts"**, Next.
-4. Action: choose **"Start a program"**, Next, then browse to and select
+1. First close any server already running: Task Manager (Ctrl+Shift+Esc) →
+   End task on every `python.exe`. From here on the scheduled task owns the
+   server - starting `start_server.bat` by hand as well is what leaves two
+   instances running on different ports (see
+   [chapter 13](#13-troubleshooting--faq)).
+2. Open **Task Scheduler** (search for it in the Start menu).
+3. Click **Create Basic Task…** and name it exactly **Laughing Waters
+   Server**, Next.
+
+   > The name is not cosmetic. `update_server.bat` restarts the server by
+   > looking this task up by that literal string; under any other name it
+   > silently skips the restart and leaves the old backend running while
+   > the newly-pulled frontend is served straight from disk - so the
+   > version badge updates and the fix appears not to have deployed.
+
+4. Trigger: choose **"When the computer starts"**, Next.
+5. Action: choose **"Start a program"**, Next, then browse to and select
    `C:\LaughingWaters\start_server.bat`, Next, Finish.
-5. Find the new task in the Task Scheduler Library, right-click →
-   **Properties**, and on the **General** tab tick **"Run whether user is
-   logged on or not"** so it starts even before anyone signs in. You'll be
-   asked for the Windows account password when you save this.
-6. Restart the PC once to confirm the server comes up on its own (check
-   from another device by browsing to `http://<this-pc's-IP>:8000/`).
+6. Find the new task in the Task Scheduler Library, right-click →
+   **Properties**, and on the **Settings** tab tick **"If the task fails,
+   restart every:"**, set 1 minute, so a crash recovers itself.
+7. Still in Properties, set who it runs as - **and match the trigger to
+   that choice**, or the task never fires:
+
+   | Account has | General tab | Triggers tab |
+   |---|---|---|
+   | A Windows password | **"Run whether user is logged on or not"** (asks for the password on save) | leave as **At startup** |
+   | No password | **"Run only when user is logged on"** | change to **At log on** |
+
+   > "At startup" fires before anyone has signed in. Combined with "run
+   > only when user is logged on" that condition is never true when it
+   > fires, so the task quietly never runs and the server stays down after
+   > a reboot - with nothing in the task's History to suggest it was
+   > supposed to. A PC with no Windows password auto-signs-in at boot, so
+   > "At log on" gets there moments later and is the pairing to use.
+
+   Adding a Windows password purely to enable the first row is usually the
+   wrong trade for a server left in an office: it makes the PC stop at a
+   lock screen after a power cut, which is worse for unattended restarts
+   than what it fixes.
+
+8. Right-click the task → **Run**, and check `http://localhost:8000/admin/`
+   loads on the server PC itself.
+9. **Then restart the PC and, without touching anything, check the app
+   again from another device.** An auto-start that was never tested this
+   way is worse than none, because everyone assumes it's covered.
 
 With this in place the server behaves like any other piece of office
 equipment - it just needs the PC left on.
