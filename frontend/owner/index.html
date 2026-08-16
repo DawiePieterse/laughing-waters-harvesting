@@ -223,8 +223,9 @@
 
     <div id="tab-weather" class="tab-content hidden space-y-4">
       <div class="text-xs text-slate-500">
-        Historical weather at the farm's location, 2020 to today. Opening this tab pulls any hours
-        since the last update from the weather service and adds them to the stored history.
+        Historical weather at the farm's location, 1987 to today, one line per year you tick.
+        Opening this tab pulls any hours since the last update from the weather service and adds
+        them to the stored history.
       </div>
 
       <div class="bg-white rounded-xl shadow p-4">
@@ -235,10 +236,9 @@
         <div class="text-xs text-slate-500 mb-2" id="weatherLastSynced"></div>
 
         <div class="flex flex-wrap gap-x-6 gap-y-2 mb-3 pb-3 border-b">
-          <div id="weatherModeFilter" class="flex items-center"></div>
           <div id="weatherMetricFilter" class="flex flex-wrap items-center"></div>
         </div>
-        <div id="weatherYearFilter" class="flex flex-wrap gap-x-3 gap-y-1 mb-3 hidden"></div>
+        <div id="weatherYearFilter" class="flex flex-wrap gap-x-3 gap-y-1 mb-3"></div>
 
         <div id="weatherChartExport">
           <div id="weatherChart" class="overflow-x-auto"></div>

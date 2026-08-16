@@ -1,14 +1,20 @@
-// Weather tab (historical weather, 2020-present): an interactive chart
-// filterable by calendar year (or a continuous "All Years" view) and by
-// which measurements to plot, a dynamic legend, and PDF export. Shared between
-// the admin app (/api/weather/history, JWT auth) and the Owner View
+// Weather tab (historical weather, 1987-present): an interactive chart
+// filterable by calendar year and by which measurements to plot, a dynamic
+// legend, and PDF export. Shared between the admin app
+// (/api/weather/history, JWT auth) and the Owner View
 // (/api/owner-view/weather, token auth) - identical markup (same element
 // IDs), same as analysis-tab.js, so this one module renders both.
+//
+// Years are always overlaid on a shared 1 Jan - 31 Dec x-axis, one line per
+// selected year, defaulting to the most recent year on file. There used to
+// be an "All Years" mode plotting one continuous line across the whole
+// record instead; it was dropped once the history reached back to 1987,
+// where it compressed 39 years into an unreadable smear and buried the
+// year-on-year comparison this tab exists for.
 const LWWeatherTab = (() => {
   let _data = null;
   let _bound = false;
   let _firstLoad = true;
-  let _mode = "all"; // "all" (continuous) | "years" (calendar-year overlay)
   let _selectedYears = new Set();
   let _selectedMetrics = new Set();
 
@@ -20,11 +26,7 @@ const LWWeatherTab = (() => {
     _bound = true;
 
     document.getElementById("tab-weather").addEventListener("change", (e) => {
-      if (e.target.name === "weatherMode") {
-        _mode = e.target.value;
-        _updateModeVisibility();
-        if (_data) _render();
-      } else if (e.target.classList.contains("weather-year-cb")) {
+      if (e.target.classList.contains("weather-year-cb")) {
         const year = parseInt(e.target.value, 10);
         if (e.target.checked) _selectedYears.add(year); else _selectedYears.delete(year);
         if (_data) _render();
@@ -55,10 +57,6 @@ const LWWeatherTab = (() => {
         btn.disabled = false;
       }
     });
-  }
-
-  function _updateModeVisibility() {
-    document.getElementById("weatherYearFilter").classList.toggle("hidden", _mode !== "years");
   }
 
   // fetchHistory: () => Promise<data> - each screen supplies its own call
@@ -94,20 +92,12 @@ const LWWeatherTab = (() => {
   }
 
   function _rebuildFilters(data) {
-    const modeEl = document.getElementById("weatherModeFilter");
-    if (!modeEl.dataset.built) {
-      modeEl.innerHTML = `
-        <label class="inline-flex items-center gap-1.5 text-sm mr-3">
-          <input type="radio" name="weatherMode" value="all" checked> All Years
-        </label>
-        <label class="inline-flex items-center gap-1.5 text-sm">
-          <input type="radio" name="weatherMode" value="years"> Pick Years
-        </label>`;
-      modeEl.dataset.built = "1";
-    }
-
     if (_firstLoad) {
-      _selectedYears = new Set([data.current_year]);
+      // The latest year actually on file, which is not always
+      // data.current_year - a new calendar year has no weather rows until
+      // the first sync of the year lands, and defaulting to an empty year
+      // would open the tab on a blank chart.
+      _selectedYears = new Set([data.years.length ? data.years[data.years.length - 1] : data.current_year]);
       _selectedMetrics = new Set(["temp_c"]);
     }
 
@@ -124,7 +114,6 @@ const LWWeatherTab = (() => {
         </label>`).join("");
       yearEl.dataset.years = yearsSig;
     }
-    _updateModeVisibility();
 
     const metricsSig = data.metrics.map((m) => m.key).join("|");
     const metricEl = document.getElementById("weatherMetricFilter");
@@ -150,14 +139,7 @@ const LWWeatherTab = (() => {
     return _dayOfYearToDate(dayOfYear).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
-  // "YYYY-MM-DD" -> integer day count, via Date.UTC so the conversion is
-  // never shifted by the browser's own timezone offset.
-  function _dateToEpochDay(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
-  }
-
-  // "Pick Years" mode color scheme: every past year is a shade of blue-gray
+  // Color scheme: every past year is a shade of blue-gray
   // (lightest = oldest, darkest = most recent), regardless of which metric
   // it is - so a chart with several years and several metrics still reads
   // at a glance as "the past". The current, still-in-progress year is
@@ -189,48 +171,36 @@ const LWWeatherTab = (() => {
     _data.metrics.forEach((m) => { metricsByKey[m.key] = m; });
     const metricKeys = _data.metrics.map((m) => m.key).filter((k) => _selectedMetrics.has(k));
 
-    let series, xLabel, xMin, xMax;
-
-    if (_mode === "all") {
-      const epoch = _dateToEpochDay("2020-01-01");
-      xLabel = (relDay) => new Date((relDay + epoch) * 86400000)
-        .toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
-      series = metricKeys.map((key, i) => {
-        const m = metricsByKey[key];
+    const years = _data.years.filter((y) => _selectedYears.has(y));
+    const historyYears = years.filter((y) => y !== _data.current_year);
+    const series = [];
+    metricKeys.forEach((key, mi) => {
+      const m = metricsByKey[key];
+      years.forEach((year) => {
         const points = _data.points
-          .filter((p) => p[key] != null)
-          .map((p) => ({ x: _dateToEpochDay(p.date) - epoch, y: p[key] }));
-        return { label: m.label, color: LWCharts.PALETTE[i % LWCharts.PALETTE.length],
-                 unit: m.unit, decimals: m.decimals, points };
-      });
-    } else {
-      const years = _data.years.filter((y) => _selectedYears.has(y));
-      const historyYears = years.filter((y) => y !== _data.current_year);
-      series = [];
-      metricKeys.forEach((key, mi) => {
-        const m = metricsByKey[key];
-        years.forEach((year) => {
-          const points = _data.points
-            .filter((p) => p.year === year && p[key] != null)
-            .map((p) => ({ x: p.day_of_year, y: p[key] }));
-          if (!points.length) return;
-          const isCurrent = year === _data.current_year;
-          const color = isCurrent
-            ? CURRENT_YEAR_COLORS[mi % CURRENT_YEAR_COLORS.length]
-            : _historyColor(historyYears.indexOf(year), historyYears.length);
-          series.push({
-            label: `${m.label} — ${year}`, color,
-            unit: m.unit, decimals: m.decimals, points, emphasize: isCurrent,
-          });
+          .filter((p) => p.year === year && p[key] != null)
+          .map((p) => ({ x: p.day_of_year, y: p[key] }));
+        if (!points.length) return;
+        const isCurrent = year === _data.current_year;
+        const color = isCurrent
+          ? CURRENT_YEAR_COLORS[mi % CURRENT_YEAR_COLORS.length]
+          : _historyColor(historyYears.indexOf(year), historyYears.length);
+        series.push({
+          label: `${m.label} — ${year}`, color,
+          unit: m.unit, decimals: m.decimals, points, emphasize: isCurrent,
         });
       });
-      xLabel = _dayOfYearLabel;
-      xMin = 1;
+    });
+
+    if (!series.length) {
+      chartEl.innerHTML = `<div class="text-sm text-slate-400 p-8 text-center">Pick at least one year above</div>`;
+      LWCharts.legend(legendEl, []);
+      return;
     }
 
     const pointEvery = Math.max(1, Math.ceil(Math.max(1, ...series.map((s) => s.points.length)) / 150));
 
-    LWCharts.normalizedLineChart(chartEl, { series, xLabel, xMin, xMax, pointEvery });
+    LWCharts.normalizedLineChart(chartEl, { series, xLabel: _dayOfYearLabel, xMin: 1, pointEvery });
     LWCharts.legend(legendEl, series.map((s) => ({ label: s.label, color: s.color })));
   }
 
