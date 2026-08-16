@@ -1,7 +1,7 @@
-from collections import defaultdict
 from datetime import date
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from db import get_session
@@ -61,39 +61,42 @@ def build_weather_history(session: Session) -> dict:
     weather like in 2023" naturally means the calendar year. current_year
     is simply today's calendar year - the one bucket that, being still in
     progress, only covers 1 Jan through whatever's been synced so far
-    rather than a full year."""
-    rows = session.exec(select(WeatherHistory).order_by(WeatherHistory.timestamp)).all()
+    rather than a full year.
 
-    by_day: dict = defaultdict(lambda: defaultdict(list))
-    for r in rows:
-        d = r.timestamp.date()  # already local wall-clock (see models.py) - no to_local()
-        for m in _METRICS:
-            v = getattr(r, m["source"])
-            if v is not None:
-                by_day[d][m["key"]].append(v * m.get("scale", 1))
+    The day-grouping is done in SQL, not by reading the table into Python.
+    That matters more than it looks: WeatherHistory reaches back to 1987
+    (see scripts/import_historical_weather_archive.py), so hydrating every
+    hourly row here meant ~350k ORM objects and ~11s per tab open - past
+    the frontend's own 8s deadline (LW.NETWORK_TIMEOUT_MS in
+    shared/api.js), so the tab aborted the request and showed itself as
+    offline while the server was still working. routers/risk.py bounds its
+    own WeatherHistory read for the same reason; this one can't bound by
+    date (the chart legitimately spans the whole record), so it aggregates
+    in the database instead. SQL's aggregates skip NULLs and return NULL
+    for an all-NULL day, which is exactly what the previous Python did -
+    soil_temp_6cm_c and uv_index are NULL for every pre-2020 row."""
+    day = func.date(WeatherHistory.timestamp).label("day")
+    aggregates = []
+    for m in _METRICS:
+        col = getattr(WeatherHistory, m["source"])
+        agg = {"mean": func.avg, "sum": func.sum, "max": func.max}[m["agg"]]
+        aggregates.append(agg(col))
+    rows = session.exec(select(day, *aggregates).group_by(day).order_by(day)).all()
 
     points = []
-    for d in sorted(by_day):
-        point = {"date": d.isoformat(), "year": d.year, "day_of_year": d.timetuple().tm_yday}
-        for m in _METRICS:
-            vals = by_day[d].get(m["key"], [])
-            if not vals:
-                point[m["key"]] = None
-                continue
-            if m["agg"] == "mean":
-                val = sum(vals) / len(vals)
-            elif m["agg"] == "sum":
-                val = sum(vals)
-            else:
-                val = max(vals)
-            point[m["key"]] = round(val, m["decimals"])
+    for row in rows:
+        d = date.fromisoformat(row[0])
+        point = {"date": row[0], "year": d.year, "day_of_year": d.timetuple().tm_yday}
+        for m, value in zip(_METRICS, row[1:]):
+            point[m["key"]] = None if value is None else round(value * m.get("scale", 1), m["decimals"])
         points.append(point)
 
+    last_synced = session.exec(select(func.max(WeatherHistory.timestamp))).one()
     return {
         "metrics": _metrics_public(),
         "years": sorted({p["year"] for p in points}),
         "current_year": date.today().year,
-        "last_synced": rows[-1].timestamp.isoformat() if rows else None,
+        "last_synced": last_synced.isoformat() if last_synced else None,
         "points": points,
     }
 
