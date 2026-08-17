@@ -38,16 +38,26 @@ If the link ever stops working, ask the farm office for a new one — see
 ## What you're looking at
 
 At the top: the farm name, the current date/time, and today's weather.
-Below that, four tabs — **Dashboard** (today's activity), **Analysis**
-(this season vs. 2020-2025 history), **Weather** (historical weather at
-the farm, 2020 to today), and **Risk** (a 0-100 score of how risky the
-season's weather looks for a poor harvest) — the first two and Risk are
-covered in turn below; Weather is the same historical weather chart the
-farm office sees in Admin, filterable by measurement and by year.
+Below that, four tabs:
 
-### Dashboard tab
+| Tab | What it answers |
+|---|---|
+| **Dashboard** | What's happening right now, for a date range you pick |
+| **Analysis** | How this season is tracking against 2020–2025 history |
+| **Weather** | What the weather has actually done here, 1987 to today |
+| **Risk** | How risky this season's weather looks, and what it implies for the harvest |
+
+The Dashboard is the day-to-day view; the other three are the
+season-level ones. **Analysis, Weather and Risk are on this link only** —
+the farm office's own Admin app doesn't have them, so this is the place
+they're looked at.
+
+---
+
+## Dashboard tab
 
 Below the header, a filter bar:
+
 - **Farm / Supplier** — narrow the view to one farm/supplier, or leave it
   on "All farms / suppliers."
 - **Period start / Period end** — the date range you're looking at, or
@@ -72,11 +82,20 @@ Then the numbers themselves:
 - **Blocks** — tap to expand a per-block breakdown: crates, kg, and
   average yield per crate, per tree, and per hectare for the period.
 
-### Analysis tab
+---
 
-The same Analysis tab the farm office sees in Admin - how this season is
-doing against 2020-2025 history, not filtered by date range (it always
-covers the full history plus whatever's been picked so far this season):
+## Analysis tab
+
+How this season is doing against **2020–2025** history. This tab ignores
+the Dashboard's date range — it always covers the full history plus
+whatever's been picked so far this season.
+
+Four cards across the top: **Season to Date** kg, **vs 5-Yr Average
+Pace** (how far ahead or behind the season is running at this same point
+in the year — green ahead, red behind), the **Current Season** year, and
+how many **Years of History** are on file.
+
+Then the charts:
 
 - **Season Pace** — cumulative kg picked so far, one line per year plus a
   5-year average, so you can see at a glance whether the season is running
@@ -98,39 +117,120 @@ Every chart has a small <i class="fa-solid fa-file-pdf"></i> button in its
 top-right corner to download it as a one-page PDF, headed with the farm
 name and the chart's title.
 
-### Risk tab
+> A few blocks (8a/8b, 10a/10b, 17a/17b, 19a/19b) didn't exist separately
+> before the app — their historical figures are split out of one combined
+> old record by hectares, so those are estimates rather than measured
+> numbers. They carry a small ⓘ icon as a reminder.
 
-A 0-100 score of how risky a season's weather looks for a poor harvest,
-built from the four weather factors that best explained this farm's own
-2020-2025 harvest variation. Pick any season 2020-2025, or the current
-one, from the dropdown to see its score, risk band (Low/Moderate/Elevated/
-High), and a breakdown of each factor: what this season measured, how it
-compares to the 2020-2025 range, and how many risk points it contributed.
-The current season shows a partial "score so far" with a count of how many
-factors are known yet, since a factor's own time-of-year window has to
-close before it can be scored.
+---
 
-Below that, two bar charts — **Risk Score by Season** and **Actual
-Harvest by Season** — sit stacked so you can check by eye whether a higher
-score actually lined up with a smaller harvest that year. A collapsible
-**"How this score is calculated"** panel at the bottom explains the method
-and is upfront about its limits: six seasons is too few for statistical
-proof, and this farm's yields also show a heavy-year-follows-light-year
-pattern the score can't fully separate from weather.
+## Weather tab
 
-**Harvest Forecast card.** Above the score, three scenarios — Favorable,
-Expected, Unfavorable — turn that same scoring into a predicted kg figure
-for the current season, since most of the season's outcome still depends
-on weather that hasn't happened yet. Wherever a factor's window still has
-days ahead, the forecast blends a real short-range weather forecast (up to
-15 days out) with a historical best/average/worst-case assumption for
-whatever's further out than that — the "Basis" column under the three
-scenario cards shows exactly how many days of each factor were actual,
-forecast, or assumed. The same "How this score is calculated" panel covers
-this card too, including that the Unfavorable scenario in particular
-stretches past what any single real season has actually shown — it's a
-description of what the six-year pattern implies, not a promise of what
-will be harvested.
+The farm's own weather record, **1987 to today**, drawn from the weather
+service for the farm's GPS location. Opening the tab also tops the record
+up with any hours recorded since the last time someone looked, so the
+line under the heading tells you how current it is — *"Weather data
+current to 2026-08-17 09:00"*.
+
+Two sets of tick boxes control the chart:
+
+- **Measurements** — Temperature, Humidity, Dew Point, Precipitation,
+  Wind Speed, Soil Temp (6cm), UV Index, and Sunshine. It opens on
+  Temperature; tick as many as you want to compare.
+- **Years** — every year on file, from 1987 down to the current one. It
+  opens on the most recent year alone.
+
+Every year you tick is drawn as its own line over a shared 1 January –
+31 December axis, so the point of the tab is **comparing years against
+each other** — tick 2024 and 2025 alongside this year to see whether a
+spring is running warmer or drier than usual, rather than reading one
+long line across four decades. Untick everything and the chart tells you
+so instead of going blank. This chart downloads as a PDF the same way as
+the Analysis ones.
+
+---
+
+## Risk tab
+
+A 0–100 score of how risky a season's weather looks for a poor harvest —
+higher is worse — plus a harvest forecast built from the same figures.
+
+### Where the score comes from
+
+Four weather factors, each worth up to 25 points. These are not a generic
+agronomy model: they came out of a one-off study of **this farm's own
+harvest and weather records back to 1987**, keeping the factors that
+lined up best with bigger or smaller crops *and* that measure genuinely
+different things, rather than four versions of the same one.
+
+| Factor | Window | What it measures |
+|---|---|---|
+| **Fruit Development Air Dryness** | 16 Sep – 31 Oct | Average dew point — the strongest single signal in the whole record. Dry air while the fruit is sizing means the crop loses water faster than it can take it up. |
+| **Fruit Development Warmth** | 16 Sep – 15 Nov | Average daily maximum temperature. Persistently warm afternoons line up with smaller crops. |
+| **Flowering-Period Sunshine** | 1 Aug – 15 Sep | Total sunshine hours. Bright flowering weather produced the bigger crops; dull, overcast spells mean poorer fruit set. |
+| **Fruit-Sizing Rainfall** | 1 Oct – 30 Nov | Total rainfall. Rain while the fruit fills out fed the bigger harvests; dry Octobers and Novembers line up with the smaller ones. |
+
+Each factor is scored against the best and worst that factor has actually
+been since **2012** — the season the replanted orchard came into bearing.
+So 25 out of 25 means "as bad as the worst season on file for this
+factor," not some absolute agronomic threshold.
+
+### Reading the tab
+
+Use the **Season** dropdown to inspect any season on file or the current
+one. You get its score, its band — **Low** (under 25), **Moderate**
+(under 50), **Elevated** (under 75) or **High** (75 and above) — and a
+bar per factor
+showing what that season actually measured, how that compares to the
+farm's range, and how many risk points it contributed.
+
+A factor is only counted once its own stretch of the calendar has
+finished. Until then it's left out of the total rather than assumed to be
+harmless, so the current season reads as a **"score so far"** with a
+count of how many of the four factors are known yet, and only becomes a
+final score once the last window closes at the end of November.
+
+Below the inspector, two bar charts — **Risk Score by Season** and
+**Actual Harvest by Season** — sit stacked so you can check by eye
+whether a higher score really did line up with a smaller harvest that
+year.
+
+### Harvest Forecast card
+
+At the top of the tab, three scenarios — **Favorable**, **Expected** and
+**Unfavorable** — turn the same four factors into predicted kg for this
+season. Three figures rather than one, because most of a season's outcome
+still depends on weather that hasn't happened yet.
+
+For whatever part of a factor's window is still ahead, the forecast uses
+a real weather forecast for the next 15 days and a historical
+best/average/worst assumption beyond that. The **Basis** column under the
+three cards shows exactly how much of each factor is which — e.g.
+*"14d actual + 16d forecast + 16d assumed"*. If the weather service can't
+be reached, or a factor's own data has a genuine gap, that factor falls
+back to its historical range for the whole window and the row says so,
+rather than quietly treating missing data as "no risk."
+
+Treat **Favorable** and **Unfavorable** as "about as well or as badly as
+it has ever gone here" rather than precise numbers — each one combines
+every factor's own best or worst *year*, which is four different real
+years, not one real season that went that way on everything at once.
+
+### What the score can't tell you
+
+The collapsible **"How this score is calculated"** panel at the bottom of
+the tab spells the method out in full, and is deliberately upfront about
+the limits. The two worth knowing:
+
+- **Weather explains roughly a quarter to a half** of this farm's swing
+  from season to season. That's real signal, but most of what makes a
+  season good or bad is something this score simply cannot see. Use it as
+  one input among several, not a verdict.
+- **There is no alternate-bearing pattern here.** Lychees are often
+  expected to follow a heavy year with a light one, but across 35
+  back-to-back season pairs on this farm, last season's crop tells you
+  essentially nothing about this one. (An earlier version of this guide
+  and of the app said the opposite — the longer record disproved it.)
 
 ---
 
@@ -161,6 +261,13 @@ directly.
   go, or double-check the date range at the top actually covers the
   period you're expecting (changing any filter also pulls fresh numbers
   automatically).
+- **The Weather or Risk tab is slow, or its figures look stale** — those
+  two are the only ones that reach out to the weather service while
+  loading, so they take longer than the others and are the first to
+  suffer if that service is unreachable. Both fall back to the stored
+  record on their own, so this shows up as slowness or slightly old
+  figures rather than an empty screen. If the rest of the page is fine,
+  the farm's server is fine.
 - **Nothing loads at all, and you're off the farm** — check that
   **Tailscale** is open and shows **"Connected"** first (see "If you're
   checking this from off the farm" above) - this is the most common
