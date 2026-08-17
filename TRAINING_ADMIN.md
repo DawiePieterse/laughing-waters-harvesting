@@ -12,7 +12,7 @@ in**. If you're on a brand-new setup, the default login is username
 **Settings → Change admin password** once you're in.
 
 Once signed in, the top bar shows the farm name, today's date/time, and
-current weather. Six tabs run across the top: **Dashboard**, **Analysis**,
+current weather. Five tabs run across the top: **Dashboard**,
 **Master Data**, **Payments**, **Reports**, **Settings**.
 
 ---
@@ -60,51 +60,17 @@ already been run.
 
 ---
 
-## Analysis — this season vs. history
+## Season analysis — on the Owner View, not here
 
-This is where you check how the season is doing against 2020–2025
-historical records, not just today.
+The **Analysis**, **Weather** and **Risk** tabs — this season against
+2020–2025 history, the farm's weather record back to 1987, and the
+season risk score and harvest forecast — are not part of the Admin app.
+They live on the read-only **Owner View** link, which you generate and
+copy under **Settings → Owner View**. See the Owner View training guide
+for what each of those tabs shows.
 
-1. The KPI cards show **Season to Date** kg, and **vs 5-Yr Average Pace** —
-   how far ahead or behind the season is running compared to the
-   historical average at the same point (green = ahead, red = behind).
-2. **Season Pace** — a chart of cumulative kg picked so far, starting
-   1 August (when picking actually begins). Each historical year has its
-   own color, the 5-year average is a dashed black line, and this season
-   is highlighted in navy.
-3. **Per-Block Yield** — a chart and table comparing each block's kg/ha
-   (or kg/tree — switch with the dropdown, both chart and table follow) this
-   season against its own historical average. A dashed red line marks the
-   farm-wide average for the selected metric. The **vs Average** column is
-   green or red so under-performing blocks stand out.
-4. **Harvest Volume by Block and Season** — a bubble chart, one bubble per
-   block per season sized by kg, blocks ranked top-to-bottom by total
-   volume, with a **Total Harvest** bar alongside each block's row.
-5. **Yield per Tree/Hectare by Block and Season** — a heatmap of every
-   block against every season (switch metric with the dropdown), so you
-   can scan a row for one block's history or a column for how a whole
-   season compared.
-6. **Variety Performance Over Time** — one stacked bar per season, split
-   by variety color, showing **average kg per tree**. Use the dropdown to
-   filter down to a single variety (starts on **All Varieties**).
-7. **Harvest Season Length** — one bar per season spanning first pick to
-   last pick, labelled with the span in days and how many of those days
-   actually had picking (e.g. "118d span, 46 pick days"). The current
-   season gets a row too, shown as "No picking yet" until it starts.
-8. **Monthly Harvest Volume** — a heatmap of kg picked by month for every
-   season (latest season at the top), each cell also showing that month's
-   share of the season total. A **Total Kg (100%)** column after December
-   shows each season's grand total, shaded blue on its own scale so the
-   biggest season stands out.
-
-Every chart has a small <i class="fa-solid fa-file-pdf"></i> button in its
-top-right corner to download it as a one-page PDF, headed with the farm
-name and the chart's title.
-
-A few blocks (8a/8b, 10a/10b, 17a/17b, 19a/19b) didn't exist separately
-before this app — their historical figures are split from one combined
-record by hectares, so they're an estimate. Those rows carry a small info
-icon in the Per-Block Yield table as a reminder.
+Admin is for the day-to-day operational work: the Dashboard, Master
+Data, Payments, Reports and Settings.
 
 ---
 

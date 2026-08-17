@@ -22,7 +22,7 @@ This manual is for everyone who touches the app:
 5. [Worker ID Badges](#5-worker-id-badges)
 6. [Pack House Receiving](#6-pack-house-receiving)
 7. [Admin - Dashboard](#7-admin---dashboard)
-8. [Admin - Analysis](#8-admin---analysis)
+8. [Owner View - Analysis, Weather & Risk](#8-owner-view---analysis-weather--risk)
 9. [Admin - Master Data](#9-admin---master-data)
 10. [Admin - Payments](#10-admin---payments)
 11. [Admin - Reports](#11-admin---reports)
@@ -257,7 +257,8 @@ side effect of opening that tab) only ever *appends* new hours, so it never
 goes back and corrects an earlier provisional value once the real one is
 available. `update_server.bat` re-runs the full historical import (a
 wholesale replace, same script as the one-off backfill above) between
-stopping and starting the server, so the [Risk tab](#8-admin---analysis)'s
+stopping and starting the server, so the
+[Risk tab](#8-owner-view---analysis-weather--risk)'s
 score and Harvest Forecast - both sensitive to exactly how accurate recent
 weather is, not just whether it's present - are working from the best data
 available each time the server restarts. The 1987-2019 weather and harvest
@@ -1194,7 +1195,14 @@ picked stay exactly as captured). Saving:
 
 ---
 
-## 8. Admin - Analysis
+## 8. Owner View - Analysis, Weather & Risk
+
+> **These three tabs live on the Owner View only, not in Admin.** The
+> Analysis, Weather and Risk tabs are opened from the Owner View link
+> (`.../owner/?key=...`) issued in
+> [Settings](#owner-view-read-only-dashboard-link). Admin keeps the
+> day-to-day operational tabs - Dashboard, Master Data, Payments, Reports
+> and Settings - and no longer carries these three.
 
 The Analysis tab compares the **current season** against **2020-2025
 historical records**, so a farmer can see at a glance whether the season is
@@ -1405,8 +1413,9 @@ season's outcome still depends on weather that hasn't happened yet.
 For whichever part of a driver's calendar window is still ahead, the
 forecast blends a real short-range weather forecast (up to 15 days out,
 via Open-Meteo) with a historical-scenario assumption for whatever's
-beyond that - each driver's own best/average/worst of the six 2020-2025
-seasons for the Favorable/Expected/Unfavorable scenario respectively. The
+beyond that - each driver's own best/average/worst across the reference
+seasons (2012 onward, the same range the score itself is scaled against)
+for the Favorable/Expected/Unfavorable scenario respectively. The
 **Basis** column in the table under the three scenario cards shows exactly
 how many days of each driver came from actual data, a real forecast, or a
 historical assumption (e.g. "14d actual + 16d forecast + 16d assumed"). A
@@ -1628,14 +1637,15 @@ A link-only alternative to full Admin access, for an owner or other
 interested party who just wants to check on progress without a
 username/password and without being able to change anything.
 
-The link (`.../owner/?key=...`) opens a two-tab, stripped-down version of
+The link (`.../owner/?key=...`) opens a four-tab, stripped-down version of
 the Admin app: a **Dashboard** tab with the same KPI cards, Harvesting/In
 Transit/Received lists, a per-worker Workers breakdown, and Blocks
 breakdown, filtered the same way - but with **no wage figures** (the
 Workers list shows crates/kg/avg-kg-per-crate, same as full Admin, just
-without amount due) - and the full **Analysis** tab (see
-[chapter 8](#8-admin---analysis)) exactly as it appears in Admin, PDF
-downloads included. None of Admin's other tabs (Master Data, Payments,
+without amount due) - plus the **Analysis**, **Weather** and **Risk** tabs
+(see [chapter 8](#8-owner-view---analysis-weather--risk)), PDF downloads
+included. Those three season-level tabs are here and nowhere else - Admin
+does not have them. None of Admin's other tabs (Master Data, Payments,
 Reports, Settings) are available.
 
 - **Copy** the link from Settings and send it directly to whoever it's

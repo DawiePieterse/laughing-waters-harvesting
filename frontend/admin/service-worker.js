@@ -2,7 +2,7 @@
 // loads if the connection briefly drops. Data (dashboard, reports, etc.)
 // always goes over the network when available.
 const CACHE_PREFIX = "lw-admin-";
-const CACHE = "lw-admin-v37";
+const CACHE = "lw-admin-v38";
 const REVALIDATE_TIMEOUT_MS = 10000;
 const SHELL = [
   "./",
@@ -11,10 +11,6 @@ const SHELL = [
   "./manifest.json",
   "../shared/styles.css",
   "../shared/api.js",
-  "../shared/charts.js",
-  "../shared/analysis-tab.js",
-  "../shared/weather-tab.js",
-  "../shared/risk-tab.js",
   "../shared/ptr.js",
   "../shared/tailwind.js",
   "../shared/qrcode.min.js",
@@ -22,8 +18,6 @@ const SHELL = [
   "../shared/vendor/fontawesome/webfonts/fa-solid-900.woff2",
   "../shared/vendor/leaflet/leaflet.css",
   "../shared/vendor/leaflet/leaflet.js",
-  "../shared/vendor/html2canvas/html2canvas.min.js",
-  "../shared/vendor/jspdf/jspdf.umd.min.js",
 ];
 
 self.addEventListener("install", (event) => {

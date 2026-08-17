@@ -69,9 +69,6 @@ async function showApp() {
   bindTabs();
   bindCollapsibles();
   bindDashboard();
-  bindAnalysis();
-  bindWeather();
-  bindRisk();
   bindMasterData();
   bindPayments();
   bindReports();
@@ -85,9 +82,6 @@ async function showApp() {
     const active = document.querySelector(".tab-btn.active");
     const tab = active ? active.dataset.tab : "dashboard";
     if (tab === "dashboard") await refreshDashboard();
-    else if (tab === "analysis") await loadAnalysis();
-    else if (tab === "weather") await loadWeather();
-    else if (tab === "risk") await loadRisk();
     else if (tab === "masterdata") await loadAllMasterData();
   });
 
@@ -1311,57 +1305,8 @@ function confirmMapLocation() {
   closeMapModal();
 }
 
-// ---------------------------------------------------------------------
-// Analysis (historical 2020-2025 vs current season) - chart rendering
-// lives in shared/analysis-tab.js (also used by the Owner View).
-// ---------------------------------------------------------------------
-function bindAnalysis() {
-  document.querySelector('.tab-btn[data-tab="analysis"]').addEventListener("click", loadAnalysis);
-  LWAnalysisTab.bind();
-}
-
-async function loadAnalysis() {
-  await LWAnalysisTab.load(() => LW.api("/api/analysis/summary", { auth: true }), {
-    onAuthError: () => sessionExpired(),
-  });
-}
-
-// ---------------------------------------------------------------------
-// Weather (historical, 2020-present) - chart rendering lives in
-// shared/weather-tab.js (also used by the Owner View).
-// ---------------------------------------------------------------------
-function bindWeather() {
-  document.querySelector('.tab-btn[data-tab="weather"]').addEventListener("click", loadWeather);
-  LWWeatherTab.bind();
-}
-
-async function loadWeather() {
-  await LWWeatherTab.load(() => LW.api("/api/weather/history", { auth: true }), {
-    onAuthError: () => sessionExpired(),
-  });
-}
-
-// ---------------------------------------------------------------------
-// Critical Season Risk Indicator - chart rendering lives in
-// shared/risk-tab.js (also used by the Owner View).
-// ---------------------------------------------------------------------
-function bindRisk() {
-  document.querySelector('.tab-btn[data-tab="risk"]').addEventListener("click", loadRisk);
-  LWRiskTab.bind();
-}
-
-async function loadRisk() {
-  await LWRiskTab.load(
-    () => LW.api("/api/risk/summary", { auth: true }),
-    // Forecast does real work the default 8s network timeout isn't built
-    // for: a live Open-Meteo forecast call, occasionally a weather-sync
-    // catch-up call, plus a full WeatherHistory scan - all on top of
-    // whatever a Tailscale hop or a modest server PC adds. A slow-but-
-    // working answer here shouldn't read as "unavailable".
-    () => LW.api("/api/risk/forecast", { auth: true, timeoutMs: 45000 }),
-    { onAuthError: () => sessionExpired() },
-  );
-}
+// The Analysis, Weather and Risk tabs live only in the Owner View - see
+// frontend/owner/owner.js and the shared/*-tab.js modules it loads.
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js").catch(() => {});
